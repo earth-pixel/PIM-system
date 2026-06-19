@@ -1,5 +1,19 @@
 // Mock data for Phanvadee Co., Ltd. PIM System
 
+export const companyInfo = {
+  name: 'บริษัท พันธ์วาดี จำกัด',
+  nameEn: 'Phanvadee Co., Ltd.',
+  address: '141/63 อาคารชุดสุขุมวิทซิตี้ทาวเวอร์ ถ.สุขุมวิท แขวงสุริยวงศ์ บางรัก กรุงเทพมหานคร 10500',
+  taxId: '0105560096348',
+  phone: '02-500-0000',
+  mobile: '081-000-0000',
+  email: 'info@phanvadee.com',
+  website: 'www.phanvadee.com',
+};
+
+export const initialQuotations = [];
+
+
 export const initialBrands = [
   'Barber Brain',
   "L'Angel",
@@ -8,10 +22,10 @@ export const initialBrands = [
 ];
 
 export const initialCategories = [
-  'Styling (จัดแต่งทรงผม)',
-  'Hair Color (เปลี่ยนสีผม)',
-  'Treatment (บำรุงเส้นผม)',
-  'Salon Equipment (อุปกรณ์เสริมสวย)'
+  'Styling',
+  'Hair Color',
+  'Treatment',
+  'Salon Equipment'
 ];
 
 export const initialProducts = [
@@ -21,7 +35,7 @@ export const initialProducts = [
     barcode: '8851234567890',
     name: 'Barber Brain Pomade Gold',
     brand: 'Barber Brain',
-    category: 'Styling (จัดแต่งทรงผม)',
+    category: 'Styling',
     wholesalePrice: 200,
     retailPrice: 290,
     capFee: 15,
@@ -43,7 +57,7 @@ export const initialProducts = [
     barcode: '8852345678901',
     name: "L'Angel Luxury Hair Color Cream 8.1",
     brand: "L'Angel",
-    category: 'Hair Color (เปลี่ยนสีผม)',
+    category: 'Hair Color',
     wholesalePrice: 120,
     retailPrice: 180,
     capFee: 10,
@@ -65,7 +79,7 @@ export const initialProducts = [
     barcode: '8853456789012',
     name: 'Valente Professional Hair Dryer Ionic-2000',
     brand: 'Valente',
-    category: 'Salon Equipment (อุปกรณ์เสริมสวย)',
+    category: 'Salon Equipment',
     wholesalePrice: 990,
     retailPrice: 1450,
     capFee: 0,
@@ -87,7 +101,7 @@ export const initialProducts = [
     barcode: '8854567890123',
     name: 'Barber Brain Matte Clay',
     brand: 'Barber Brain',
-    category: 'Styling (จัดแต่งทรงผม)',
+    category: 'Styling',
     wholesalePrice: 220,
     retailPrice: 320,
     capFee: 15,
@@ -109,7 +123,7 @@ export const initialProducts = [
     barcode: '8855678901234',
     name: "L'Angel Hair Treatment Keratin Mask",
     brand: "L'Angel",
-    category: 'Treatment (บำรุงเส้นผม)',
+    category: 'Treatment',
     wholesalePrice: 240,
     retailPrice: 350,
     capFee: 20,
@@ -152,6 +166,40 @@ export const initialUsers = [
 ];
 
 export const initializeDB = () => {
+  // Auto-clean old category formats with parentheses from local storage if present
+  try {
+    const savedCats = localStorage.getItem('pim_categories');
+    if (savedCats) {
+      const cats = JSON.parse(savedCats);
+      if (Array.isArray(cats)) {
+        const cleanedCats = cats.map(c => typeof c === 'string' ? c.split('(')[0].trim() : c);
+        if (JSON.stringify(cats) !== JSON.stringify(cleanedCats)) {
+          localStorage.setItem('pim_categories', JSON.stringify(cleanedCats));
+        }
+      }
+    }
+    const savedProds = localStorage.getItem('pim_products');
+    if (savedProds) {
+      const prods = JSON.parse(savedProds);
+      if (Array.isArray(prods)) {
+        const cleanedProds = prods.map(p => {
+          if (p && typeof p.category === 'string') {
+            const cleanedCat = p.category.split('(')[0].trim();
+            if (p.category !== cleanedCat) {
+              return { ...p, category: cleanedCat };
+            }
+          }
+          return p;
+        });
+        if (JSON.stringify(prods) !== JSON.stringify(cleanedProds)) {
+          localStorage.setItem('pim_products', JSON.stringify(cleanedProds));
+        }
+      }
+    }
+  } catch {
+    console.error("Error migrating old category structures");
+  }
+
   let needsReset = false;
 
   // Validate products
@@ -162,7 +210,7 @@ export const initializeDB = () => {
       if (!Array.isArray(products) || products.length === 0 || products[0].retailPrice === undefined) {
         needsReset = true;
       }
-    } catch (e) {
+    } catch {
       needsReset = true;
     }
   } else {
@@ -177,7 +225,7 @@ export const initializeDB = () => {
   if (savedBrands) {
     try {
       if (!Array.isArray(JSON.parse(savedBrands))) needsReset = true;
-    } catch (e) {
+    } catch {
       needsReset = true;
     }
   } else {
@@ -187,7 +235,7 @@ export const initializeDB = () => {
   if (savedCategories) {
     try {
       if (!Array.isArray(JSON.parse(savedCategories))) needsReset = true;
-    } catch (e) {
+    } catch {
       needsReset = true;
     }
   } else {
@@ -197,7 +245,7 @@ export const initializeDB = () => {
   if (savedUsers) {
     try {
       if (!Array.isArray(JSON.parse(savedUsers))) needsReset = true;
-    } catch (e) {
+    } catch {
       needsReset = true;
     }
   } else {
@@ -253,8 +301,8 @@ export const initializeDB = () => {
         localStorage.setItem('pim_users', JSON.stringify(currentUsers));
       }
       finalUsers = currentUsers;
-    } catch (e) {
-      console.error("Error restoring default users:", e);
+    } catch {
+      console.error("Error restoring default users");
     }
   }
 

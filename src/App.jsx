@@ -1,25 +1,36 @@
-import React, { useState, useEffect } from 'react';
-import { initializeDB, initialProducts, initialBrands, initialCategories, initialUsers } from './mockData';
+import { useState, useEffect, useCallback } from 'react';
+import { initializeDB, companyInfo } from './mockData';
 import Login from './components/Login';
 import DashboardLayout from './components/DashboardLayout';
 import Dashboard from './components/Dashboard';
-import ProductList from './components/ProductList';
 import ProductManage from './components/ProductManage';
 import BrandManage from './components/BrandManage';
 import CategoryManage from './components/CategoryManage';
 import Report from './components/Report';
 import UserManage from './components/UserManage';
-import StatusSettings from './components/StatusSettings';
 import ActivityLogView from './components/ActivityLogView';
+import StockManage from './components/StockManage';
+import QuotationManage from './components/QuotationManage';
+
+// Initialize database at module load time to guarantee localStorage is populated
+const freshUsers = initializeDB();
 
 export default function App() {
   // Sessions and Authentication State
   const [currentUser, setCurrentUser] = useState(() => {
     try {
       const saved = sessionStorage.getItem('pim_current_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      console.error("Error parsing current user:", e);
+      if (!saved) return null;
+      const parsedCurrentUser = JSON.parse(saved);
+      if (parsedCurrentUser.username === 'admin' || parsedCurrentUser.username === 'manager') {
+        const restoredUser = freshUsers.find(u => u.username === parsedCurrentUser.username);
+        if (restoredUser) {
+          sessionStorage.setItem('pim_current_user', JSON.stringify(restoredUser));
+          return restoredUser;
+        }
+      }
+      return parsedCurrentUser;
+    } catch {
       return null;
     }
   });
@@ -29,7 +40,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem('pim_products');
       return saved ? JSON.parse(saved) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   });
@@ -38,7 +49,7 @@ export default function App() {
     try {
       const saved = localStorage.getItem('pim_brands');
       return saved ? JSON.parse(saved) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   });
@@ -47,26 +58,19 @@ export default function App() {
     try {
       const saved = localStorage.getItem('pim_categories');
       return saved ? JSON.parse(saved) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   });
 
-  const [users, setUsers] = useState(() => {
-    try {
-      const saved = localStorage.getItem('pim_users');
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [users, setUsers] = useState(freshUsers);
 
   // Activity Log State
   const [activityLog, setActivityLog] = useState(() => {
     try {
       const saved = localStorage.getItem('pim_activity_log');
       return saved ? JSON.parse(saved) : [];
-    } catch (e) {
+    } catch {
       return [];
     }
   });
@@ -79,45 +83,80 @@ export default function App() {
 
   // Active stock level filter state (shared between Dashboard and ProductList)
   const [stockFilter, setStockFilter] = useState('All');
-  
+
   // Product being edited (null for new product)
   const [editProduct, setEditProduct] = useState(null);
 
-  // Initialize mock DB on load
-  useEffect(() => {
-    const freshUsers = initializeDB();
-
+  // Quotation state
+  const [quotations, setQuotations] = useState(() => {
     try {
-      const savedProducts = localStorage.getItem('pim_products');
-      if (savedProducts) setProducts(JSON.parse(savedProducts));
+      const saved = localStorage.getItem('pim_quotations');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
-      const savedBrands = localStorage.getItem('pim_brands');
-      if (savedBrands) setBrands(JSON.parse(savedBrands));
+  const syncQuotations = (newQuotations) => {
+    setQuotations(newQuotations);
+    localStorage.setItem('pim_quotations', JSON.stringify(newQuotations));
+  };
 
-      const savedCategories = localStorage.getItem('pim_categories');
-      if (savedCategories) setCategories(JSON.parse(savedCategories));
+  const handleSaveQuotation = (data) => {
+    const exists = quotations.find(q => q.id === data.id);
+    const updated = exists
+      ? quotations.map(q => q.id === data.id ? data : q)
+      : [data, ...quotations];
+    syncQuotations(updated);
+    addActivityLog(
+      `${exists ? 'แก้ไข' : 'สร้าง'}ใบเสนอราคา: ${data.quotationNumber} ลูกค้า ${data.customer?.name || '-'}`,
+      { type: 'ใบเสนอราคา', changes: [{ field: 'มูลค่า', before: '-', after: `${data.totalAmount?.toLocaleString() || 0} บาท` }] }
+    );
+  };
 
-      if (freshUsers) {
-        setUsers(freshUsers);
+  const handleDeleteQuotation = (id) => {
+    const target = quotations.find(q => q.id === id);
+    const updated = quotations.filter(q => q.id !== id);
+    syncQuotations(updated);
+    if (target) addActivityLog(`ลบใบเสนอราคา: ${target.quotationNumber}`, { type: 'ลบ', changes: [] });
+  };
 
-        // Reload currentUser session in case it needs sync
-        const savedCurrentUser = sessionStorage.getItem('pim_current_user');
-        if (savedCurrentUser) {
-          const parsedCurrentUser = JSON.parse(savedCurrentUser);
-          if (parsedCurrentUser.username === 'admin' || parsedCurrentUser.username === 'manager') {
-            const restoredUser = freshUsers.find(u => u.username === parsedCurrentUser.username);
-            if (restoredUser) {
-              setCurrentUser(restoredUser);
-              sessionStorage.setItem('pim_current_user', JSON.stringify(restoredUser));
-            }
+  // Listen for import complete events from ImportModal
+  useEffect(() => {
+    const handleImportComplete = (e) => {
+      const { mergedProducts, platform, newCount, stockAdjustments } = e.detail || {};
+      if (mergedProducts && Array.isArray(mergedProducts)) {
+        setProducts(mergedProducts);
+        localStorage.setItem('pim_products', JSON.stringify(mergedProducts));
+
+        // Log to activity log
+        try {
+          const savedUser = sessionStorage.getItem('pim_current_user');
+          const user = savedUser ? JSON.parse(savedUser) : null;
+          if (user) {
+            const platformName = platform === 'shopee' ? 'Shopee' : platform === 'lazada' ? 'Lazada' : platform === 'tiktok' ? 'TikTok Shop' : 'Excel';
+            const adjustCount = stockAdjustments?.length || 0;
+            const logEntry = {
+              id: Date.now(),
+              userName: user.name || user.username || 'ไม่ระบุ',
+              userRole: user.role,
+              action: `นำเข้าข้อมูลจาก ${platformName}: เพิ่มใหม่ ${newCount} รายการ (ปรับปรุงสต็อก ${adjustCount} รายการ)`,
+              timestamp: new Date().toISOString(),
+            };
+            const savedLogs = localStorage.getItem('pim_activity_log');
+            const currentLogs = savedLogs ? JSON.parse(savedLogs) : [];
+            const updatedLogs = [logEntry, ...currentLogs].slice(0, 200);
+            localStorage.setItem('pim_activity_log', JSON.stringify(updatedLogs));
+            setActivityLog(updatedLogs);
           }
+        } catch {
+          console.error("Error writing activity log for import");
         }
       }
-    } catch (e) {
-      console.error("Error loading database states inside useEffect:", e);
-    }
+    };
+    window.addEventListener('pim_import_complete', handleImportComplete);
+    return () => window.removeEventListener('pim_import_complete', handleImportComplete);
   }, []);
-
 
 
   // Sync active view tab to local storage
@@ -129,9 +168,6 @@ export default function App() {
   const handleTabChange = (tab) => {
     if (tab === 'manage-products') {
       setEditProduct(null);
-    }
-    if (tab === 'products') {
-      setStockFilter('All');
     }
     setActiveTab(tab);
   };
@@ -158,24 +194,28 @@ export default function App() {
   };
 
   // Activity Log Helper
-  const addActivityLog = (action) => {
+  const addActivityLog = useCallback((action, details = null) => {
     if (!currentUser) return;
     const entry = {
       id: Date.now(),
       userName: currentUser.name || currentUser.username || 'ไม่ระบุ',
       userRole: currentUser.role,
       action,
+      details,
       timestamp: new Date().toISOString(),
     };
-    const updated = [entry, ...activityLog].slice(0, 200); // keep latest 200
-    setActivityLog(updated);
-    localStorage.setItem('pim_activity_log', JSON.stringify(updated));
-  };
+    setActivityLog(prev => {
+      const updated = [entry, ...prev].slice(0, 200); // keep latest 200
+      localStorage.setItem('pim_activity_log', JSON.stringify(updated));
+      return updated;
+    });
+  }, [currentUser]);
 
   // Auth Operations
   const handleLogin = (user) => {
     setCurrentUser(user);
     sessionStorage.setItem('pim_current_user', JSON.stringify(user));
+    setActiveTab('dashboard');
   };
 
   const handleLogout = () => {
@@ -197,18 +237,74 @@ export default function App() {
   const handleSaveProduct = (productData) => {
     let updated;
     const isEdit = products.some(p => p.id === productData.id);
-    
+
     if (isEdit) {
+      const originalProduct = products.find(p => p.id === productData.id);
       updated = products.map(p => p.id === productData.id ? productData : p);
-      addActivityLog(`แก้ไขข้อมูลสินค้า: ${productData.name} (${productData.code})`);
+
+      const changes = [];
+      if (originalProduct) {
+        const fieldsToCompare = {
+          code: 'รหัสสินค้า',
+          barcode: 'รหัสบาร์โค้ด',
+          name: 'ชื่อสินค้า',
+          brand: 'แบรนด์',
+          category: 'หมวดหมู่',
+          wholesalePrice: 'ราคาขายส่ง',
+          retailPrice: 'ราคาขายปลีก',
+          capFee: 'ค่าฝา',
+          size: 'ขนาด',
+          weight: 'น้ำหนัก',
+          fdaNumber: 'หมายเลข อย.',
+          tisiNumber: 'หมายเลข มอก.',
+          stock: 'จำนวนสต็อก',
+          status: 'สถานะ',
+          description: 'รายละเอียดสินค้า',
+          highlights: 'จุดเด่นสินค้า',
+          howToUse: 'วิธีใช้',
+          image: 'รูปภาพสินค้า'
+        };
+
+        Object.entries(fieldsToCompare).forEach(([field, label]) => {
+          const valBefore = originalProduct[field];
+          const valAfter = productData[field];
+          if (valBefore !== valAfter) {
+            const formatVal = (v, f) => {
+              if (v === undefined || v === null || v === '') return '-';
+              if (f === 'wholesalePrice' || f === 'retailPrice' || f === 'capFee') return `${Number(v).toLocaleString()} บาท`;
+              if (f === 'stock') return `${Number(v).toLocaleString()} ชิ้น`;
+              if (f === 'status') return v === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน';
+              if (f === 'image') return '(รูปภาพ)';
+              return String(v);
+            };
+            changes.push({
+              field: label,
+              before: formatVal(valBefore, field),
+              after: formatVal(valAfter, field)
+            });
+          }
+        });
+      }
+      addActivityLog(
+        `แก้ไขข้อมูลสินค้า: ${productData.name} (${productData.code})`,
+        changes.length > 0 ? { type: 'edit_product', changes, remark: productData.editRemark } : null
+      );
     } else {
       updated = [productData, ...products];
       addActivityLog(`เพิ่มสินค้าใหม่: ${productData.name} (${productData.code})`);
     }
-    
+
+    // Check if productData has new brand/category and save them!
+    if (productData.brand && !brands.includes(productData.brand)) {
+      handleAddBrand(productData.brand);
+    }
+    if (productData.category && !categories.includes(productData.category)) {
+      handleAddCategory(productData.category);
+    }
+
     syncProducts(updated);
     setEditProduct(null);
-    
+
     // Redirect back to list
     setActiveTab('manage-products');
   };
@@ -220,16 +316,7 @@ export default function App() {
     if (target) addActivityLog(`ลบสินค้า: ${target.name} (${target.code})`);
   };
 
-  const handleToggleProductStatus = (productId, nextStatus) => {
-    const updated = products.map(p => {
-      if (p.id === productId) {
-        addActivityLog(`เปลี่ยนสถานะสินค้า: ${p.name} (${p.code}) เป็น ${nextStatus}`);
-        return { ...p, status: nextStatus };
-      }
-      return p;
-    });
-    syncProducts(updated);
-  };
+
 
   const handleClearLogs = () => {
     if (!currentUser) return;
@@ -262,7 +349,10 @@ export default function App() {
     syncBrands(updatedBrands);
     const updatedProducts = products.map(p => p.brand === oldName ? { ...p, brand: newName } : p);
     syncProducts(updatedProducts);
-    addActivityLog(`แก้ไขแบรนด์: ${oldName} -> ${newName}`);
+    addActivityLog(`แก้ไขแบรนด์: ${oldName} -> ${newName}`, {
+      type: 'edit_brand',
+      changes: [{ field: 'ชื่อแบรนด์', before: oldName, after: newName }]
+    });
   };
 
   const handleDeleteBrand = (brandName) => {
@@ -285,7 +375,10 @@ export default function App() {
     syncCategories(updatedCategories);
     const updatedProducts = products.map(p => p.category === oldName ? { ...p, category: newName } : p);
     syncProducts(updatedProducts);
-    addActivityLog(`แก้ไขหมวดหมู่: ${oldName} -> ${newName}`);
+    addActivityLog(`แก้ไขหมวดหมู่: ${oldName} -> ${newName}`, {
+      type: 'edit_category',
+      changes: [{ field: 'ชื่อหมวดหมู่', before: oldName, after: newName }]
+    });
   };
 
   const handleDeleteCategory = (catName) => {
@@ -304,10 +397,29 @@ export default function App() {
   };
 
   const handleUpdateUser = (updatedUserObj) => {
+    const originalUser = users.find(u => u.username === updatedUserObj.username);
     const updated = users.map(u => u.username === updatedUserObj.username ? updatedUserObj : u);
+
+    const changes = [];
+    if (originalUser) {
+      if (originalUser.name !== updatedUserObj.name) {
+        changes.push({ field: 'ชื่อ-นามสกุล', before: originalUser.name, after: updatedUserObj.name });
+      }
+      if (originalUser.role !== updatedUserObj.role) {
+        const roleLabel = (r) => r === 'admin' ? 'Admin' : r === 'manager' ? 'Manager' : 'User';
+        changes.push({ field: 'สิทธิ์การใช้งาน', before: roleLabel(originalUser.role), after: roleLabel(updatedUserObj.role) });
+      }
+      if (originalUser.password !== updatedUserObj.password) {
+        changes.push({ field: 'รหัสผ่าน', before: '********', after: '******** (มีการเปลี่ยนแปลง)' });
+      }
+    }
+
     syncUsers(updated);
-    addActivityLog(`แก้ไขข้อมูลผู้ใช้งาน: ${updatedUserObj.name || updatedUserObj.username} (บทบาท: ${updatedUserObj.role})`);
-    
+    addActivityLog(
+      `แก้ไขข้อมูลผู้ใช้งาน: ${updatedUserObj.name || updatedUserObj.username} (บทบาท: ${updatedUserObj.role})`,
+      changes.length > 0 ? { type: 'edit_user', changes } : null
+    );
+
     // If current logged-in user is updated, update the session
     if (currentUser && currentUser.username === updatedUserObj.username) {
       setCurrentUser(updatedUserObj);
@@ -329,30 +441,18 @@ export default function App() {
     switch (activeTab) {
       case 'dashboard':
         return (
-          <Dashboard 
-            products={products} 
-            brands={brands} 
+          <Dashboard
+            products={products}
+            brands={brands}
             categories={categories}
             setActiveTab={handleTabChange}
             setStockFilter={setStockFilter}
             setEditProduct={handleEditProductRequest}
           />
         );
-      case 'products':
-        return (
-          <ProductList 
-            products={products}
-            brands={brands}
-            categories={categories}
-            currentUser={currentUser}
-            setActiveTab={handleTabChange}
-            stockFilter={stockFilter}
-            setStockFilter={setStockFilter}
-          />
-        );
       case 'manage-products':
         return (
-          <ProductManage 
+          <ProductManage
             editProduct={editProduct}
             onCancelEdit={() => {
               setEditProduct(null);
@@ -365,11 +465,25 @@ export default function App() {
             products={products}
             onDeleteProduct={handleDeleteProduct}
             onEditProduct={handleEditProductRequest}
+            stockFilter={stockFilter}
+            setStockFilter={setStockFilter}
+            onAddCategory={handleAddCategory}
+            onAddBrand={handleAddBrand}
+            onUpdateStock={(productId, newStock, entry) => {
+              const updated = products.map(p =>
+                p.id === productId ? { ...p, stock: newStock } : p
+              );
+              syncProducts(updated);
+              addActivityLog(
+                `ปรับสต็อกสินค้า: ${entry.productName} (${entry.productCode}) ${entry.type === 'in' ? '+' : '-'}${entry.qty} ชิ้น (${entry.reason})`,
+                { type: 'stock_adjust', changes: [{ field: 'สต็อก', before: `${entry.stockBefore} ชิ้น`, after: `${entry.stockAfter} ชิ้น` }] }
+              );
+            }}
           />
         );
       case 'brands':
         return (
-          <BrandManage 
+          <BrandManage
             brands={brands}
             products={products}
             onAddBrand={handleAddBrand}
@@ -380,7 +494,7 @@ export default function App() {
         );
       case 'categories':
         return (
-          <CategoryManage 
+          <CategoryManage
             categories={categories}
             products={products}
             onAddCategory={handleAddCategory}
@@ -389,9 +503,26 @@ export default function App() {
             currentUser={currentUser}
           />
         );
+      case 'stock-manage':
+        return (
+          <StockManage
+            products={products}
+            onUpdateStock={(productId, newStock, entry) => {
+              const updated = products.map(p =>
+                p.id === productId ? { ...p, stock: newStock } : p
+              );
+              syncProducts(updated);
+              addActivityLog(
+                `ปรับสต็อกสินค้า: ${entry.productName} (${entry.productCode}) ${entry.type === 'in' ? '+' : '-'}${entry.qty} ชิ้น (${entry.reason})`,
+                { type: 'stock_adjust', changes: [{ field: 'สต็อก', before: `${entry.stockBefore} ชิ้น`, after: `${entry.stockAfter} ชิ้น` }] }
+              );
+            }}
+            currentUser={currentUser}
+          />
+        );
       case 'reports':
         return (
-          <Report 
+          <Report
             products={products}
             brands={brands}
             categories={categories}
@@ -399,7 +530,7 @@ export default function App() {
         );
       case 'users':
         return (
-          <UserManage 
+          <UserManage
             users={users}
             onAddUser={handleAddUser}
             onUpdateUser={handleUpdateUser}
@@ -407,26 +538,27 @@ export default function App() {
             currentUser={currentUser}
           />
         );
-      case 'status-settings':
-        if (currentUser.role !== 'admin') {
-          return <div className="p-8 text-center text-red-500 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">ขออภัย เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่เข้าถึงหน้านี้ได้</div>;
-        }
-        return (
-          <StatusSettings 
-            products={products}
-            onToggleStatus={handleToggleProductStatus}
-            currentUser={currentUser}
-          />
-        );
+
       case 'activity-log':
         if (currentUser.role !== 'admin') {
           return <div className="p-8 text-center text-red-500 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">ขออภัย เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่เข้าถึงหน้านี้ได้</div>;
         }
         return (
-          <ActivityLogView 
+          <ActivityLogView
             activityLog={activityLog}
             onClearLogs={handleClearLogs}
             currentUser={currentUser}
+          />
+        );
+      case 'quotations':
+        return (
+          <QuotationManage
+            quotations={quotations}
+            products={products}
+            companyInfo={companyInfo}
+            currentUser={currentUser}
+            onSaveQuotation={handleSaveQuotation}
+            onDeleteQuotation={handleDeleteQuotation}
           />
         );
       default:
@@ -436,11 +568,11 @@ export default function App() {
 
   // Authenticated Screen vs Guest Login
   if (!currentUser) {
-    return <Login onLogin={handleLogin} users={users.length > 0 ? users : initialUsers} />;
+    return <Login onLogin={handleLogin} users={users} />;
   }
 
   return (
-    <DashboardLayout 
+    <DashboardLayout
       currentUser={currentUser}
       onLogout={handleLogout}
       activeTab={activeTab}

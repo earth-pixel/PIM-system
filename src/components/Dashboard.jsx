@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Package, Award, FolderKanban, AlertTriangle, CalendarDays } from 'lucide-react';
 
 export default function Dashboard({ products, brands, categories, setActiveTab, setStockFilter }) {
@@ -124,7 +124,7 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
         <div 
           onClick={() => {
             setStockFilter('All');
-            setActiveTab('products');
+            setActiveTab('manage-products');
           }}
           role="button"
           tabIndex={0}
@@ -132,7 +132,7 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               setStockFilter('All');
-              setActiveTab('products');
+              setActiveTab('manage-products');
             }
           }}
           className="bg-white p-3.5 sm:p-5 rounded-2xl border border-[#d2d2d7]/50 flex items-center gap-2.5 sm:gap-4 shadow-xs hover:shadow-md hover:border-zinc-300 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer select-none"
@@ -200,7 +200,7 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
         <div 
           onClick={() => {
             setStockFilter('Low');
-            setActiveTab('products');
+            setActiveTab('manage-products');
           }}
           role="button"
           tabIndex={0}
@@ -208,7 +208,7 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault();
               setStockFilter('Low');
-              setActiveTab('products');
+              setActiveTab('manage-products');
             }
           }}
           className={`bg-white p-3.5 sm:p-5 rounded-2xl border flex items-center gap-2.5 sm:gap-4 shadow-xs hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer select-none ${
@@ -242,10 +242,7 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
             <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase">
               สถิติสินค้าแยกตาม{chartType === 'brand' ? 'แบรนด์' : 'หมวดหมู่สินค้า'}
             </h4>
-            <p className="text-xs text-[#555557] mt-0.5">
-              ข้อมูลสรุปยอดจดทะเบียนสินค้าในระบบ
-              ({isCustomRange ? 'ช่วงเวลาที่กำหนดเอง' : timeframe === '7d' ? 'ช่วง 7 วันที่ผ่านมา' : 'ช่วง 30 วันที่ผ่านมา'})
-            </p>
+           
           </div>
 
           {/* Toggle pill group */}
@@ -267,95 +264,70 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
               ))}
             </div>
 
+            {/* Timeframe preset toggle (7 วัน / 30 วัน) */}
+            <div className="bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center">
+              {[['7d', '7 วัน'], ['30d', '30 วัน']].map(([val, label]) => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => {
+                    setIsCustomRange(false);
+                    setTimeframe(val);
+                  }}
+                  className={`px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-md transition-all cursor-pointer ${
+                    !isCustomRange && timeframe === val
+                      ? 'bg-white text-black shadow-xs'
+                      : 'text-[#555557] hover:text-black'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {/* Date Range Picker */}
             <div className="relative" ref={datePickerRef}>
               <button
                 type="button"
                 onClick={() => setIsDatePickerOpen(!isDatePickerOpen)}
-                className="flex items-center gap-1.5 text-[10px] text-[#555557] bg-[#f5f5f7] hover:bg-[#e8e8ed] px-2.5 py-1.5 rounded-full border border-[#d2d2d7]/50 font-bold select-none cursor-pointer transition-colors shadow-xs"
+                className={`flex items-center gap-1.5 text-[10px] px-2.5 py-1.5 rounded-full border font-bold select-none cursor-pointer transition-colors shadow-xs ${
+                  isCustomRange
+                    ? 'text-[#0071e3] bg-[#0071e3]/10 border-[#0071e3]/20 hover:bg-[#0071e3]/15'
+                    : 'text-[#555557] bg-[#f5f5f7] hover:bg-[#e8e8ed] border-[#d2d2d7]/50'
+                }`}
               >
-                <CalendarDays className="w-3.5 h-3.5 text-[#8e8e93]" />
+                <CalendarDays className={`w-3.5 h-3.5 ${isCustomRange ? 'text-[#0071e3]' : 'text-[#8e8e93]'}`} />
                 <span>{rangeStartLabel} – {rangeEndLabel}</span>
-                <i className={`bi bi-chevron-down text-[8px] text-[#8e8e93] transition-transform duration-200 ${isDatePickerOpen ? 'rotate-180' : ''}`}></i>
+                <i className={`bi bi-chevron-down text-[8px] transition-transform duration-200 ${isDatePickerOpen ? 'rotate-180' : ''} ${isCustomRange ? 'text-[#0071e3]' : 'text-[#8e8e93]'}`}></i>
               </button>
 
               {isDatePickerOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-3xl border border-[#d2d2d7]/50 shadow-xl p-4 sm:p-5 z-30 animate-scale-in text-left space-y-4">
+                <div className="absolute right-0 bottom-full mb-1.5 w-72 bg-white rounded-3xl border border-[#d2d2d7]/50 shadow-xl p-4 sm:p-5 z-30 animate-scale-in text-left space-y-4">
                   <div className="space-y-1">
-                    <h5 className="text-xs font-bold text-[#1d1d1f] tracking-wide uppercase">เลือกช่วงเวลา</h5>
+                    <h5 className="text-xs font-bold text-[#1d1d1f] tracking-wide uppercase">กำหนดช่วงเวลาเอง</h5>
                     <p className="text-[10px] text-[#555557]">กรองสถิติการอัปเดตข้อมูลสินค้าในระบบ</p>
                   </div>
 
-                  {/* Presets */}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCustomRange(false);
-                        setTimeframe('7d');
-                        setIsDatePickerOpen(false);
-                      }}
-                      className={`py-2 px-3 text-[11px] font-bold rounded-xl border transition-all cursor-pointer ${
-                        !isCustomRange && timeframe === '7d'
-                          ? 'bg-[#0071e3]/10 text-[#0071e3] border-[#0071e3]/20 shadow-xs'
-                          : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'
-                      }`}
-                    >
-                      7 วันที่ผ่านมา
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsCustomRange(false);
-                        setTimeframe('30d');
-                        setIsDatePickerOpen(false);
-                      }}
-                      className={`py-2 px-3 text-[11px] font-bold rounded-xl border transition-all cursor-pointer ${
-                        !isCustomRange && timeframe === '30d'
-                          ? 'bg-[#0071e3]/10 text-[#0071e3] border-[#0071e3]/20 shadow-xs'
-                          : 'bg-zinc-50 border-zinc-200 text-zinc-700 hover:bg-zinc-100'
-                      }`}
-                    >
-                      30 วันที่ผ่านมา
-                    </button>
-                  </div>
-
-                  <hr className="border-zinc-100" />
-
                   {/* Custom Range Selection */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold text-zinc-700">กำหนดช่วงเวลาเอง</span>
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-[#555557] uppercase tracking-wider block">วันที่เริ่มต้น</label>
                       <input
-                        type="checkbox"
-                        checked={isCustomRange}
-                        onChange={(e) => setIsCustomRange(e.target.checked)}
-                        className="w-4 h-4 text-[#0071e3] border-[#d2d2d7] rounded focus:ring-[#0071e3] cursor-pointer"
+                        type="date"
+                        value={tempStartDate}
+                        onChange={(e) => setTempStartDate(e.target.value)}
+                        className="w-full text-xs bg-[#f5f5f7]/80 border border-[#d2d2d7] rounded-xl px-3 py-2 text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all font-semibold"
                       />
                     </div>
-
-                    {isCustomRange && (
-                      <div className="space-y-3 animate-fade-in">
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-[#555557] uppercase tracking-wider block">วันที่เริ่มต้น</label>
-                          <input
-                            type="date"
-                            value={tempStartDate}
-                            onChange={(e) => setTempStartDate(e.target.value)}
-                            className="w-full text-xs bg-[#f5f5f7]/80 border border-[#d2d2d7] rounded-xl px-3 py-2 text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all font-semibold"
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <label className="text-[9px] font-bold text-[#555557] uppercase tracking-wider block">วันที่สิ้นสุด</label>
-                          <input
-                            type="date"
-                            value={tempEndDate}
-                            onChange={(e) => setTempEndDate(e.target.value)}
-                            className="w-full text-xs bg-[#f5f5f7]/80 border border-[#d2d2d7] rounded-xl px-3 py-2 text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all font-semibold"
-                          />
-                        </div>
-                      </div>
-                    )}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-[#555557] uppercase tracking-wider block">วันที่สิ้นสุด</label>
+                      <input
+                        type="date"
+                        value={tempEndDate}
+                        onChange={(e) => setTempEndDate(e.target.value)}
+                        className="w-full text-xs bg-[#f5f5f7]/80 border border-[#d2d2d7] rounded-xl px-3 py-2 text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all font-semibold"
+                      />
+                    </div>
                   </div>
 
                   {/* Apply Button */}
@@ -369,12 +341,11 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
                     </button>
                     <button
                       type="button"
-                      disabled={isCustomRange && (!tempStartDate || !tempEndDate)}
+                      disabled={!tempStartDate || !tempEndDate}
                       onClick={() => {
-                        if (isCustomRange) {
-                          setStartDateStr(tempStartDate);
-                          setEndDateStr(tempEndDate);
-                        }
+                        setStartDateStr(tempStartDate);
+                        setEndDateStr(tempEndDate);
+                        setIsCustomRange(true);
                         setIsDatePickerOpen(false);
                       }}
                       className="flex-1 py-2 text-xs font-bold bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-xl transition-colors cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed shadow-xs"
@@ -609,11 +580,9 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
                 ))}
               </div>
             </div>
-
           </div>
         </div>
       </div>
-
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Lock, User, Building2, AlertCircle } from 'lucide-react';
 
 export default function Login({ onLogin, users }) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
 
@@ -25,6 +25,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
   }, [isModalOpen, isEditModalOpen, brandToDelete, alertPopup]);
 
   const handleStartEdit = (brandName) => {
+    if (currentUser?.role === 'user') return;
     setTargetEditBrand(brandName);
     setEditBrandName(brandName);
     setErrorMsg('');
@@ -104,17 +105,19 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">จัดการข้อมูลแบรนด์สินค้า</h1>
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            setErrorMsg('');
-            setIsModalOpen(true);
-          }}
-          className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          เพิ่มแบรนด์ใหม่
-        </button>
+        {currentUser?.role !== 'user' && (
+          <button
+            type="button"
+            onClick={() => {
+              setErrorMsg('');
+              setIsModalOpen(true);
+            }}
+            className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+          >
+            <Plus className="w-4 h-4" />
+            เพิ่มแบรนด์ใหม่
+          </button>
+        )}
       </div>
 
       {/* Table Container */}
@@ -130,7 +133,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                 <th className="p-4 w-16">ลำดับ</th>
                 <th className="p-4">แบรนด์</th>
                 <th className="p-4 text-center">จำนวนผลิตภัณฑ์ในระบบ</th>
-                <th className="p-4 text-right">สถานะคลัง</th>
+                <th className="p-4 text-right"></th>
                 <th className="p-4 text-center w-28">การจัดการ</th>
               </tr>
             </thead>
@@ -148,20 +151,19 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                       <span className="text-xs text-[#555557] ml-1">รายการ</span>
                     </td>
                     <td className="p-4 text-right">
-                      <span className="px-2.5 py-0.5 text-xs font-semibold bg-[#f5f5f7] border border-[#d2d2d7]/40 rounded text-[#1d1d1f]">
-                        พร้อมใช้งาน
-                      </span>
                     </td>
                     <td className="p-4 text-center">
                       <div className="flex justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleStartEdit(brand)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                          title="แก้ไขชื่อแบรนด์"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
+                        {currentUser?.role !== 'user' && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(brand)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="แก้ไขชื่อแบรนด์"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        )}
                         {currentUser.role === 'admin' && (
                           <button
                             type="button"

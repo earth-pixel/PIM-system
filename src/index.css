@@ -14,14 +14,14 @@
   --base-size: 16px;
 
   /* Apple Design Palette */
-  --color-apple-bg:           #f5f5f7;
-  --color-apple-text:         #1d1d1f;
-  --color-apple-secondary:    #555557;
-  --color-apple-border:       #d2d2d7;
-  --color-apple-blue:         #0071e3;
-  --color-apple-blue-hover:   #0077ed;
+  --color-apple-bg: #f5f5f7;
+  --color-apple-text: #1d1d1f;
+  --color-apple-secondary: #555557;
+  --color-apple-border: #d2d2d7;
+  --color-apple-blue: #0071e3;
+  --color-apple-blue-hover: #0077ed;
 
-  --color-brand-50:  #f5f5f7;
+  --color-brand-50: #f5f5f7;
   --color-brand-100: #e8e8ed;
   --color-brand-500: #1d1d1f;
   --color-brand-600: #000000;
@@ -38,24 +38,30 @@ html {
     --base-size: 15px;
   }
 }
+
 @media (min-width: 640px) and (max-width: 1023px) {
   :root {
     --base-size: 15.5px;
   }
 }
+
 @media (min-width: 1024px) and (max-width: 1439px) {
   :root {
     --base-size: 16px;
   }
 }
+
 @media (min-width: 1440px) and (max-width: 1919px) {
   :root {
-    --base-size: 18px; /* Scales up on larger screens */
+    --base-size: 18px;
+    /* Scales up on larger screens */
   }
 }
+
 @media (min-width: 1920px) {
   :root {
-    --base-size: 20px; /* Scales up on 2K/4K and large displays */
+    --base-size: 20px;
+    /* Scales up on 2K/4K and large displays */
   }
 }
 
@@ -71,15 +77,31 @@ body {
 }
 
 /* ─── Subtly animated form elements ────────────────────────────── */
-button, input, select, textarea {
+button,
+input,
+select,
+textarea {
   transition: all 0.15s cubic-bezier(0.25, 0.1, 0.25, 1);
 }
 
 /* ─── Scrollbar ─────────────────────────────────────────────────── */
-::-webkit-scrollbar       { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: #d2d2d7; border-radius: 9999px; }
-::-webkit-scrollbar-thumb:hover { background: #555557; }
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d2d2d7;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555557;
+}
 
 /* ══════════════════════════════════════════════════════════════════
    PIM Design System — Reusable UI Classes
@@ -88,9 +110,12 @@ button, input, select, textarea {
 /* 1 · Form Label ─────────────────────────────────────────────────── */
 .form-label {
   font-family: 'Noto Sans Thai', 'Inter', sans-serif;
-  font-size: 0.9375rem; /* 15px equivalent, supporting relative root font scale */
-  font-weight: 600; /* Bolder label */
-  color: #1d1d1f;   /* Darker text for higher contrast */
+  font-size: 0.9375rem;
+  /* 15px equivalent, supporting relative root font scale */
+  font-weight: 600;
+  /* Bolder label */
+  color: #1d1d1f;
+  /* Darker text for higher contrast */
   display: block;
   margin-bottom: 6px;
   letter-spacing: -0.005em;
@@ -99,20 +124,29 @@ button, input, select, textarea {
 /* 2 · Form Input ─────────────────────────────────────────────────── */
 .form-input {
   font-family: 'Inter', 'Noto Sans Thai', sans-serif;
-  font-size: 1rem; /* 16px equivalent, supporting relative root font scale */
-  font-weight: 400; /* Regular input text for clean readability */
-  color: #000000;   /* Pure black text for ultimate readability */
+  font-size: 1rem;
+  /* 16px equivalent, supporting relative root font scale */
+  font-weight: 400;
+  /* Regular input text for clean readability */
+  color: #000000;
+  /* Pure black text for ultimate readability */
   background-color: #ffffff;
-  border: 1.5px solid #a1a1a6; /* Thicker, darker border for high contrast */
-  border-radius: 0.625rem; /* 10px equivalent */
-  padding: 0.625rem 0.875rem; /* 10px 14px equivalent */
+  border: 1.5px solid #a1a1a6;
+  /* Thicker, darker border for high contrast */
+  border-radius: 0.625rem;
+  /* 10px equivalent */
+  padding: 0.625rem 0.875rem;
+  /* 10px 14px equivalent */
   width: 100%;
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
+
 .form-input::placeholder {
-  color: #6e6e73; /* Darker placeholder for readability */
+  color: #6e6e73;
+  /* Darker placeholder for readability */
 }
+
 .form-input:focus {
   border-color: #0071e3;
   box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.18);
@@ -121,7 +155,8 @@ button, input, select, textarea {
 /* 3 · Summary Number (KPI / Big Stat) ───────────────────────────── */
 .summary-number {
   font-family: 'Inter', sans-serif;
-  font-size: 2.25rem; /* 36px equivalent */
+  font-size: 2.25rem;
+  /* 36px equivalent */
   font-weight: 600;
   letter-spacing: -0.02em;
   color: #111111;
@@ -131,11 +166,13 @@ button, input, select, textarea {
 /* 4 · Save Button ────────────────────────────────────────────────── */
 .btn-save {
   font-family: 'Noto Sans Thai', 'Inter', sans-serif;
-  font-size: 0.9375rem; /* 15px equivalent */
+  font-size: 0.9375rem;
+  /* 15px equivalent */
   font-weight: 500;
   background-color: #111111;
   color: #FFFFFF;
-  padding: 0.625rem 1.25rem; /* 10px 20px equivalent */
+  padding: 0.625rem 1.25rem;
+  /* 10px 20px equivalent */
   border: none;
   border-radius: 4px;
   cursor: pointer;
@@ -144,105 +181,296 @@ button, input, select, textarea {
   gap: 6px;
   transition: opacity 0.2s ease;
 }
-.btn-save:hover  { opacity: 0.85; }
-.btn-save:active { opacity: 0.75; transform: scale(0.99); }
 
-/* ─── High Contrast Mode Overrides ──────────────────────────────── */
-body.high-contrast-mode {
-  background-color: #ffffff !important;
-  color: #000000 !important;
+.btn-save:hover {
+  opacity: 0.85;
 }
-body.high-contrast-mode .bg-white {
-  background-color: #ffffff !important;
-  border-color: #000000 !important;
+
+.btn-save:active {
+  opacity: 0.75;
+  transform: scale(0.99);
 }
-body.high-contrast-mode .text-zinc-400,
-body.high-contrast-mode .text-zinc-500,
-body.high-contrast-mode .text-zinc-600,
-body.high-contrast-mode .text-zinc-700,
-body.high-contrast-mode .text-zinc-800,
-body.high-contrast-mode .text-zinc-650,
-body.high-contrast-mode .text-\[\#555557\],
-body.high-contrast-mode .text-zinc-750 {
-  color: #000000 !important;
-  font-weight: 600 !important;
-}
-body.high-contrast-mode .bg-\[\#f5f5f7\],
-body.high-contrast-mode .bg-zinc-50,
-body.high-contrast-mode .bg-zinc-100 {
-  background-color: #e8e8ed !important;
-}
-body.high-contrast-mode .border-\[\#d2d2d7\]\/50,
-body.high-contrast-mode .border-\[\#d2d2d7\]\/30,
-body.high-contrast-mode .border-\[\#d2d2d7\]\/40,
-body.high-contrast-mode .border-\[\#d2d2d7\],
-body.high-contrast-mode .border-zinc-200,
-body.high-contrast-mode .border-zinc-300,
-body.high-contrast-mode .divide-y > * {
-  border-color: #000000 !important;
-  border-width: 1.5px !important;
-}
-body.high-contrast-mode input,
-body.high-contrast-mode select,
-body.high-contrast-mode textarea,
-body.high-contrast-mode .form-input {
-  border-color: #000000 !important;
-  border-width: 2px !important;
-  color: #000000 !important;
-  background-color: #ffffff !important;
-  font-weight: bold !important;
-}
-body.high-contrast-mode .form-label {
-  color: #000000 !important;
-  font-weight: 800 !important;
-}
-body.high-contrast-mode button {
-  border-color: #000000 !important;
-  font-weight: bold !important;
-}
+
 
 /* ─── Print Styles ──────────────────────────────────────────────── */
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 6mm;
+  }
+
   body {
     background: white !important;
     color: black !important;
+    font-size: 11px !important;
   }
-  .no-print   { display: none !important; }
-  .print-only { display: block !important; }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
   .print-card {
     border: none !important;
     box-shadow: none !important;
     padding: 0 !important;
     margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Keep KPI cards in 3 columns for print */
+  .print-grid-3 {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 12px !important;
+  }
+
+  .print-kpi-card {
+    border: 1.5px solid #d2d2d7 !important;
+    box-shadow: none !important;
+    padding: 10px 12px !important;
+    margin: 0 !important;
+    border-radius: 12px !important;
+    background-color: #ffffff !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-kpi-card p {
+    font-size: 8.5px !important;
+    margin: 0 !important;
+    color: #555557 !important;
+  }
+
+  .print-kpi-card h3 {
+    font-size: 15px !important;
+    margin: 3px 0 0 0 !important;
+    color: #1d1d1f !important;
+  }
+
+  .print-kpi-card span {
+    font-size: 8.5px !important;
+    margin: 3px 0 0 0 !important;
+    color: #8e8e93 !important;
+  }
+
+  /* Optimize table layout to fit portrait A4 paper width perfectly */
+  table {
+    width: 100% !important;
+    table-layout: fixed !important;
+  }
+
+  th,
+  td {
+    padding: 4px 3px !important;
+    font-size: 8.5px !important;
+    word-break: break-word !important;
+    white-space: normal !important;
+  }
+
+  /* Status badge print override */
+  td span {
+    font-size: 7.5px !important;
+    padding: 1.5px 5px !important;
+  }
+
+  /* ลำดับ */
+  th:nth-child(1),
+  td:nth-child(1) {
+    width: 6% !important;
+    text-align: center !important;
+  }
+
+  /* รหัสสินค้า */
+  th:nth-child(2),
+  td:nth-child(2) {
+    width: 10% !important;
+    text-align: left !important;
+  }
+
+  /* ชื่อสินค้า */
+  th:nth-child(3),
+  td:nth-child(3) {
+    width: 23% !important;
+    text-align: left !important;
+  }
+
+  /* แบรนด์ */
+  th:nth-child(4),
+  td:nth-child(4) {
+    width: 9% !important;
+    text-align: left !important;
+  }
+
+  /* หมวดหมู่ */
+  th:nth-child(5),
+  td:nth-child(5) {
+    width: 9% !important;
+    text-align: left !important;
+  }
+
+  /* ราคาขายส่ง */
+  th:nth-child(6),
+  td:nth-child(6) {
+    width: 7% !important;
+    text-align: right !important;
+  }
+
+  /* ราคาขายปลีก */
+  th:nth-child(7),
+  td:nth-child(7) {
+    width: 7% !important;
+    text-align: right !important;
+  }
+
+  /* ค่าฝา */
+  th:nth-child(8),
+  td:nth-child(8) {
+    width: 5% !important;
+    text-align: right !important;
+  }
+
+  /* คลัง (ชิ้น) */
+  th:nth-child(9),
+  td:nth-child(9) {
+    width: 6% !important;
+    text-align: center !important;
+  }
+
+  /* มูลค่ารวม (ปลีก) */
+  th:nth-child(10),
+  td:nth-child(10) {
+    width: 9% !important;
+    text-align: right !important;
+  }
+
+  /* สถานะ */
+  th:nth-child(11),
+  td:nth-child(11) {
+    width: 9% !important;
+    text-align: center !important;
+  }
+  
+  /* Prevent scroll constraints on the activity log list during print */
+  .max-h-\[60vh\] {
+    max-width: none !important;
+    overflow: visible !important;
   }
 }
 
 /* ─── Line Chart Pulse Ring Animation ──────────────────────── */
 @keyframes pulse-ring {
-  0%   { r: 7;    opacity: 0.55; }
-  60%  { r: 14;   opacity: 0.12; }
-  100% { r: 18;   opacity: 0;    }
+  0% {
+    r: 7;
+    opacity: 0.55;
+  }
+
+  60% {
+    r: 14;
+    opacity: 0.12;
+  }
+
+  100% {
+    r: 18;
+    opacity: 0;
+  }
 }
 
 /* ─── Modal / Overlay Animations ───────────────────────────── */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
+
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.93) translateY(8px); }
-  to   { opacity: 1; transform: scale(1)    translateY(0);   }
+  from {
+    opacity: 0;
+    transform: scale(0.93) translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
-.animate-fade-in  { animation: fade-in  0.18s ease-out both; }
-.animate-scale-in { animation: scale-in 0.22s cubic-bezier(0.34, 1.1, 0.64, 1) both; }
+
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out both;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.22s cubic-bezier(0.34, 1.1, 0.64, 1) both;
+}
 
 @keyframes slide-in-right {
-  from { transform: translateX(100%); }
-  to   { transform: translateX(0); }
+  from {
+    transform: translateX(100%);
+  }
+
+  to {
+    transform: translateX(0);
+  }
 }
+
 .animate-slide-in-right {
   animation: slide-in-right 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* ─── Bell Shake Animation ───────────────────────────────────── */
+@keyframes bell-shake {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(15deg); }
+  30% { transform: rotate(-12deg); }
+  45% { transform: rotate(10deg); }
+  60% { transform: rotate(-8deg); }
+  75% { transform: rotate(4deg); }
+  90% { transform: rotate(-2deg); }
+}
+
+.animate-bell-shake {
+  animation: bell-shake 0.6s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+/* ─── Notification Glow Animation ────────────────────────────── */
+@keyframes notification-glow {
+  0% {
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.6);
+  }
+  70% {
+    box-shadow: 0 0 0 8px rgba(225, 29, 72, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(225, 29, 72, 0);
+  }
+}
+
+.animate-notification-glow {
+  animation: notification-glow 1.8s infinite;
+}
+
+/* ─── Scrollbar for notification list ────────────────────────── */
+.notification-scrollbar::-webkit-scrollbar {
+  width: 4px;
+}
+.notification-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.notification-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 99px;
+}
+.notification-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+
 
 /* ─── Page transition animation ────────────────────────────── */
 @keyframes page-slide-up {
@@ -250,11 +478,13 @@ body.high-contrast-mode button {
     opacity: 0;
     transform: translateY(16px) scale(0.995);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
 }
+
 .animate-page-transition {
   animation: page-slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -269,47 +499,58 @@ body.high-contrast-mode button {
     padding: 0.75rem !important;
     gap: 0.5rem !important;
   }
+
   .mobile-drawer .user-card {
     padding: 0.5rem !important;
     gap: 0.5rem !important;
     border-radius: 0.75rem !important;
   }
+
   .mobile-drawer .user-avatar {
     width: 2rem !important;
     height: 2rem !important;
     font-size: 0.75rem !important;
   }
+
   .mobile-drawer .user-name {
     font-size: 0.75rem !important;
   }
+
   .mobile-drawer .user-username {
     font-size: 8px !important;
     margin-top: 0 !important;
   }
+
   .mobile-drawer .user-badge {
     margin-top: 0.125rem !important;
   }
+
   .mobile-drawer .user-badge span {
     padding: 0.125rem 0.375rem !important;
     font-size: 8px !important;
   }
+
   .mobile-drawer .menu-title {
     font-size: 8px !important;
     padding-left: 0.25rem !important;
   }
+
   .mobile-drawer .menu-item {
     padding: 0.375rem 0.75rem !important;
     font-size: 11px !important;
     border-radius: 0.5rem !important;
     gap: 0.5rem !important;
   }
+
   .mobile-drawer .menu-item i {
     font-size: 0.75rem !important;
   }
+
   .mobile-drawer .sandbox-card {
     padding: 0.5rem !important;
     border-radius: 0.75rem !important;
   }
+
   .mobile-drawer .sandbox-title {
     font-size: 8px !important;
   }
@@ -317,10 +558,12 @@ body.high-contrast-mode button {
     padding: 0.25rem 0 !important;
     font-size: 8px !important;
   }
+
   .mobile-drawer hr {
     margin-top: 0.125rem !important;
     margin-bottom: 0.125rem !important;
   }
+
   .mobile-drawer .btn-logout {
     padding-top: 0.375rem !important;
     padding-bottom: 0.375rem !important;
@@ -334,18 +577,21 @@ body.high-contrast-mode button {
     padding: 0.5rem !important;
     gap: 0.25rem !important;
   }
+
   .mobile-drawer .user-card {
     display: none !important;
   }
+
   .mobile-drawer .menu-item {
     padding: 0.25rem 0.5rem !important;
     font-size: 10px !important;
   }
+
   .mobile-drawer .sandbox-card {
     display: none !important;
   }
+
   .mobile-drawer hr {
     display: none !important;
   }
 }
-

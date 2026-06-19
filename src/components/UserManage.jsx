@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { UserPlus, Shield, Lock, Plus, Check, AlertCircle } from 'lucide-react';
+import { UserPlus, Shield, Lock, Plus, Check, AlertCircle, Search } from 'lucide-react';
 
 export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUser, currentUser }) {
   const [username, setUsername] = useState('');
@@ -14,6 +14,21 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   
   const [editingUser, setEditingUser] = useState(null);
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
+  
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedRole, setSelectedRole] = useState('All');
+  
+  const isOnlyAdmin = editingUser && editingUser.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
+
+  const filteredUsers = users
+    .filter(u => !(currentUser.role === 'manager' && u.role === 'admin'))
+    .filter(u => {
+      const matchesSearch = 
+        u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesRole = selectedRole === 'All' || u.role === selectedRole;
+      return matchesSearch && matchesRole;
+    });
 
   useEffect(() => {
     if (isModalOpen || confirmDeleteUser || alertPopup) {
@@ -105,6 +120,11 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
     const cleanUsername = username.trim().toLowerCase();
 
     if (editingUser) {
+      if (editingUser.role === 'admin' && role !== 'admin' && users.filter(u => u.role === 'admin').length === 1) {
+        setErrorMsg('ไม่สามารถเปลี่ยนสิทธิ์ได้ เนื่องจากต้องมีบัญชี Admin อย่างน้อย 1 บัญชีในระบบ');
+        return;
+      }
+
       const updatedUser = {
         ...editingUser,
         password: password.trim(),
@@ -180,6 +200,37 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
         </button>
       </div>
 
+      {/* Filters Panel */}
+      <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+        <div className="flex flex-col sm:flex-row gap-3.5">
+          {/* Search Input */}
+          <div className="relative flex-1">
+            <Search className="w-4.5 h-4.5 text-[#555557] absolute left-3 top-3" />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อผู้ใช้ หรือ ชื่อ-นามสกุล..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-10 pr-4 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all placeholder-[#555557]"
+            />
+          </div>
+
+          {/* Role Filter Dropdown */}
+          <div className="w-full sm:w-48">
+            <select
+              value={selectedRole}
+              onChange={(e) => setSelectedRole(e.target.value)}
+              className="w-full px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
+            >
+              <option value="All">สิทธิ์ทั้งหมด (All)</option>
+              <option value="admin">Admin</option>
+              <option value="manager">Manager</option>
+              <option value="user">User</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Table Container */}
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-[#e8e8ed]">
@@ -198,9 +249,14 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e8e8ed]">
-              {users
-                .filter(u => !(currentUser.role === 'manager' && u.role === 'admin'))
-                .map((u) => (
+              {filteredUsers.length === 0 ? (
+                <tr>
+                  <td colSpan="5" className="p-12 text-center text-[#555557] text-xs">
+                    ไม่พบผู้ใช้งานตามเงื่อนไขที่เลือก
+                  </td>
+                </tr>
+              ) : (
+                filteredUsers.map((u) => (
                 <tr key={u.username} className="hover:bg-[#f5f5f7]/30 transition-colors">
                   <td className="p-4 font-mono font-bold text-[#1d1d1f]">{u.username}</td>
                   <td className="p-4 font-medium text-[#1d1d1f]">{u.name}</td>
@@ -234,7 +290,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     </div>
                   </td>
                 </tr>
-              ))}
+              )))}
             </tbody>
           </table>
         </div>
@@ -314,15 +370,23 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                 <div>
                   <label className="form-label">สิทธิ์การเข้าใช้งาน (Role)</label>
                   {currentUser.role === 'admin' ? (
-                    <select
-                      value={role}
-                      onChange={(e) => setRole(e.target.value)}
-                      className="form-input text-zinc-950"
-                    >
-                      <option value="user">User</option>
-                      <option value="manager">Manager</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                    <div>
+                      <select
+                        value={role}
+                        onChange={(e) => setRole(e.target.value)}
+                        className={`form-input text-zinc-950 ${isOnlyAdmin ? 'bg-[#f5f5f7] text-zinc-500 cursor-not-allowed border-[#d2d2d7]/65' : ''}`}
+                        disabled={isOnlyAdmin}
+                      >
+                        <option value="user">User</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      {isOnlyAdmin && (
+                        <p className="text-rose-600 text-[10px] mt-1.5 font-semibold leading-normal">
+                          * ไม่สามารถเปลี่ยนสิทธิ์ได้ เนื่องจากต้องมีบัญชี Admin อย่างน้อย 1 บัญชีในระบบ
+                        </p>
+                      )}
+                    </div>
                   ) : (
                     <div className="form-input flex items-center gap-1.5 text-zinc-800 pointer-events-none bg-[#f5f5f7] border-[#d2d2d7]">
                       <Shield className="w-4 h-4 text-zinc-600" />

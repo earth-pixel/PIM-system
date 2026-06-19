@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Trash2, Download, Filter, Clock, ArrowRight, UserCheck, Check, AlertCircle, X, Info } from 'lucide-react';
+import { Search, Trash2, Printer, Clock, ArrowRight, Check, AlertCircle, X, Info } from 'lucide-react';
+import MobileDownloadModal from './MobileDownloadModal';
+import { checkIsInAppBrowser } from '../utils/browserUtils';
 
 export default function ActivityLogView({ activityLog, onClearLogs, currentUser }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -9,9 +11,71 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [alertPopup, setAlertPopup] = useState(null);
   const [selectedLog, setSelectedLog] = useState(null);
+  const [isDownloadGuideOpen, setIsDownloadGuideOpen] = useState(false);
+  const [selectedLogIds, setSelectedLogIds] = useState(new Set());
+  const [isPrintingSelected, setIsPrintingSelected] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+
+  const filteredLogs = activityLog.filter(log => {
+    const matchesSearch = log.action.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          log.userName.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = selectedRole === 'All' || log.userRole === selectedRole;
+    
+    let matchesAction = true;
+    if (selectedActionType !== 'All') {
+      if (selectedActionType === 'add') matchesAction = log.action.includes('เพิ่ม');
+      else if (selectedActionType === 'edit') matchesAction = log.action.includes('แก้ไข') || log.action.includes('เปลี่ยน');
+      else if (selectedActionType === 'delete') matchesAction = log.action.includes('ลบ');
+      else if (selectedActionType === 'clear') matchesAction = log.action.includes('ล้าง');
+    }
+
+    let matchesDate = true;
+    if (startDate || endDate) {
+      const logDate = new Date(log.timestamp);
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        if (logDate < start) matchesDate = false;
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        if (logDate > end) matchesDate = false;
+      }
+    }
+
+    return matchesSearch && matchesRole && matchesAction && matchesDate;
+  });
+
+  const handleToggleSelectLog = (logId) => {
+    setSelectedLogIds(prev => {
+      const next = new Set(prev);
+      if (next.has(logId)) {
+        next.delete(logId);
+      } else {
+        next.add(logId);
+      }
+      return next;
+    });
+  };
+
+
+
+  const handlePrintSelected = () => {
+    if (checkIsInAppBrowser()) {
+      setIsDownloadGuideOpen(true);
+      return;
+    }
+    setIsPrintingSelected(true);
+    setTimeout(() => {
+      window.print();
+      setIsPrintingSelected(false);
+    }, 150);
+  };
 
   useEffect(() => {
-    if (showClearConfirm || alertPopup || selectedLog) {
+    if (showClearConfirm || alertPopup || selectedLog || isDownloadGuideOpen) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -19,7 +83,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showClearConfirm, alertPopup, selectedLog]);
+  }, [showClearConfirm, alertPopup, selectedLog, isDownloadGuideOpen]);
 
   const getRoleBadge = (role) => {
     switch (role) {
@@ -41,51 +105,60 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
     return '🔧';
   };
 
-  const filteredLogs = activityLog.filter(log => {
-    const matchesSearch = log.action.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          log.userName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = selectedRole === 'All' || log.userRole === selectedRole;
-    
-    let matchesAction = true;
-    if (selectedActionType !== 'All') {
-      if (selectedActionType === 'add') matchesAction = log.action.includes('เพิ่ม');
-      else if (selectedActionType === 'edit') matchesAction = log.action.includes('แก้ไข') || log.action.includes('เปลี่ยน');
-      else if (selectedActionType === 'delete') matchesAction = log.action.includes('ลบ');
-      else if (selectedActionType === 'clear') matchesAction = log.action.includes('ล้าง');
+
+  const handlePrint = () => {
+    if (checkIsInAppBrowser()) {
+      setIsDownloadGuideOpen(true);
+      return;
     }
-
-    return matchesSearch && matchesRole && matchesAction;
-  });
-
-  const handleExportMock = () => {
-    // Generate mock CSV download
-    const csvContent = "data:text/csv;charset=utf-8," 
-      + ["Timestamp,User,Role,Action"].join(",") + "\n"
-      + filteredLogs.map(e => `"${e.timestamp}","${e.userName}","${e.userRole}","${e.action}"`).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `pim_activity_log_${new Date().toISOString().slice(0,10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    window.print();
   };
 
+
   return (
-    <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
+    <div className={`space-y-6 animate-fade-in text-[#1d1d1f] ${isPrintingSelected ? 'print-selected-logs-active' : ''}`}>
+      <style>{`
+        @media print {
+          .print-selected-logs-active .log-row:not(.is-selected) {
+            display: none !important;
+          }
+        }
+      `}</style>
+      
+      {/* Printable Sheet Header */}
+      <div className="hidden print-only text-center border-b pb-4 mb-4 space-y-1">
+        <h2 className="text-lg font-bold text-black uppercase tracking-wider">
+          {isPrintingSelected 
+            ? 'รายงานประวัติการดำเนินงานในระบบ (PIM) - เฉพาะรายการที่เลือก'
+            : 'รายงานประวัติการดำเนินงานในระบบ (PIM)'}
+        </h2>
+        <p className="text-xs text-zinc-550">
+          ข้อมูล ณ วันที่: {new Date().toLocaleString('th-TH')}
+        </p>
+      </div>
+
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">ประวัติการดำเนินงาน</h1>
           <p className="text-sm text-[#555557] mt-1">บันทึกประวัติการกระทำและเปลี่ยนแปลงข้อมูลต่างๆ ของพนักงานในหน่วยงาน PIM</p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
+          {selectedLogIds.size > 0 && (
+            <button
+              onClick={handlePrintSelected}
+              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs animate-scale-in"
+            >
+              <Printer className="w-4 h-4" />
+              พิมพ์รายการที่เลือก ({selectedLogIds.size})
+            </button>
+          )}
           <button
-            onClick={handleExportMock}
-            className="px-4 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7] text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer bg-white"
+            onClick={handlePrint}
+            className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
-            <Download className="w-4 h-4 text-zinc-550" />
-            ส่งออกไฟล์ CSV
+            <Printer className="w-4 h-4" />
+            พิมพ์ประวัติทั้งหมด (Print)
           </button>
           {currentUser.role === 'admin' && (
             <button
@@ -100,9 +173,9 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
       </div>
 
       {/* Filters bar */}
-      <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs flex flex-col md:flex-row md:items-center gap-4">
+      <div className="no-print bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs flex flex-col md:flex-row md:items-center gap-4 flex-wrap animate-fade-in">
         {/* Search */}
-        <div className="relative flex-1">
+        <div className="relative flex-1 min-w-[200px]">
           <Search className="w-4.5 h-4.5 text-[#555557] absolute left-3.5 top-3" />
           <input
             type="text"
@@ -111,6 +184,36 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-10 pr-4 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all placeholder-[#555557]"
           />
+        </div>
+
+        {/* Date Filter */}
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <span className="text-xs font-bold text-[#555557] uppercase tracking-wide whitespace-nowrap">วันที่:</span>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="px-2.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs sm:text-sm focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer"
+          />
+          <span className="text-xs text-[#555557] font-semibold">-</span>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="px-2.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs sm:text-sm focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer"
+          />
+          {(startDate || endDate) && (
+            <button
+              onClick={() => {
+                setStartDate('');
+                setEndDate('');
+              }}
+              className="px-2 py-1 text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer text-xs font-bold whitespace-nowrap"
+              title="ล้างตัวกรองวันที่"
+            >
+              ล้างวันที่
+            </button>
+          )}
         </div>
 
         {/* User Role Filter */}
@@ -146,11 +249,12 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
 
       {/* Main List */}
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#e8e8ed]">
+        <div className="px-5 py-4 border-b border-[#e8e8ed] flex items-center justify-between flex-wrap gap-2">
           <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase flex items-center gap-2">
             <Clock className="w-4.5 h-4.5 text-[#555557]" />
             กิจกรรมบันทึกล่าสุดในระบบ ({filteredLogs.length} รายการ)
           </h4>
+
         </div>
 
         <div className="divide-y divide-[#e8e8ed] max-h-[60vh] overflow-y-auto">
@@ -167,14 +271,21 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
               const formattedTime = dateObj.toLocaleTimeString('th-TH', {
                 hour: '2-digit', minute: '2-digit'
               });
+              const isSelected = selectedLogIds.has(log.id);
 
               return (
-                <div key={log.id} className="p-4 hover:bg-[#f5f5f7]/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+                <div key={log.id} className={`p-4 hover:bg-[#f5f5f7]/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs log-row ${isSelected ? 'is-selected bg-blue-50/15' : ''}`}>
                   <div className="flex items-start gap-3 flex-1 min-w-0">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => handleToggleSelectLog(log.id)}
+                      className="w-4 h-4 rounded-md border-[#d2d2d7] text-[#0071e3] focus:ring-[#0071e3] cursor-pointer mt-1 shrink-0 no-print"
+                    />
                     <span className="text-xl shrink-0 mt-0.5" role="img" aria-label="action icon">
                       {getActionEmoji(log.action)}
                     </span>
-                    <div className="space-y-1 min-w-0">
+                    <div className="space-y-1 min-w-0 flex-1">
                       <p className="font-semibold text-zinc-800 break-words leading-relaxed text-sm">
                         {log.action}
                       </p>
@@ -182,6 +293,30 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                         <span className="font-bold text-[#1d1d1f]">{log.userName}</span>
                         {getRoleBadge(log.userRole)}
                       </div>
+
+                      {/* Print-only Inline Details */}
+                      {log.details && log.details.changes && log.details.changes.length > 0 && (
+                        <div className="hidden print-only mt-2 pl-2.5 border-l-2 border-zinc-350 space-y-1.5 text-[10px]">
+                          <div className="font-bold text-zinc-500 uppercase tracking-wider text-[8px] mb-0.5">
+                            รายละเอียดการเปลี่ยนแปลง:
+                          </div>
+                          <div className="space-y-1">
+                            {log.details.changes.map((ch, idx) => (
+                              <div key={idx} className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-50 rounded border border-zinc-200/50 max-w-full">
+                                <span className="font-bold text-zinc-700 shrink-0">{ch.field}:</span>
+                                <span className="text-red-650 line-through px-1 rounded bg-red-50/40 text-[9.5px] truncate max-w-[200px]">{ch.before}</span>
+                                <ArrowRight className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
+                                <span className="text-emerald-700 px-1 rounded bg-emerald-50/40 font-bold text-[9.5px] truncate max-w-[200px]">{ch.after}</span>
+                              </div>
+                            ))}
+                          </div>
+                          {(log.details.remark || log.details.editRemark) && (
+                            <div className="mt-1.5 p-1 px-2 bg-amber-50/30 border border-amber-250/20 rounded text-amber-900 text-[9px] font-medium leading-normal break-words max-w-full">
+                              <span className="font-bold text-amber-800">หมายเหตุ:</span> {log.details.remark || log.details.editRemark}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -194,7 +329,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                     <button
                       type="button"
                       onClick={() => setSelectedLog(log)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer no-print"
                       title="ดูรายละเอียดการดำเนินงาน"
                     >
                       <Info className="w-4 h-4" />
@@ -300,7 +435,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
               </button>
             </div>
             
-            <div className="space-y-4 text-xs text-[#1d1d1f] pt-1">
+            <div className="max-h-[60vh] overflow-y-auto space-y-4 text-xs text-[#1d1d1f] pt-1 pb-2 pr-1 scrollbar-thin">
               <div className="flex items-start gap-3">
                 <span className="text-2xl shrink-0 mt-0.5" role="img" aria-label="action icon">
                   {getActionEmoji(selectedLog.action)}
@@ -332,6 +467,39 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                   </span>
                 </div>
               </div>
+
+              {/* Edit Details before/after Section */}
+              {selectedLog.details && selectedLog.details.changes && selectedLog.details.changes.length > 0 && (
+                <div className="space-y-2.5 pt-1">
+                  <span className="text-[10px] text-[#555557] font-bold uppercase block tracking-wider">รายละเอียดการเปลี่ยนแปลง</span>
+                  <div className="space-y-2">
+                    {selectedLog.details.changes.map((ch, idx) => (
+                      <div key={idx} className="p-3 bg-white rounded-2xl border border-[#d2d2d7]/50 space-y-1.5 shadow-2xs">
+                        <div className="font-bold text-zinc-800 text-xs">{ch.field}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 bg-red-50 text-red-650 rounded-lg border border-red-100/50 line-through break-all text-[11px] font-medium">
+                            {ch.before}
+                          </span>
+                          <ArrowRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100/50 break-all text-[11px] font-bold">
+                            {ch.after}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Remark/Comment Section */}
+              {(selectedLog.details?.remark || selectedLog.details?.editRemark) && (
+                <div className="p-3 bg-amber-50/70 border border-amber-200/30 rounded-2xl text-amber-900 text-xs space-y-1 mt-1">
+                  <span className="font-bold block text-[10px] text-amber-800 uppercase tracking-wider">หมายเหตุ / เหตุผลการแก้ไข:</span>
+                  <p className="leading-relaxed font-medium">
+                    {selectedLog.details.remark || selectedLog.details.editRemark}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="pt-2">
@@ -347,6 +515,12 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
         </div>,
         document.body
       )}
+
+      {/* Guide Modal for mobile browsers */}
+      <MobileDownloadModal 
+        isOpen={isDownloadGuideOpen} 
+        onClose={() => setIsDownloadGuideOpen(false)} 
+      />
 
     </div>
   );

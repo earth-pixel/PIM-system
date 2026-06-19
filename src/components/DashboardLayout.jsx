@@ -1,27 +1,74 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
-const LOG_ACTION_ICONS = {
-  'แก้ไข': '✏️',
-  'เพิ่มสินค้า': '📦',
-  'ลบสินค้า': '🗑️',
-  'ล้างข้อมูล': '⚠️',
-  'เพิ่มแบรนด์': '🏷️',
-  'เพิ่มหมวดหมู่': '📂',
-  'เพิ่มผู้ใช้': '👤',
-};
-
-function getActionEmoji(action) {
-  for (const [key, emoji] of Object.entries(LOG_ACTION_ICONS)) {
-    if (action.startsWith(key)) return emoji;
+function getActionStyle(action) {
+  if (action.includes('แก้ไข')) {
+    return {
+      bg: 'bg-amber-50/70 border border-amber-200/40 text-amber-600',
+      badgeBg: 'bg-amber-100/60 text-amber-800',
+      icon: 'bi bi-pencil-fill',
+      label: 'แก้ไข'
+    };
   }
-  return '🔧';
+  if (action.includes('เพิ่ม')) {
+    return {
+      bg: 'bg-emerald-50/70 border border-emerald-200/40 text-emerald-600',
+      badgeBg: 'bg-emerald-100/60 text-emerald-800',
+      icon: 'bi bi-plus-circle-fill',
+      label: 'เพิ่ม'
+    };
+  }
+  if (action.includes('ลบ')) {
+    return {
+      bg: 'bg-rose-50/70 border border-rose-200/40 text-rose-600',
+      badgeBg: 'bg-rose-100/60 text-rose-800',
+      icon: 'bi bi-trash3-fill',
+      label: 'ลบ'
+    };
+  }
+  if (action.includes('ล้าง')) {
+    return {
+      bg: 'bg-red-50/70 border border-red-200/40 text-red-650',
+      badgeBg: 'bg-red-100/60 text-red-800',
+      icon: 'bi bi-exclamation-triangle-fill',
+      label: 'รีเซ็ต'
+    };
+  }
+  return {
+    bg: 'bg-blue-50/70 border border-blue-200/40 text-blue-600',
+    badgeBg: 'bg-blue-100/60 text-blue-800',
+    icon: 'bi bi-info-circle-fill',
+    label: 'ทั่วไป'
+  };
 }
 
-const LOG_ROLE_BADGES = {
-  admin:   'text-[#6B46C1] bg-[#6B46C1]/10 border-[#6B46C1]/20',
-  manager: 'text-[#1A365D] bg-[#1A365D]/10 border-[#1A365D]/20',
-  user:    'text-[#2F855A] bg-[#2F855A]/10 border-[#2F855A]/20',
-};
+function getRelativeTimeThai(timestamp) {
+  if (!timestamp) return 'ไม่ทราบเวลา';
+  const diffMs = Date.now() - new Date(timestamp).getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) {
+    return 'เมื่อสักครู่';
+  }
+  if (diffMins < 60) {
+    return `${diffMins} นาทีที่แล้ว`;
+  }
+  if (diffHours < 24) {
+    return `${diffHours} ชั่วโมงที่แล้ว`;
+  }
+  if (diffDays === 1) {
+    return 'เมื่อวานนี้';
+  }
+  
+  const dateObj = new Date(timestamp);
+  return dateObj.toLocaleDateString('th-TH', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+}
 
 export default function DashboardLayout({
   currentUser,
@@ -37,9 +84,24 @@ export default function DashboardLayout({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isUsersDropdownOpen, setIsUsersDropdownOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [lastReadTime, setLastReadTime] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pim_notifications_last_read');
+      return saved ? new Date(saved).getTime() : 0;
+    } catch {
+      return 0;
+    }
+  });
+  const unreadCount = activityLog.filter(log => new Date(log.timestamp).getTime() > lastReadTime).length;
+  const [shouldShake, setShouldShake] = useState(false);
+  const [expandedLogId, setExpandedLogId] = useState(null);
 
   const profileRef = useRef(null);
   const usersDropdownRef = useRef(null);
+  const notificationRef = useRef(null);
+  const prevLogLengthRef = useRef(activityLog.length);
   const dropdownTimeoutRef = useRef(null);
   const profileTimeoutRef = useRef(null);
 
@@ -91,12 +153,27 @@ export default function DashboardLayout({
       if (usersDropdownRef.current && !usersDropdownRef.current.contains(event.target)) {
         setIsUsersDropdownOpen(false);
       }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setIsNotificationsOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
   }, []);
+
+  // Shake the bell on new logs
+  useEffect(() => {
+    if (activityLog.length > prevLogLengthRef.current) {
+      if (prevLogLengthRef.current > 0) {
+        setShouldShake(true);
+        const timer = setTimeout(() => setShouldShake(false), 650);
+        return () => clearTimeout(timer);
+      }
+    }
+    prevLogLengthRef.current = activityLog.length;
+  }, [activityLog]);
 
   // Close mobile menu on tab change
   const handleNavClick = (key) => {
@@ -122,11 +199,11 @@ export default function DashboardLayout({
 
   const menuItems = [
     { key: 'dashboard',       name: 'Dashboard',               icon: "bi bi-grid-1x2-fill", minRole: 'user' },
-    { key: 'products',        name: 'รายการสินค้า',             icon: "bi bi-box-seam-fill",         minRole: 'user' },
     { key: 'manage-products', name: 'จัดการข้อมูลสินค้า',        icon: "bi bi-pencil-square",           minRole: 'user' },
+    { key: 'quotations',      name: 'ใบเสนอราคา',               icon: "bi bi-file-earmark-text-fill",  minRole: 'user' },
     { key: 'brands',          name: 'จัดการแบรนด์',             icon: "bi bi-award-fill",           minRole: 'user' },
     { key: 'categories',      name: 'จัดการหมวดหมู่สินค้า',    icon: "bi bi-folder-fill",    minRole: 'user' },
-    { key: 'reports',         name: 'รายงานสินค้า',             icon: "bi bi-file-earmark-text-fill",        minRole: 'user' },
+    { key: 'reports',         name: 'รายงานสินค้า',             icon: "bi bi-bar-chart-fill",        minRole: 'user' },
   ];
 
   const hasAccess = (minRole) => {
@@ -148,7 +225,7 @@ export default function DashboardLayout({
   };
 
   // Determine if activeTab belongs to users group
-  const isUserGroupActive = activeTab === 'users' || activeTab === 'status-settings' || activeTab === 'activity-log';
+  const isUserGroupActive = activeTab === 'users' || activeTab === 'activity-log';
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f5f5f7] font-sans text-[#1d1d1f]">
@@ -223,13 +300,7 @@ export default function DashboardLayout({
                           <i className="bi bi-people-fill"></i>
                           <span>บัญชีผู้ใช้งาน</span>
                         </button>
-                        <button
-                          onClick={() => handleNavClick('status-settings')}
-                          className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'status-settings' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
-                        >
-                          <i className="bi bi-box-seam-fill"></i>
-                          <span>กำหนดสถานะสินค้า</span>
-                        </button>
+
                         <button
                           onClick={() => handleNavClick('activity-log')}
                           className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
@@ -261,6 +332,176 @@ export default function DashboardLayout({
           {/* Right: User Profile & Mobile Toggle */}
           <div className="flex items-center gap-3">
             
+            {/* Bell Notification Dropdown (Admin only) */}
+            {currentUser.role === 'admin' && (
+              <div className="relative" ref={notificationRef}>
+                <button
+                  onClick={() => {
+                    const nextVal = !isNotificationsOpen;
+                    setIsNotificationsOpen(nextVal);
+                    if (nextVal) {
+                      const now = Date.now();
+                      setLastReadTime(now);
+                      localStorage.setItem('pim_notifications_last_read', new Date(now).toISOString());
+                    }
+                  }}
+                  className={`
+                    relative p-2.5 text-zinc-650 hover:text-black hover:bg-zinc-50 rounded-full transition-all duration-300 cursor-pointer flex items-center justify-center bg-white border border-[#d2d2d7]/50 shadow-xs hover:shadow-md
+                    ${shouldShake ? 'animate-bell-shake' : ''}
+                  `}
+                  title="การแจ้งเตือนกิจกรรม"
+                >
+                  <i className={`bi ${unreadCount > 0 ? 'bi-bell-fill text-[#0071e3]' : 'bi-bell'} text-lg`}></i>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5.5 h-5.5 bg-gradient-to-tr from-rose-600 to-pink-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-notification-glow border-2 border-white shadow-xs">
+                      {unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {isNotificationsOpen && (
+                  <div className="absolute right-0 top-full w-85 pt-2 z-45">
+                    <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#d2d2d7]/40 shadow-2xl p-4.5 space-y-3.5 animate-scale-in text-[#1d1d1f]">
+                      {/* Header */}
+                      <div className="flex items-center justify-between border-b border-[#e8e8ed] pb-2.5">
+                        <div className="flex flex-col">
+                          <span className="text-[12px] font-extrabold uppercase tracking-wider text-zinc-800">การแจ้งเตือนกิจกรรม</span>
+                          <span className="text-[9px] text-zinc-400 font-semibold mt-0.5 uppercase tracking-wide">ล่าสุดในระบบ PIM</span>
+                        </div>
+                        {unreadCount > 0 ? (
+                          <button
+                            onClick={() => {
+                              const now = Date.now();
+                              setLastReadTime(now);
+                              localStorage.setItem('pim_notifications_last_read', new Date(now).toISOString());
+                            }}
+                            className="text-[10px] text-[#0071e3] hover:text-[#0077ed] font-bold cursor-pointer transition-colors px-2 py-0.5 hover:bg-[#0071e3]/5 rounded-md"
+                          >
+                            อ่านแล้วทั้งหมด
+                          </button>
+                        ) : (
+                          <span className="text-[9px] text-zinc-500 font-bold bg-[#f5f5f7] px-2 py-0.5 rounded-full">อัปเดตแล้ว</span>
+                        )}
+                      </div>
+
+                      {/* Notification List */}
+                      <div className="space-y-2.5 max-h-80 overflow-y-auto -mx-2.5 px-2.5 scrollbar-thin notification-scrollbar">
+                        {activityLog.length === 0 ? (
+                          <div className="py-10 text-center flex flex-col items-center justify-center text-zinc-400 gap-2">
+                            <div className="w-12 h-12 rounded-full bg-zinc-50 flex items-center justify-center border border-zinc-100 text-zinc-300">
+                              <i className="bi bi-bell text-xl"></i>
+                            </div>
+                            <span className="text-xs font-semibold">ไม่มีกิจกรรมล่าสุดในระบบ</span>
+                          </div>
+                        ) : (
+                          activityLog.slice(0, 8).map((log) => {
+                            const actStyle = getActionStyle(log.action);
+                            const isUnread = new Date(log.timestamp).getTime() > lastReadTime;
+                            const isExpanded = expandedLogId === log.id;
+                            const hasChanges = log.details?.changes && log.details.changes.length > 0;
+                            
+                            return (
+                              <div
+                                key={log.id}
+                                onClick={() => hasChanges && setExpandedLogId(isExpanded ? null : log.id)}
+                                className={`
+                                  group relative p-2.5 rounded-2xl transition-all duration-200 border flex flex-col gap-1.5
+                                  ${isUnread 
+                                    ? 'bg-[#0071e3]/5 border-[#0071e3]/15 hover:bg-[#0071e3]/10 hover:border-[#0071e3]/25 shadow-2xs' 
+                                    : 'bg-white border-zinc-100 hover:bg-zinc-50/70 hover:border-zinc-200/50'
+                                  }
+                                  ${hasChanges ? 'cursor-pointer' : ''}
+                                `}
+                              >
+                                <div className="flex gap-2.5 items-start">
+                                  {/* Action Circular Icon */}
+                                  <div className={`w-8 h-8 rounded-full ${actStyle.bg} flex items-center justify-center shrink-0 text-sm shadow-2xs`}>
+                                    <i className={actStyle.icon}></i>
+                                  </div>
+
+                                  {/* Log details */}
+                                  <div className="space-y-0.5 flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`px-1.5 py-0.25 text-[8px] font-extrabold uppercase tracking-wide rounded-md ${actStyle.badgeBg} border border-current/10`}>
+                                        {actStyle.label}
+                                      </span>
+                                      {hasChanges && (
+                                        <span className="px-1.5 py-0.25 text-[8px] font-extrabold uppercase tracking-wide bg-zinc-100 text-zinc-650 rounded-md border border-zinc-200/60">
+                                          แก้ไข {log.details.changes.length} รายการ
+                                        </span>
+                                      )}
+                                    </div>
+                                    <p className={`text-[11px] font-bold text-zinc-800 leading-snug group-hover:text-black ${isExpanded ? '' : 'line-clamp-2'}`}>
+                                      {log.action}
+                                    </p>
+                                    
+                                    <div className="flex justify-between items-center text-[9px] text-[#555557] font-semibold pt-1">
+                                      <span className="flex items-center gap-1">
+                                        <i className="bi bi-person-circle text-[10px]"></i>
+                                        {log.userName}
+                                      </span>
+                                      <span className="font-mono text-zinc-400">
+                                        {getRelativeTimeThai(log.timestamp)}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Unread indicators */}
+                                  {isUnread && (
+                                    <span className="w-2 h-2 rounded-full bg-[#0071e3] shrink-0 mt-2 shadow-[0_0_6px_#0071e3]"></span>
+                                  )}
+                                </div>
+
+                                {/* Expanded changes view */}
+                                {isExpanded && hasChanges && (
+                                  <div className="mt-1 pl-10 pr-1 pb-1 space-y-1.5 text-[10px] animate-scale-in border-t border-zinc-100/60 pt-2">
+                                    <div className="font-bold text-zinc-400 uppercase tracking-wider text-[8px] mb-1">
+                                      รายละเอียดการเปลี่ยนแปลง:
+                                    </div>
+                                    <div className="space-y-1.5">
+                                      {log.details.changes.map((ch, idx) => (
+                                        <div key={idx} className="flex flex-col gap-0.5 py-1 px-2 bg-zinc-50 rounded-lg border border-zinc-150/50">
+                                          <div className="font-bold text-zinc-700">{ch.field}</div>
+                                          <div className="flex items-center gap-1 text-[9.5px] truncate">
+                                            <span className="text-rose-500 bg-rose-50 px-1 py-0.25 rounded border border-rose-100/50 line-through truncate max-w-[100px]">{ch.before}</span>
+                                            <i className="bi bi-arrow-right text-zinc-400 text-[8px]"></i>
+                                            <span className="text-emerald-600 bg-emerald-50 px-1 py-0.25 rounded border border-emerald-100/50 font-bold truncate max-w-[100px]">{ch.after}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    {(log.details.remark || log.details.editRemark) && (
+                                      <div className="mt-2 p-2 bg-amber-50/60 border border-amber-200/30 rounded-lg text-amber-800 text-[9.5px] font-medium leading-normal break-words">
+                                        <span className="font-bold">หมายเหตุ:</span> {log.details.remark || log.details.editRemark}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })
+                        )}
+                      </div>
+
+                      {/* Footer */}
+                      <div className="border-t border-[#e8e8ed] pt-2.5">
+                        <button
+                          onClick={() => {
+                            setIsNotificationsOpen(false);
+                            handleNavClick('activity-log');
+                          }}
+                          className="w-full py-2 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm active:scale-98"
+                        >
+                          <i className="bi bi-clock-history"></i>
+                          <span>ดูประวัติทั้งหมด</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Desktop User profile dropdown */}
             <div 
               className="relative hidden lg:block" 
@@ -444,16 +685,7 @@ export default function DashboardLayout({
 
                   {currentUser?.role === 'admin' && (
                     <>
-                      <button
-                        onClick={() => handleNavClick('status-settings')}
-                        className={`
-                          w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
-                          ${activeTab === 'status-settings' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
-                        `}
-                      >
-                        <i className="bi bi-box-seam-fill text-sm"></i>
-                        <span>กำหนดสถานะสินค้า</span>
-                      </button>
+
                       <button
                         onClick={() => handleNavClick('activity-log')}
                         className={`
