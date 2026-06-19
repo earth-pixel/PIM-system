@@ -165,6 +165,11 @@ export default function QuotationForm({ quotation, products, existingQuotations,
   const [paymentTerms, setPaymentTerms]     = useState(quotation?.paymentTerms ?? 'ชำระภายใน 30 วัน');
   const [note, setNote] = useState(quotation?.note ?? '');
 
+  const [salespersonName, setSalespersonName] = useState(quotation?.salespersonName ?? currentUser?.name ?? '');
+  const [salespersonPhone, setSalespersonPhone] = useState(quotation?.salespersonPhone ?? '0123456789');
+  const [projectName, setProjectName] = useState(quotation?.projectName ?? '');
+  const [referenceNumber, setReferenceNumber] = useState(quotation?.referenceNumber ?? '');
+
   const [customer, setCustomer] = useState(quotation?.customer ?? {
     name: '', address: '', taxId: '', phone: '', email: '', contactPerson: ''
   });
@@ -240,6 +245,10 @@ export default function QuotationForm({ quotation, products, existingQuotations,
       vatRate: 7,
       vatAmount,
       totalAmount,
+      salespersonName,
+      salespersonPhone,
+      projectName,
+      referenceNumber,
       createdAt: isEdit ? quotation.createdAt : new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       createdBy: currentUser?.username ?? 'admin',
@@ -316,6 +325,26 @@ export default function QuotationForm({ quotation, products, existingQuotations,
                   <select value={paymentTerms} onChange={e => setPaymentTerms(e.target.value)} className="form-input bg-[#f5f5f7] text-zinc-800">
                     {PAYMENT_TERMS.map(t => <option key={t} value={t}>{t}</option>)}
                   </select>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="form-label mb-1 block">ชื่อผู้ขาย</label>
+                    <input type="text" value={salespersonName} onChange={e => setSalespersonName(e.target.value)} className="form-input bg-[#f5f5f7]" />
+                  </div>
+                  <div>
+                    <label className="form-label mb-1 block">เบอร์ติดต่อผู้ขาย</label>
+                    <input type="text" value={salespersonPhone} onChange={e => setSalespersonPhone(e.target.value)} className="form-input bg-[#f5f5f7]" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="form-label mb-1 block">ชื่อโปรเจกต์</label>
+                    <input type="text" value={projectName} onChange={e => setProjectName(e.target.value)} className="form-input bg-[#f5f5f7]" />
+                  </div>
+                  <div>
+                    <label className="form-label mb-1 block">เลขที่อ้างอิง</label>
+                    <input type="text" value={referenceNumber} onChange={e => setReferenceNumber(e.target.value)} className="form-input bg-[#f5f5f7]" />
+                  </div>
                 </div>
               </div>
             </div>
