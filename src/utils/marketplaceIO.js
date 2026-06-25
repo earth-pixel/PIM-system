@@ -1,356 +1,349 @@
 /**
- * Marketplace Import/Export Utility
+ * Marketplace Import/Export Utility — ฉบับแก้ปัญหา "code หาย"
  * Phanvadee Co., Ltd. PIM System
+ *
+ * สิ่งที่แก้:
+ *  1) ทุก exporter เพิ่มคอลัมน์ "รหัสสินค้า (SKU)" เป็นคอลัมน์แรก -> code ติดไปกับไฟล์
+ *  2) ทุก importer เปลี่ยนมาอ่าน "ตามชื่อหัวตาราง" (header-driven) แทนการ
+ *     hardcode เลขคอลัมน์/แถว -> ทนต่อการสลับคอลัมน์ และหาแถวข้อมูลเริ่มต้นเอง
+ *  3) importer อ่าน code จากคอลัมน์ SKU จริง -> ไม่ต้อง fallback เป็นรหัสปลอม
  */
 import ExcelJS from 'exceljs';
 
-// Lazada sheets definition
 const LAZADA_SHEETS = [
   'ผลิตภัณฑ์จัดแต่งทรงผม',
   'ผลิตภัณฑ์เปลี่ยนสีผม',
   'ครีมบำรุงผม',
   'ทรีทเมนต์สำหรับผม',
   'แชมพู',
-  'เซ็ทดูแลเส้นผม'
+  'เซ็ทดูแลเส้นผม',
 ];
 
-// Status markers Lazada writes on row 2 of the full template.
-const LAZADA_META_MARKERS = new Set([
-  'บังคับการกรอกข้อมูล',
-  'ไม่บังคับการกรอกข้อมูล',
-]);
-
-/**
- * Parsers weight string to numeric value in kg
- * @param {string|number} weightStr - e.g. "120g", "1.5 kg", 200
- * @returns {number} weight in kg
- */
+// ---------- helpers (เหมือนเดิม) ----------
 export function parseWeightToKg(weightStr) {
   if (weightStr === undefined || weightStr === null || weightStr === '') return 0;
-  if (typeof weightStr === 'number') {
-    return weightStr; // Assume numbers are already in kg
-  }
-
+  if (typeof weightStr === 'number') return weightStr;
   const cleaned = String(weightStr).toLowerCase().replace(/\s+/g, '');
   const match = cleaned.match(/^([0-9.]+)(g|kg|กิโลกรัม|กรัม)?$/);
   if (!match) return 0;
-
   const value = parseFloat(match[1]);
   const unit = match[2];
   if (isNaN(value)) return 0;
-
-  if (unit === 'g' || unit === 'กรัม') {
-    return value / 1000;
-  }
-  // Otherwise default to kg (if it's kg or if no unit is specified but it looks like kg, e.g. 1.5)
-  // But wait! If value is > 10 and no unit is specified (e.g. "120"), assume grams.
-  if (!unit && value >= 10) {
-    return value / 1000;
-  }
-
+  if (unit === 'g' || unit === 'กรัม') return value / 1000;
+  if (!unit && value >= 10) return value / 1000;
   return value;
 }
-
-/**
- * Formats numeric weight to readable PIM weight string
- * @param {number} value - weight numeric
- * @param {string} sourceUnit - 'kg' or 'g'
- * @returns {string} e.g. "120g" or "1.5kg"
- */
 export function formatWeightStr(value, sourceUnit = 'kg') {
   if (value === undefined || value === null || isNaN(value)) return '';
-  
   let kg = value;
-  if (sourceUnit === 'g') {
-    kg = value / 1000;
-  }
-
-  if (kg < 1) {
-    return Math.round(kg * 1000) + 'g';
-  }
+  if (sourceUnit === 'g') kg = value / 1000;
+  if (kg < 1) return Math.round(kg * 1000) + 'g';
   return kg + 'kg';
 }
-
-/**
- * Returns PIM Category based on Lazada sheet name
- */
 function getPimCategoryFromLazada(sheetName) {
   if (sheetName === 'ผลิตภัณฑ์จัดแต่งทรงผม') return 'Styling';
   if (sheetName === 'ผลิตภัณฑ์เปลี่ยนสีผม') return 'Hair Color';
   if (sheetName === 'ครีมบำรุงผม') return 'Treatment';
-  return sheetName; // fallback/create new category
+  return sheetName;
 }
-
-/**
- * Guess brand from name
- */
 function guessBrandFromName(name) {
   if (!name) return '';
   const firstWord = name.trim().split(/\s+/)[0];
-  // Ignore purely numeric or too short words
-  if (!firstWord || firstWord.length < 2 || /^\d+$/.test(firstWord)) {
-    return '';
-  }
+  if (!firstWord || firstWord.length < 2 || /^\d+$/.test(firstWord)) return '';
   return firstWord;
 }
 
+// ---------- หัวใจของการแก้: ตัวอ่านหัวตารางแบบยืดหยุ่น ----------
 /**
- * Dynamically builds Lazada columns mapping
+ * หา layout ของชีต: หาแถวหัวตารางจาก "ชื่อสินค้า/product_name"
+ * แล้วสร้าง map { ชื่อหัว(ตัวเล็ก) -> เลขคอลัมน์ } จากทุกแถวหัวที่อยู่ก่อนหน้าข้อมูล
+ * รองรับเทมเพลตที่มีแถวหัว 1, 2 หรือ 3 แถว
  */
-function buildLazadaColumnMap(sheet) {
+// เซ็ตคำหัวตารางที่รู้จักทั้งหมด (ใช้ตรวจว่าแถวไหนคือ "แถวหัว")
+const ALL_HEADER_WORDS = new Set();
+function isHeaderValue(v) {
+  return ALL_HEADER_WORDS.has(String(v).trim().toLowerCase());
+}
+function locateLayout(sheet, nameAliases, maxScan = 8) {
+  const colCount = sheet.columnCount || 60;
+  const lname = nameAliases.map((a) => a.toLowerCase());
+  // แถวจะถือเป็น "แถวหัว" ถ้ามีชื่อหัว name หรือมีหัวที่รู้จัก >= 2 คำ
+  // ใช้ "แถวหัวสุดท้าย" เป็นเส้นแบ่ง -> รองรับเทมเพลตหัว 1/2/3 แถว
+  let lastHeaderRow = 0;
+  for (let r = 1; r <= maxScan; r++) {
+    const row = sheet.getRow(r);
+    let hasName = false, knownHits = 0;
+    for (let c = 1; c <= colCount; c++) {
+      const v = row.getCell(c).value;
+      if (v === null || v === undefined || v === '') continue;
+      const k = String(v).trim().toLowerCase();
+      if (lname.includes(k)) hasName = true;
+      if (ALL_HEADER_WORDS.has(k)) knownHits++;
+    }
+    if (hasName || knownHits >= 2) lastHeaderRow = r;
+  }
+  if (!lastHeaderRow) lastHeaderRow = 1;
   const map = {};
-  const row = sheet.getRow(1);
-  if (!row) return map;
-  
-  // Use colCount to iterate
-  const colCount = sheet.columnCount || 50;
-  for (let i = 1; i <= colCount; i++) {
-    const val = row.getCell(i).value;
-    if (val) {
-      map[String(val).trim()] = i;
+  for (let r = 1; r <= lastHeaderRow; r++) {
+    const row = sheet.getRow(r);
+    for (let c = 1; c <= colCount; c++) {
+      const v = row.getCell(c).value;
+      if (v === null || v === undefined || v === '') continue;
+      const k = String(v).trim().toLowerCase();
+      if (!(k in map)) map[k] = c;
     }
   }
-  return map;
+  return { map, dataStart: lastHeaderRow + 1 };
+}
+function colOf(map, aliases) {
+  for (const a of aliases) {
+    const k = a.toLowerCase();
+    if (k in map) return map[k];
+  }
+  return 0;
 }
 
+// alias ของแต่ละฟิลด์ (รวมทั้งหัวภาษาไทย, key อังกฤษ, และ code-row ของ Shopee)
+const ALIAS = {
+  code:  ['รหัสสินค้า (sku)', 'รหัสสินค้า', 'sku', 'seller_sku', 'sellersku', 'ps_sku|0|0', 'ps_sku'],
+  name:  ['ชื่อสินค้า', 'product_name', 'ps_product_name|1|0'],
+  desc:  ['รายละเอียดสินค้า', 'คำอธิบายสินค้า', 'product_description', 'คำอธิบายหลัก', 'ps_product_description|1|0'],
+  price: ['ราคา', 'ราคาขายปลีก (สกุลเงินท้องถิ่น)', 'price', 'ps_price|1|1'],
+  stock: ['คลังสินค้า', 'จำนวน', 'ปริมาณ', 'quantity', 'ps_stock|0|1'],
+  weight:['น้ำหนัก', 'น้ำหนักพัสดุ', 'น้ำหนักพัสดุ(g)', 'น้ำหนัก แพคเกจ (กก)', 'parcel_weight', 'ps_weight|0|1'],
+  image: ['รูปภาพสินค้า1', 'ภาพหลัก', 'main_image'],
+  brand: ['ยี่ห้อ', 'แบรนด์', 'brand'],
+  category: ['หมวดหมู่', 'category'],
+  barcode:  ['บาร์โค้ด', 'บาร์โคด', 'barcode'],
+};
+
+// เติมคำหัวที่รู้จักทั้งหมดลงเซ็ต (ใช้ใน locateLayout / กันอ่านแถวหัวเป็นข้อมูล)
+Object.values(ALIAS).forEach((arr) => arr.forEach((a) => ALL_HEADER_WORDS.add(a.toLowerCase())));
+
+function readRow(sheet, rowIdx, map) {
+  const get = (aliases) => {
+    const c = colOf(map, aliases);
+    if (!c) return '';
+    const v = sheet.getCell(rowIdx, c).value;
+    return v !== null && v !== undefined ? String(v).trim() : '';
+  };
+  return {
+    code: get(ALIAS.code),
+    name: get(ALIAS.name),
+    desc: get(ALIAS.desc),
+    price: get(ALIAS.price),
+    stock: get(ALIAS.stock),
+    weight: get(ALIAS.weight),
+    image: get(ALIAS.image),
+    brand: get(ALIAS.brand),
+    category: get(ALIAS.category),
+    barcode: get(ALIAS.barcode),
+  };
+}
 
 // ==========================================
-// EXPORTS
+// IMPORTS (header-driven, อ่าน code ได้จริง)
 // ==========================================
-
-
-// ==========================================
-// IMPORTS
-// ==========================================
-
-export async function importFromShopeeWorkbook(workbook) {
-  const sheet = workbook.getWorksheet('แบบฟอร์มการลงสินค้า') || workbook.worksheets[0];
-  const importedProducts = [];
-  
-  const totalRows = sheet.rowCount;
-  for (let i = 7; i <= totalRows; i++) {
-    const name = sheet.getCell(i, 2).value;
-    if (!name || !String(name).trim()) continue;
-
-    const desc = sheet.getCell(i, 3).value ? String(sheet.getCell(i, 3).value).trim() : '';
-    const code = sheet.getCell(i, 9).value ? String(sheet.getCell(i, 9).value).trim() : '';
-    const barcode = sheet.getCell(i, 21).value ? String(sheet.getCell(i, 21).value).trim() : '';
-    const priceVal = sheet.getCell(i, 16).value;
-    const stockVal = sheet.getCell(i, 17).value;
-    const imgVal = sheet.getCell(i, 22).value ? String(sheet.getCell(i, 22).value).trim() : '';
-    const weightVal = sheet.getCell(i, 31).value;
-    const lengthVal = sheet.getCell(i, 32).value;
-    const widthVal = sheet.getCell(i, 33).value;
-    const heightVal = sheet.getCell(i, 34).value;
-
-    const retailPrice = priceVal ? Number(priceVal) : 0;
-    const stock = stockVal ? Number(stockVal) : 0;
-    const weightStr = weightVal ? formatWeightStr(Number(weightVal), 'kg') : '';
-
-    const guessedBrand = guessBrandFromName(String(name));
-
-    importedProducts.push({
-      code: code || barcode || `SP-${Date.now()}-${i}`,
-      barcode: barcode || '',
-      name: String(name).trim(),
-      brand: guessedBrand || 'Phanvadee', // Fallback to PIM defaults
-      category: 'ไม่ระบุ',
-      wholesalePrice: Math.round(retailPrice * 0.7), // Estimate wholesale
-      retailPrice,
-      capFee: 0,
-      description: desc,
-      highlights: 'นำเข้าจาก Shopee',
-      howToUse: 'นำเข้าจาก Shopee',
-      image: imgVal || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60',
-      size: 'N/A',
-      weight: weightStr,
-      fdaNumber: '10-1-0000000', // Mock template required fields
-      tisiNumber: 'มอก. 1985-2549',
-      packageLength: lengthVal ? Number(lengthVal) : null,
-      packageWidth: widthVal ? Number(widthVal) : null,
-      packageHeight: heightVal ? Number(heightVal) : null,
-      stock,
-      status: 'Active',
-      _platform: 'shopee'
-    });
-  }
-
-  return importedProducts;
+function buildProduct(r, platform, weightUnit, category) {
+  const retailPrice = r.price ? Number(r.price) || 0 : 0;
+  const stock = r.stock ? Number(r.stock) || 0 : 0;
+  const weightStr = r.weight ? formatWeightStr(Number(r.weight), weightUnit) : '';
+  return {
+    code: r.code || r.barcode || '',  // ถ้าไฟล์มี SKU -> ใช้ของจริง (ไม่สร้างรหัสปลอม)
+    barcode: r.barcode || '',
+    name: r.name,
+    brand: r.brand && r.brand !== 'No Brand' && r.brand !== 'ไม่มีแบรนด์'
+      ? r.brand : (guessBrandFromName(r.name) || 'Phanvadee'),
+    category: category || r.category || 'ไม่ระบุ',
+    wholesalePrice: Math.round(retailPrice * 0.7),
+    retailPrice,
+    capFee: 0,
+    description: r.desc,
+    highlights: '',
+    howToUse: '',
+    image: r.image || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60',
+    size: 'N/A',
+    weight: weightStr,
+    stock,
+    status: 'Active',
+    _platform: platform,
+    _codeMissing: !(r.code || r.barcode),  // ธงไว้ให้ UI เตือนถ้าไฟล์ไม่มี SKU จริง ๆ
+  };
 }
 
 export async function importFromShopee(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(arrayBuffer);
-  return importFromShopeeWorkbook(workbook);
-}
-
-export async function importFromLazadaWorkbook(workbook) {
-  const importedProducts = [];
-
-  for (const sheetName of LAZADA_SHEETS) {
-    const sheet = workbook.getWorksheet(sheetName);
-    if (!sheet) continue;
-
-    const colMap = buildLazadaColumnMap(sheet);
-    const nameCol = colMap['ชื่อสินค้า'];
-    if (!nameCol) continue; // No product name column mapped
-
-    // Detect the first data row: full template (row 5) vs clean export (row 2).
-    const row2Name = String(sheet.getCell(2, nameCol).value ?? '').trim();
-    const dataStartRow = LAZADA_META_MARKERS.has(row2Name) ? 5 : 2;
-
-    const totalRows = sheet.rowCount;
-    for (let i = dataStartRow; i <= totalRows; i++) {
-      const name = sheet.getCell(i, nameCol).value;
-      if (!name || !String(name).trim()) continue;
-
-      // Extra guard: never treat a stray header/marker row as a product.
-      const nameStr = String(name).trim();
-      if (nameStr === 'ชื่อสินค้า' || LAZADA_META_MARKERS.has(nameStr)) continue;
-
-      const readCell = (header) => {
-        const colIdx = colMap[header];
-        if (colIdx) {
-          const val = sheet.getCell(i, colIdx).value;
-          return val !== null && val !== undefined ? String(val).trim() : '';
-        }
-        return '';
-      };
-
-      const code = readCell('SellerSKU');
-      const img = readCell('รูปภาพสินค้า1');
-      const brand = readCell('ยี่ห้อ');
-      const desc = readCell('คำอธิบายหลัก');
-      const fda = readCell('TH_FDA License - หมายเลขใบอนุญาต');
-      const weightVal = readCell('น้ำหนัก แพคเกจ (กก)');
-      const stockVal = readCell('จำนวน');
-      const priceVal = readCell('ราคา');
-      const lengthVal = readCell('ความยาว แพคเกจ (ซม)');
-      const widthVal = readCell('ความกว้าง แพคเกจ (ซม)');
-      const heightVal = readCell('ความสูง แพคเกจ (ซม)');
-
-      const retailPrice = priceVal ? Number(priceVal) : 0;
-      const stock = stockVal ? Number(stockVal) : 0;
-      const weightStr = weightVal ? formatWeightStr(Number(weightVal), 'kg') : '';
-
-      importedProducts.push({
-        code: code || `LZ-${Date.now()}-${i}`,
-        barcode: '',
-        name: nameStr,
-        brand: brand && brand !== 'No Brand' ? brand : 'Phanvadee',
-        category: getPimCategoryFromLazada(sheetName),
-        wholesalePrice: Math.round(retailPrice * 0.7),
-        retailPrice,
-        capFee: 0,
-        description: desc,
-        highlights: 'นำเข้าจาก Lazada',
-        howToUse: 'นำเข้าจาก Lazada',
-        image: img || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60',
-        size: 'N/A',
-        weight: weightStr,
-        fdaNumber: fda || '10-1-0000000',
-        tisiNumber: 'มอก. 1985-2549',
-        packageLength: lengthVal ? Number(lengthVal) : null,
-        packageWidth: widthVal ? Number(widthVal) : null,
-        packageHeight: heightVal ? Number(heightVal) : null,
-        stock,
-        status: 'Active',
-        _platform: 'lazada',
-      });
-    }
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await file.arrayBuffer());
+  const sheet = wb.getWorksheet('แบบฟอร์มการลงสินค้า') || wb.worksheets[0];
+  const { map, dataStart } = locateLayout(sheet, ALIAS.name);
+  const out = [];
+  for (let i = dataStart; i <= sheet.rowCount; i++) {
+    const r = readRow(sheet, i, map);
+    if (!r.name || isHeaderValue(r.name)) continue;
+    out.push(buildProduct(r, 'shopee', 'kg'));
   }
-
-  return importedProducts;
+  return out;
 }
 
 export async function importFromLazada(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(arrayBuffer);
-  return importFromLazadaWorkbook(workbook);
-}
-
-export async function importFromTiktokWorkbook(workbook) {
-  const sheet = workbook.getWorksheet('Template') || workbook.worksheets[0];
-  const importedProducts = [];
-
-  const totalRows = sheet.rowCount;
-  for (let i = 5; i <= totalRows; i++) {
-    const name = sheet.getCell(i, 3).value; // product_name Col C
-    if (!name || !String(name).trim()) continue;
-
-    const catVal = sheet.getCell(i, 1).value ? String(sheet.getCell(i, 1).value).trim() : '';
-    const brandVal = sheet.getCell(i, 2).value ? String(sheet.getCell(i, 2).value).trim() : '';
-    const desc = sheet.getCell(i, 4).value ? String(sheet.getCell(i, 4).value).trim() : '';
-    const img = sheet.getCell(i, 5).value ? String(sheet.getCell(i, 5).value).trim() : '';
-    const weightVal = sheet.getCell(i, 19).value; // parcel_weight Col S
-    const lengthVal = sheet.getCell(i, 20).value;
-    const widthVal = sheet.getCell(i, 21).value;
-    const heightVal = sheet.getCell(i, 22).value;
-    const priceVal = sheet.getCell(i, 24).value; // price Col X
-    const stockVal = sheet.getCell(i, 26).value; // quantity Col Z
-    const code = sheet.getCell(i, 27).value ? String(sheet.getCell(i, 27).value).trim() : ''; // seller_sku Col AA
-
-    const retailPrice = priceVal ? Number(priceVal) : 0;
-    const stock = stockVal ? Number(stockVal) : 0;
-    const weightStr = weightVal ? formatWeightStr(Number(weightVal), 'g') : '';
-
-    const guessedBrand = brandVal && brandVal !== 'ไม่มีแบรนด์' ? brandVal : guessBrandFromName(String(name));
-
-    // Guess a category if Tik Tok category string exists (e.g. "การดูแล/แชมพู (123)" -> "Treatment")
-    let category = 'ไม่ระบุ';
-    if (catVal) {
-      if (catVal.includes('จัดแต่งทรงผม')) category = 'Styling';
-      else if (catVal.includes('เปลี่ยนสีผม') || catVal.includes('ย้อม')) category = 'Hair Color';
-      else if (catVal.includes('บำรุงผม') || catVal.includes('ทรีทเมนต์') || catVal.includes('แชมพู')) category = 'Treatment';
-      else category = catVal; // use raw string which will create category in App.jsx
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await file.arrayBuffer());
+  const out = [];
+  const sheets = wb.worksheets.filter(
+    (s) => LAZADA_SHEETS.includes(s.name) || /Lazada/i.test(s.name)
+  );
+  const targets = sheets.length ? sheets : wb.worksheets;
+  for (const sheet of targets) {
+    const { map, dataStart } = locateLayout(sheet, ALIAS.name);
+    if (!colOf(map, ALIAS.name)) continue;
+    const category = getPimCategoryFromLazada(sheet.name);
+    for (let i = dataStart; i <= sheet.rowCount; i++) {
+      const r = readRow(sheet, i, map);
+      if (!r.name || isHeaderValue(r.name)) continue;
+      out.push(buildProduct(r, 'lazada', 'kg', category));
     }
-
-    importedProducts.push({
-      code: code || `TT-${Date.now()}-${i}`,
-      barcode: '',
-      name: String(name).trim(),
-      brand: guessedBrand || 'Phanvadee',
-      category: category,
-      wholesalePrice: Math.round(retailPrice * 0.7),
-      retailPrice,
-      capFee: 0,
-      description: desc,
-      highlights: 'นำเข้าจาก TikTok Shop',
-      howToUse: 'นำเข้าจาก TikTok Shop',
-      image: img || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60',
-      size: 'N/A',
-      weight: weightStr,
-      fdaNumber: '10-1-0000000',
-      tisiNumber: 'มอก. 1985-2549',
-      packageLength: lengthVal ? Number(lengthVal) : null,
-      packageWidth: widthVal ? Number(widthVal) : null,
-      packageHeight: heightVal ? Number(heightVal) : null,
-      stock,
-      status: 'Active',
-      _platform: 'tiktok'
-    });
   }
-
-  return importedProducts;
+  return out;
 }
 
 export async function importFromTiktok(file) {
-  const arrayBuffer = await file.arrayBuffer();
-  const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(arrayBuffer);
-  return importFromTiktokWorkbook(workbook);
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(await file.arrayBuffer());
+  const sheet = wb.getWorksheet('Template') || wb.getWorksheet('TikTok Export') || wb.worksheets[0];
+  const { map, dataStart } = locateLayout(sheet, ALIAS.name);
+  const out = [];
+  for (let i = dataStart; i <= sheet.rowCount; i++) {
+    const r = readRow(sheet, i, map);
+    if (!r.name || isHeaderValue(r.name)) continue;
+    // TikTok น้ำหนักเป็นกรัม
+    let category = 'ไม่ระบุ';
+    const cat = r.category;
+    if (cat) {
+      if (cat.includes('จัดแต่งทรงผม') || cat === 'Styling') category = 'Styling';
+      else if (cat.includes('เปลี่ยนสีผม') || cat.includes('ย้อม') || cat === 'Hair Color') category = 'Hair Color';
+      else if (cat.includes('บำรุงผม') || cat.includes('ทรีทเมนต์') || cat.includes('แชมพู') || cat === 'Treatment') category = 'Treatment';
+      else category = cat;
+    }
+    out.push(buildProduct(r, 'tiktok', 'g', category));
+  }
+  return out;
 }
 
+// ==========================================
+// EXPORTS (เพิ่มคอลัมน์ "รหัสสินค้า (SKU)")
+// ==========================================
+function buildDesc(p) {
+  let desc = p.description || '';
+  if (p.highlights) desc += `\n\nจุดเด่นสินค้า:\n${p.highlights}`;
+  if (p.howToUse) desc += `\n\nวิธีใช้งาน:\n${p.howToUse}`;
+  return desc;
+}
+
+export async function exportToShopeeCustom(products) {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet('แบบฟอร์มการลงสินค้า');
+  // แถว 1: รหัสฟิลด์ (เพิ่ม ps_sku นำหน้า)
+  sheet.addRow(['ps_sku|0|0', 'ps_product_name|1|0', 'ps_product_description|1|0',
+    'ps_price|1|1', 'ps_stock|0|1', 'ps_weight|0|1', 'ps_length|0|1', 'ps_width|0|1', 'ps_height|0|1']);
+  sheet.addRow([]); // แถว 2 ว่าง
+  // แถว 3: หัวภาษาไทย (เพิ่ม "รหัสสินค้า (SKU)" นำหน้า)
+  sheet.addRow(['รหัสสินค้า (SKU)', 'ชื่อสินค้า', 'รายละเอียดสินค้า', 'ราคา', 'คลังสินค้า',
+    'น้ำหนักพัสดุ', 'ความยาวพัสดุ', 'ความกว้างพัสดุ', 'ความสูงพัสดุ']);
+  products.forEach((p) => {
+    sheet.addRow([
+      p.code || '',
+      p.name,
+      buildDesc(p),
+      Number(p.retailPrice) || 0,
+      Number(p.stock) || 0,
+      parseWeightToKg(p.weight),
+      p.packageLength ? Number(p.packageLength) : '',
+      p.packageWidth ? Number(p.packageWidth) : '',
+      p.packageHeight ? Number(p.packageHeight) : '',
+    ]);
+  });
+  return wb.xlsx.writeBuffer();
+}
+
+export async function exportToLazadaCustom(products) {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet('Lazada Export');
+  sheet.columns = [
+    { header: 'รหัสสินค้า (SKU)', key: 'code', width: 18 },
+    { header: 'ชื่อสินค้า', key: 'name', width: 36 },
+    { header: 'คำอธิบายหลัก', key: 'desc', width: 40 },
+    { header: 'รูปภาพสินค้า1', key: 'image', width: 40 },
+    { header: 'ยี่ห้อ', key: 'brand', width: 18 },
+    { header: 'น้ำหนัก แพคเกจ (กก)', key: 'weight', width: 18 },
+    { header: 'จำนวน', key: 'stock', width: 14 },
+    { header: 'ราคา', key: 'price', width: 14 },
+    { header: 'ความยาว แพคเกจ (ซม)', key: 'length', width: 18 },
+    { header: 'ความกว้าง แพคเกจ (ซม)', key: 'width', width: 18 },
+    { header: 'ความสูง แพคเกจ (ซม)', key: 'height', width: 18 },
+  ];
+  products.forEach((p) => {
+    sheet.addRow({
+      code: p.code || '',
+      name: p.name,
+      desc: buildDesc(p),
+      image: p.image || '',
+      brand: p.brand?.trim() || 'Unbranded',
+      weight: parseWeightToKg(p.weight),
+      stock: Number(p.stock) || 0,
+      price: Number(p.retailPrice) || 0,
+      length: p.packageLength ? Number(p.packageLength) : '',
+      width: p.packageWidth ? Number(p.packageWidth) : '',
+      height: p.packageHeight ? Number(p.packageHeight) : '',
+    });
+  });
+  return wb.xlsx.writeBuffer();
+}
+
+export async function exportToTiktokCustom(products) {
+  const wb = new ExcelJS.Workbook();
+  const sheet = wb.addWorksheet('Template');
+  sheet.columns = [
+    { header: 'seller_sku', key: 'code', width: 18 },
+    { header: 'category', key: 'category', width: 24 },
+    { header: 'product_name', key: 'name', width: 36 },
+    { header: 'product_description', key: 'desc', width: 40 },
+    { header: 'main_image', key: 'image', width: 40 },
+    { header: 'parcel_weight', key: 'weight', width: 16 },
+    { header: 'price', key: 'price', width: 14 },
+    { header: 'quantity', key: 'stock', width: 14 },
+    { header: 'parcel_length', key: 'length', width: 14 },
+    { header: 'parcel_width', key: 'width', width: 14 },
+    { header: 'parcel_height', key: 'height', width: 14 },
+  ];
+  // แถวหัวภาษาไทย (แถว 2) ให้ตรงเทมเพลตจริงของ TikTok
+  sheet.addRow({ code: 'รหัสสินค้า (SKU)', category: 'หมวดหมู่', name: 'ชื่อสินค้า',
+    desc: 'คำอธิบายสินค้า', image: 'ภาพหลัก', weight: 'น้ำหนักพัสดุ(g)', price: 'ราคาขายปลีก (สกุลเงินท้องถิ่น)',
+    stock: 'ปริมาณ', length: 'ความยาวของพัสดุ(cm)', width: 'ความกว้างของพัสดุ(cm)', height: 'ความสูงของพัสดุ(cm)' });
+  products.forEach((p) => {
+    sheet.addRow({
+      code: p.code || '',
+      category: p.category || '',
+      name: p.name,
+      desc: buildDesc(p),
+      image: p.image || '',
+      weight: Math.round(parseWeightToKg(p.weight) * 1000), // กรัม
+      price: Number(p.retailPrice) || 0,
+      stock: Number(p.stock) || 0,
+      length: p.packageLength ? Number(p.packageLength) : '',
+      width: p.packageWidth ? Number(p.packageWidth) : '',
+      height: p.packageHeight ? Number(p.packageHeight) : '',
+    });
+  });
+  return wb.xlsx.writeBuffer();
+}
+
+// ---------- auto-detect platform helper (สำหรับความเข้ากันได้กับ ProductManage) ----------
 export async function autoDetectPlatformAndImport(file) {
   const arrayBuffer = await file.arrayBuffer();
   const workbook = new ExcelJS.Workbook();
   await workbook.xlsx.load(arrayBuffer);
 
-  // Shopee detection:
-  // - A worksheet named "แบบฟอร์มการลงสินค้า"
-  // - OR row 1 has "ps_product_name|1|0" or starts with "ps_"
+  // Shopee detection
   const hasShopeeSheet = workbook.getWorksheet('แบบฟอร์มการลงสินค้า');
   let isShopee = !!hasShopeeSheet;
   if (!isShopee && workbook.worksheets.length > 0) {
@@ -361,13 +354,11 @@ export async function autoDetectPlatformAndImport(file) {
   }
 
   if (isShopee) {
-    const products = await importFromShopeeWorkbook(workbook);
+    const products = await importFromShopee(file);
     return { platform: 'shopee', products };
   }
 
-  // TikTok detection:
-  // - A worksheet named "Template"
-  // - OR row 1 has "product_name" or "product_description" or "parcel_weight"
+  // TikTok detection
   const hasTiktokSheet = workbook.getWorksheet('Template');
   let isTiktok = !!hasTiktokSheet;
   if (!isTiktok && workbook.worksheets.length > 0) {
@@ -379,13 +370,11 @@ export async function autoDetectPlatformAndImport(file) {
   }
 
   if (isTiktok) {
-    const products = await importFromTiktokWorkbook(workbook);
+    const products = await importFromTiktok(file);
     return { platform: 'tiktok', products };
   }
 
-  // Lazada detection:
-  // - Any worksheet name matching Lazada sheets
-  // - OR row 1 has "ชื่อสินค้า" or "ยี่ห้อ" or "รูปภาพสินค้า1"
+  // Lazada detection
   const hasLazadaSheet = workbook.worksheets.some(ws => LAZADA_SHEETS.includes(ws.name));
   let isLazada = hasLazadaSheet;
   if (!isLazada && workbook.worksheets.length > 0) {
@@ -396,273 +385,28 @@ export async function autoDetectPlatformAndImport(file) {
   }
 
   if (isLazada) {
-    const products = await importFromLazadaWorkbook(workbook);
+    const products = await importFromLazada(file);
     return { platform: 'lazada', products };
   }
 
-  // Fallback scan - try to parse using all three builders to see if one succeeds with products
+  // Fallback scan
   for (const plat of ['shopee', 'tiktok', 'lazada']) {
     try {
       let products = [];
       if (plat === 'shopee') {
-        products = await importFromShopeeWorkbook(workbook);
+        products = await importFromShopee(file);
       } else if (plat === 'tiktok') {
-        products = await importFromTiktokWorkbook(workbook);
+        products = await importFromTiktok(file);
       } else {
-        products = await importFromLazadaWorkbook(workbook);
+        products = await importFromLazada(file);
       }
       if (products && products.length > 0) {
         return { platform: plat, products };
       }
     } catch {
-      // ignore and try next
+      // ignore
     }
   }
 
   throw new Error('ไม่สามารถตรวจสอบและระบุแพลตฟอร์มจากโครงสร้างไฟล์นี้ได้ กรุณาอัปโหลดไฟล์เทมเพลตที่ถูกต้อง');
 }
-
-
-export function validateForPlatform(products, platform) {
-  const errors = [];
-  products.forEach(p => {
-    const missing = [];
-    if (platform === 'lazada') {
-      if (!p.name?.trim()) missing.push('ชื่อสินค้า');
-      if (!p.image?.trim()) missing.push('รูปภาพสินค้า1');
-      if (!p.weight) missing.push('น้ำหนัก แพคเกจ (กก)');
-      if (p.stock === undefined || p.stock === null || isNaN(p.stock)) missing.push('จำนวน');
-      if (p.retailPrice === undefined || p.retailPrice === null || isNaN(p.retailPrice)) missing.push('ราคา');
-      if (!p.packageLength) missing.push('ความยาว แพคเกจ (ซม)');
-      if (!p.packageWidth) missing.push('ความกว้าง แพคเกจ (ซม)');
-      if (!p.packageHeight) missing.push('ความสูง แพคเกจ (ซม)');
-    } else if (platform === 'shopee') {
-      if (!p.name?.trim()) missing.push('ชื่อสินค้า');
-      if (!p.description?.trim()) missing.push('รายละเอียดสินค้า');
-      if (p.retailPrice === undefined || p.retailPrice === null || isNaN(p.retailPrice)) missing.push('ราคา');
-      if (p.stock === undefined || p.stock === null || isNaN(p.stock)) missing.push('คลังสินค้า');
-      if (!p.weight) missing.push('น้ำหนักพัสดุ');
-      if (!p.packageLength) missing.push('ความยาวพัสดุ');
-      if (!p.packageWidth) missing.push('ความกว้างพัสดุ');
-      if (!p.packageHeight) missing.push('ความสูงพัสดุ');
-    } else if (platform === 'tiktok') {
-      if (!p.category?.trim() || p.category === 'ไม่ระบุ') missing.push('หมวดหมู่ (category)');
-      if (!p.name?.trim()) missing.push('ชื่อสินค้า (product_name)');
-      if (!p.description?.trim()) missing.push('คำอธิบาย (product_description)');
-      if (!p.image?.trim()) missing.push('รูปภาพหลัก (main_image)');
-      if (!p.weight) missing.push('น้ำหนักพัสดุ (parcel_weight)');
-      if (p.retailPrice === undefined || p.retailPrice === null || isNaN(p.retailPrice)) missing.push('ราคา (price)');
-      if (p.stock === undefined || p.stock === null || isNaN(p.stock)) missing.push('คลังสินค้า (quantity)');
-      if (!p.packageLength) missing.push('ความยาวพัสดุ (parcel_length)');
-      if (!p.packageWidth) missing.push('ความกว้างพัสดุ (parcel_width)');
-      if (!p.packageHeight) missing.push('ความสูงพัสดุ (parcel_height)');
-    }
-
-    if (missing.length > 0) {
-      errors.push({
-        id: p.id,
-        code: p.code,
-        name: p.name,
-        missing
-      });
-    }
-  });
-
-  return errors;
-}
-
-export async function exportToLazadaCustom(products) {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Lazada Export');
-
-  sheet.columns = [
-    { header: 'ชื่อสินค้า', key: 'name', width: 36 },
-    { header: 'รูปภาพสินค้า1', key: 'image', width: 40 },
-    { header: 'ยี่ห้อ', key: 'brand', width: 18 },
-    { header: 'ระดับการจัดทรง / ประเภทเส้นผม / ประโยชน์เพื่อการดูแลเส้นผม', key: 'hairAttr', width: 30 },
-    { header: 'น้ำหนัก แพคเกจ (กก)', key: 'weight', width: 18 },
-    { header: 'จำนวน', key: 'stock', width: 14 },
-    { header: 'ราคา', key: 'price', width: 14 },
-    { header: 'ความยาว แพคเกจ (ซม)', key: 'length', width: 18 },
-    { header: 'ความกว้าง แพคเกจ (ซม)', key: 'width', width: 18 },
-    { header: 'ความสูง แพคเกจ (ซม)', key: 'height', width: 18 },
-  ];
-
-  products.forEach(p => {
-    let hairAttr = 'ทั่วไป';
-    if (p.category === 'Styling') hairAttr = 'จัดแต่งทรงผม';
-    else if (p.category === 'Hair Color') hairAttr = 'เปลี่ยนสีผม';
-    else if (p.category === 'Treatment') hairAttr = 'บำรุงผม';
-
-    sheet.addRow({
-      name: p.name,
-      image: p.image || '',
-      brand: p.brand?.trim() || 'Unbranded',
-      hairAttr,
-      weight: parseWeightToKg(p.weight),
-      stock: Number(p.stock) || 0,
-      price: Number(p.retailPrice) || 0,
-      length: p.packageLength ? Number(p.packageLength) : '',
-      width: p.packageWidth ? Number(p.packageWidth) : '',
-      height: p.packageHeight ? Number(p.packageHeight) : '',
-    });
-  });
-
-  // Apply some simple styles for readability
-  const headerRow = sheet.getRow(1);
-  headerRow.height = 24;
-  headerRow.eachCell((cell) => {
-    cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF101566' } }; // Lazada Blue
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-  });
-
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
-    row.height = 20;
-    row.eachCell((cell) => {
-      cell.font = { name: 'Segoe UI', size: 10 };
-      cell.alignment = { vertical: 'middle' };
-    });
-  });
-
-  return workbook.xlsx.writeBuffer();
-}
-
-export async function exportToShopeeCustom(products) {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('Shopee Export');
-
-  // We write Row 1 as raw codes
-  sheet.addRow([
-    'ps_product_name|1|0',
-    'ps_product_description|1|0',
-    'ps_price|1|1',
-    'ps_stock|0|1',
-    'ps_weight|0|1',
-    'ps_length|0|1',
-    'ps_width|0|1',
-    'ps_height|0|1'
-  ]);
-
-  // Row 2 is empty
-  sheet.addRow([]);
-
-  // Row 3 is Thai headers
-  sheet.addRow([
-    'ชื่อสินค้า',
-    'รายละเอียดสินค้า',
-    'ราคา',
-    'คลังสินค้า',
-    'น้ำหนักพัสดุ',
-    'ความยาวพัสดุ',
-    'ความกว้างพัสดุ',
-    'ความสูงพัสดุ'
-  ]);
-
-  // Rows 4+ is data
-  products.forEach(p => {
-    let desc = p.description || '';
-    if (p.highlights) desc += `\n\nจุดเด่นสินค้า:\n${p.highlights}`;
-    if (p.howToUse) desc += `\n\nวิธีใช้งาน:\n${p.howToUse}`;
-
-    sheet.addRow([
-      p.name,
-      desc,
-      Number(p.retailPrice) || 0,
-      Number(p.stock) || 0,
-      parseWeightToKg(p.weight),
-      p.packageLength ? Number(p.packageLength) : '',
-      p.packageWidth ? Number(p.packageWidth) : '',
-      p.packageHeight ? Number(p.packageHeight) : '',
-    ]);
-  });
-
-  // Apply some simple styles for readability
-  const headerRow1 = sheet.getRow(1);
-  headerRow1.height = 22;
-  headerRow1.eachCell((cell) => {
-    cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF5722' } }; // Shopee Orange
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-  });
-
-  const headerRow3 = sheet.getRow(3);
-  headerRow3.height = 22;
-  headerRow3.eachCell((cell) => {
-    cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFF5722' } };
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-  });
-
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber <= 3) return;
-    row.height = 20;
-    row.eachCell((cell) => {
-      cell.font = { name: 'Segoe UI', size: 10 };
-      cell.alignment = { vertical: 'middle' };
-    });
-  });
-
-  return workbook.xlsx.writeBuffer();
-}
-
-export async function exportToTiktokCustom(products) {
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet('TikTok Export');
-
-  sheet.columns = [
-    { header: 'category', key: 'category', width: 24 },
-    { header: 'product_name', key: 'name', width: 36 },
-    { header: 'product_description', key: 'description', width: 40 },
-    { header: 'main_image', key: 'image', width: 40 },
-    { header: 'parcel_weight', key: 'weight', width: 16 },
-    { header: 'price', key: 'price', width: 14 },
-    { header: 'quantity', key: 'stock', width: 14 },
-    { header: 'parcel_length', key: 'length', width: 14 },
-    { header: 'parcel_width', key: 'width', width: 14 },
-    { header: 'parcel_height', key: 'height', width: 14 },
-  ];
-
-  products.forEach(p => {
-    let desc = p.description || '';
-    if (p.highlights) desc += `\n\nจุดเด่นสินค้า:\n${p.highlights}`;
-    if (p.howToUse) desc += `\n\nวิธีใช้งาน:\n${p.howToUse}`;
-
-    // Weight conversion: kg to grams (multiply by 1000)
-    const weightGrams = Math.round(parseWeightToKg(p.weight) * 1000);
-
-    sheet.addRow({
-      category: p.category || '',
-      name: p.name,
-      description: desc,
-      image: p.image || '',
-      weight: weightGrams,
-      price: Number(p.retailPrice) || 0,
-      stock: Number(p.stock) || 0,
-      length: p.packageLength ? Number(p.packageLength) : '',
-      width: p.packageWidth ? Number(p.packageWidth) : '',
-      height: p.packageHeight ? Number(p.packageHeight) : '',
-    });
-  });
-
-  // Apply some simple styles for readability
-  const headerRow = sheet.getRow(1);
-  headerRow.height = 24;
-  headerRow.eachCell((cell) => {
-    cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
-    cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF000000' } }; // TikTok Black
-    cell.alignment = { vertical: 'middle', horizontal: 'center' };
-  });
-
-  sheet.eachRow((row, rowNumber) => {
-    if (rowNumber === 1) return;
-    row.height = 20;
-    row.eachCell((cell) => {
-      cell.font = { name: 'Segoe UI', size: 10 };
-      cell.alignment = { vertical: 'middle' };
-    });
-  });
-
-  return workbook.xlsx.writeBuffer();
-}
-
