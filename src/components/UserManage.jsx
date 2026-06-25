@@ -92,7 +92,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
       return true;
     }
     if (currentUser.role === 'admin') {
-      return u.role === 'user' || u.role === 'manager';
+      return true;
     }
     if (currentUser.role === 'manager') {
       return u.role === 'user';
@@ -103,7 +103,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   const canDelete = (u) => {
     if (u.username === currentUser.username) return false;
     if (currentUser.role === 'admin') {
-      return u.role === 'user' || u.role === 'manager';
+      return true;
     }
     return false;
   };
@@ -334,7 +334,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className={`form-input ${editingUser ? 'bg-[#f5f5f7] text-zinc-600 cursor-not-allowed border-[#d2d2d7]/65' : ''}`}
+                    className={`form-input ${editingUser ? '!bg-zinc-300 text-zinc-650 cursor-not-allowed border-[#a1a1a6] font-semibold' : ''}`}
                     disabled={!!editingUser}
                     autoFocus={!editingUser}
                   />
@@ -374,7 +374,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       <select
                         value={role}
                         onChange={(e) => setRole(e.target.value)}
-                        className={`form-input text-zinc-950 ${isOnlyAdmin ? 'bg-[#f5f5f7] text-zinc-500 cursor-not-allowed border-[#d2d2d7]/65' : ''}`}
+                        className={`form-input text-zinc-950 ${isOnlyAdmin ? '!bg-zinc-300 text-zinc-655 cursor-not-allowed border-[#a1a1a6] font-semibold' : ''}`}
                         disabled={isOnlyAdmin}
                       >
                         <option value="user">User</option>

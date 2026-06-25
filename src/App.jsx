@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { initializeDB, companyInfo } from './mockData';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { initializeDB, companyInfo, initialProducts, initialBrands, initialCategories } from './mockData';
 import Login from './components/Login';
 import DashboardLayout from './components/DashboardLayout';
 import Dashboard from './components/Dashboard';
@@ -9,8 +9,8 @@ import CategoryManage from './components/CategoryManage';
 import Report from './components/Report';
 import UserManage from './components/UserManage';
 import ActivityLogView from './components/ActivityLogView';
-import StockManage from './components/StockManage';
 import QuotationManage from './components/QuotationManage';
+import PublicQuotationViewer from './components/PublicQuotationViewer';
 
 // Initialize database at module load time to guarantee localStorage is populated
 const freshUsers = initializeDB();
@@ -193,6 +193,121 @@ export default function App() {
     localStorage.setItem('pim_users', JSON.stringify(newUsers));
   };
 
+  const handleImportProducts = (productsArray, platformName) => {
+    let newCount = 0;
+    let overwriteCount = 0;
+    const adjustments = [];
+    const nowStr = new Date().toISOString();
+    
+    let updatedBrands = [...brands];
+    let updatedCategories = [...categories];
+    let updatedProducts = [...products];
+
+    productsArray.forEach((newP, idx) => {
+      if (newP.brand && !updatedBrands.includes(newP.brand)) {
+        updatedBrands.push(newP.brand);
+      }
+      if (newP.category && !updatedCategories.includes(newP.category)) {
+        updatedCategories.push(newP.category);
+      }
+
+      const existingIdx = updatedProducts.findIndex(p => 
+        p.code.toLowerCase() === newP.code.toLowerCase() ||
+        p.name.trim().toLowerCase() === newP.name.trim().toLowerCase()
+      );
+      const currentFormattedDate = new Date().toISOString().slice(0, 16).replace('T', ' ');
+
+      if (existingIdx !== -1) {
+        const existing = updatedProducts[existingIdx];
+        const oldStock = Number(existing.stock) || 0;
+        const incomingStock = Number(newP.stock) || 0;
+        const finalStock = oldStock + incomingStock;
+
+        if (incomingStock > 0) {
+          adjustments.push({
+            id: Date.now() + Math.random(),
+            productId: existing.id,
+            productName: existing.name,
+            productCode: existing.code,
+            type: 'in',
+            qty: incomingStock,
+            stockBefore: oldStock,
+            stockAfter: finalStock,
+            reason: `นำเข้าข้อมูล (${platformName})`,
+            note: `อัปเดตสต็อกเพิ่มเติมจากการนำเข้าไฟล์ Excel`,
+            adjustedBy: currentUser?.name || currentUser?.username || 'ระบบนำเข้า',
+            timestamp: nowStr,
+          });
+        }
+
+        updatedProducts[existingIdx] = {
+          ...existing,
+          ...newP,
+          stock: finalStock,
+          code: existing.code,
+          id: existing.id,
+          createdAt: existing.createdAt || currentFormattedDate,
+          updatedAt: currentFormattedDate,
+          updatedBy: currentUser?.username || 'system'
+        };
+        overwriteCount++;
+      } else {
+        const newProduct = {
+          ...newP,
+          id: (Date.now() + idx).toString(),
+          createdAt: currentFormattedDate,
+          updatedAt: currentFormattedDate,
+          updatedBy: currentUser?.username || 'system'
+        };
+        updatedProducts.push(newProduct);
+        newCount++;
+
+        const newStock = Number(newProduct.stock) || 0;
+        if (newStock > 0) {
+          adjustments.push({
+            id: Date.now() + Math.random(),
+            productId: newProduct.id,
+            productName: newProduct.name,
+            productCode: newProduct.code,
+            type: 'in',
+            qty: newStock,
+            stockBefore: 0,
+            stockAfter: newStock,
+            reason: `นำเข้าข้อมูล (${platformName})`,
+            note: `บันทึกสต็อกแรกเข้าจากการนำเข้าไฟล์ Excel`,
+            adjustedBy: currentUser?.name || currentUser?.username || 'ระบบนำเข้า',
+            timestamp: nowStr,
+          });
+        }
+      }
+    });
+
+    syncProducts(updatedProducts);
+    if (updatedBrands.length !== brands.length) {
+      syncBrands(updatedBrands);
+    }
+    if (updatedCategories.length !== categories.length) {
+      syncCategories(updatedCategories);
+    }
+
+    if (adjustments.length > 0) {
+      let currentHistory = [];
+      try {
+        const saved = localStorage.getItem('pim_stock_history');
+        if (saved) currentHistory = JSON.parse(saved);
+      } catch (e) {
+        console.error("Error parsing history:", e);
+      }
+      const updatedHistory = [...adjustments, ...currentHistory].slice(0, 500);
+      localStorage.setItem('pim_stock_history', JSON.stringify(updatedHistory));
+      
+      // Dispatch custom event to notify ProductManage to reload stockHistory if it's active
+      window.dispatchEvent(new CustomEvent('pim_stock_history_reload'));
+    }
+
+    addActivityLog(`นำเข้าสินค้าจาก ${platformName}: เพิ่มใหม่ ${newCount} รายการ, อัปเดตข้อมูล ${overwriteCount} รายการ`);
+  };
+
   // Activity Log Helper
   const addActivityLog = useCallback((action, details = null) => {
     if (!currentUser) return;
@@ -316,6 +431,20 @@ export default function App() {
     if (target) addActivityLog(`ลบสินค้า: ${target.name} (${target.code})`);
   };
 
+  const handleResetProducts = () => {
+    syncProducts(initialProducts);
+    syncBrands(initialBrands);
+    syncCategories(initialCategories);
+    localStorage.removeItem('pim_stock_history');
+    addActivityLog('คืนค่าข้อมูลสินค้าทั้งหมดเป็นค่าเริ่มต้น (Reset database to default demo data)');
+  };
+
+  const handleClearAllProducts = () => {
+    syncProducts([]);
+    localStorage.removeItem('pim_stock_history');
+    addActivityLog('ลบข้อมูลสินค้าทั้งหมดออกจากระบบ (Clear all products from PIM)');
+  };
+
 
 
   const handleClearLogs = () => {
@@ -436,6 +565,17 @@ export default function App() {
     }
   };
 
+  // Derived unique lists of brands & categories from products database to ensure sync
+  const allBrands = useMemo(() => {
+    const productBrands = products.map(p => p.brand).filter(Boolean);
+    return [...new Set([...brands, ...productBrands])];
+  }, [brands, products]);
+
+  const allCategories = useMemo(() => {
+    const productCategories = products.map(p => p.category).filter(Boolean);
+    return [...new Set([...categories, ...productCategories])];
+  }, [categories, products]);
+
   // Render view screen based on activeTab
   const renderScreen = () => {
     switch (activeTab) {
@@ -443,8 +583,8 @@ export default function App() {
         return (
           <Dashboard
             products={products}
-            brands={brands}
-            categories={categories}
+            brands={allBrands}
+            categories={allCategories}
             setActiveTab={handleTabChange}
             setStockFilter={setStockFilter}
             setEditProduct={handleEditProductRequest}
@@ -459,12 +599,16 @@ export default function App() {
               setActiveTab('manage-products');
             }}
             onSaveProduct={handleSaveProduct}
-            brands={brands}
-            categories={categories}
+            brands={allBrands}
+            categories={allCategories}
             currentUser={currentUser}
             products={products}
             onDeleteProduct={handleDeleteProduct}
             onEditProduct={handleEditProductRequest}
+            onImportProducts={handleImportProducts}
+            onResetProducts={handleResetProducts}
+            onClearAllProducts={handleClearAllProducts}
+            addActivityLog={addActivityLog}
             stockFilter={stockFilter}
             setStockFilter={setStockFilter}
             onAddCategory={handleAddCategory}
@@ -484,7 +628,7 @@ export default function App() {
       case 'brands':
         return (
           <BrandManage
-            brands={brands}
+            brands={allBrands}
             products={products}
             onAddBrand={handleAddBrand}
             onEditBrand={handleEditBrand}
@@ -495,7 +639,7 @@ export default function App() {
       case 'categories':
         return (
           <CategoryManage
-            categories={categories}
+            categories={allCategories}
             products={products}
             onAddCategory={handleAddCategory}
             onEditCategory={handleEditCategory}
@@ -503,29 +647,13 @@ export default function App() {
             currentUser={currentUser}
           />
         );
-      case 'stock-manage':
-        return (
-          <StockManage
-            products={products}
-            onUpdateStock={(productId, newStock, entry) => {
-              const updated = products.map(p =>
-                p.id === productId ? { ...p, stock: newStock } : p
-              );
-              syncProducts(updated);
-              addActivityLog(
-                `ปรับสต็อกสินค้า: ${entry.productName} (${entry.productCode}) ${entry.type === 'in' ? '+' : '-'}${entry.qty} ชิ้น (${entry.reason})`,
-                { type: 'stock_adjust', changes: [{ field: 'สต็อก', before: `${entry.stockBefore} ชิ้น`, after: `${entry.stockAfter} ชิ้น` }] }
-              );
-            }}
-            currentUser={currentUser}
-          />
-        );
+
       case 'reports':
         return (
           <Report
             products={products}
-            brands={brands}
-            categories={categories}
+            brands={allBrands}
+            categories={allCategories}
           />
         );
       case 'users':
@@ -559,6 +687,7 @@ export default function App() {
             currentUser={currentUser}
             onSaveQuotation={handleSaveQuotation}
             onDeleteQuotation={handleDeleteQuotation}
+            addActivityLog={addActivityLog}
           />
         );
 
@@ -566,6 +695,13 @@ export default function App() {
         return <div className="p-8 text-center">หน้านี้อยู่ระหว่างการพัฒนา...</div>;
     }
   };
+
+  // Check if we are in public sharing mode for quotation viewer
+  const urlParams = new URLSearchParams(window.location.search);
+  const shareData = urlParams.get('share');
+  if (shareData) {
+    return <PublicQuotationViewer shareData={shareData} companyInfo={companyInfo} />;
+  }
 
   // Authenticated Screen vs Guest Login
   if (!currentUser) {

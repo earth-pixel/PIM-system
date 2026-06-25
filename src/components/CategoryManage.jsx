@@ -11,6 +11,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
   const [editCategoryName, setEditCategoryName] = useState('');
   const [targetEditCategory, setTargetEditCategory] = useState('');
   const [categoryToDelete, setCategoryToDelete] = useState(null);
+  const [deleteProductCount, setDeleteProductCount] = useState(0);
   const [alertPopup, setAlertPopup] = useState(null);
 
   useEffect(() => {
@@ -64,10 +65,11 @@ export default function CategoryManage({ categories, products, onAddCategory, on
 
   const handleDeleteClick = (catName, productCount) => {
     if (currentUser.role === 'manager' || currentUser.role === 'user') return;
-    if (productCount > 0) {
+    if (productCount > 0 && currentUser.role !== 'admin') {
       alert("ไม่สามารถลบหมวดหมู่ได้ เนื่องจากยังมีสินค้าที่อยู่ในหมวดหมู่นี้อยู่");
       return;
     }
+    setDeleteProductCount(productCount);
     setCategoryToDelete(catName);
   };
 
@@ -130,10 +132,10 @@ export default function CategoryManage({ categories, products, onAddCategory, on
           <table className="w-full text-left border-collapse text-sm">
             <thead>
               <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7]/50 uppercase tracking-wider text-xs">
-                <th className="p-4 w-16">ลำดับ</th>
+                <th className="p-4 text-center w-16">ลำดับ</th>
                 <th className="p-4">หมวดหมู่สินค้า</th>
                 <th className="p-4 text-center">สินค้าที่เปิดใช้งาน</th>
-                <th className="p-4 text-center w-28">การจัดการ</th>
+                {currentUser?.role !== 'user' && <th className="p-4 text-center w-28">การจัดการ</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e8e8ed]">
@@ -149,9 +151,9 @@ export default function CategoryManage({ categories, products, onAddCategory, on
                       </span>
                       <span className="text-xs text-[#555557] ml-1">รายการ</span>
                     </td>
-                    <td className="p-4 text-center">
-                      <div className="flex justify-center gap-1.5">
-                        {currentUser?.role !== 'user' && (
+                    {currentUser?.role !== 'user' && (
+                      <td className="p-4 text-center">
+                        <div className="flex justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleStartEdit(cat)}
@@ -160,24 +162,24 @@ export default function CategoryManage({ categories, products, onAddCategory, on
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                        )}
-                        {currentUser.role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteClick(cat, productCount)}
-                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                              productCount > 0 
-                                ? 'text-zinc-300 cursor-not-allowed' 
-                                : 'text-red-650 hover:bg-red-50'
-                            }`}
-                            title={productCount > 0 ? "ไม่สามารถลบได้เนื่องจากมีสินค้าผูกอยู่" : "ลบหมวดหมู่สินค้า"}
-                            disabled={productCount > 0}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                          {currentUser.role === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClick(cat, productCount)}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                productCount > 0 && currentUser.role !== 'admin'
+                                  ? 'text-zinc-300 cursor-not-allowed' 
+                                  : 'text-red-650 hover:bg-red-50'
+                              }`}
+                              title={productCount > 0 && currentUser.role !== 'admin' ? "ไม่สามารถลบได้เนื่องจากมีสินค้าผูกอยู่" : "ลบหมวดหมู่สินค้า"}
+                              disabled={productCount > 0 && currentUser.role !== 'admin'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -313,7 +315,17 @@ export default function CategoryManage({ categories, products, onAddCategory, on
               <AlertTriangle className="w-6 h-6 text-red-500" />
             </div>
             <div>
-              <h2 className="font-bold text-sm uppercase tracking-wide">ยืนยันลบหมวดหมู่สินค้า?</h2>
+              <h2 className="font-bold text-sm uppercase tracking-wide text-red-650">ยืนยันลบหมวดหมู่สินค้า?</h2>
+              {deleteProductCount > 0 ? (
+                <p className="text-[#555557] text-xs mt-1.5 leading-relaxed bg-red-50/50 p-3 rounded-xl border border-red-100 text-red-700 font-semibold">
+                  ⚠️ หมวดหมู่ <strong>{categoryToDelete}</strong> นี้มีสินค้าในคลังผูกอยู่อย่างน้อย <strong>{deleteProductCount} รายการ</strong><br/>
+                  การยืนยันลบจะย้ายสินค้าเหล่านี้ไปเป็นไม่มีหมวดหมู่ทันที
+                </p>
+              ) : (
+                <p className="text-[#555557] text-xs mt-1.5 leading-relaxed">
+                  คุณกำลังจะดำเนินการลบหมวดหมู่สินค้า <strong>{categoryToDelete}</strong> จากระบบถาวร ซึ่งไม่สามารถกู้คืนกลับมาได้
+                </p>
+              )}
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
               <button

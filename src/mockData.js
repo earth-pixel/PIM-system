@@ -3,12 +3,12 @@
 export const companyInfo = {
   name: 'บริษัท พันธ์วาดี จำกัด',
   nameEn: 'Phanvadee Co., Ltd.',
-  address: '141/63 อาคารชุดสุขุมวิทซิตี้ทาวเวอร์ ถ.สุขุมวิท แขวงสุริยวงศ์ บางรัก กรุงเทพมหานคร 10500',
+  address: '19/9 ซอย ทวีวัฒนา-กาญจนาภิเษก 16 แขวงทวีวัฒนา เขตทวีวัฒนา กรุงเทพมหานคร 10170',
   taxId: '0105560096348',
-  phone: '02-500-0000',
-  mobile: '081-000-0000',
-  email: 'info@phanvadee.com',
-  website: 'www.phanvadee.com',
+  phone: '086-523-1495',
+  mobile: '086-523-1495',
+  email: 'info@phanvadee.co.th',
+  website: 'https://www.phanvadee.co.th',
 };
 
 export const initialQuotations = [];
@@ -87,7 +87,7 @@ export const initialProducts = [
     highlights: 'มอเตอร์ความทนทานสูง ปล่อยประจุลบ 2 ล้านหน่วย ถนอมเส้นผม',
     howToUse: 'เสียบปลั๊ก ปรับระดับความร้อนและแรงลมตามความต้องการ เป่าแห้งหรือจัดแต่งทรงผม',
     image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400&auto=format&fit=crop',
-    size: 'Medium Size',
+    size: '25 cm',
     weight: '650g',
     createdAt: '2026-05-10 08:30',
     updatedAt: '2026-05-20 09:40',

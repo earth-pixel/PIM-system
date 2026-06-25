@@ -246,3 +246,35 @@ export function exportTikTok(products) {
   const timestamp = new Date().toISOString().slice(0, 10);
   downloadWorkbook(wb, `TikTokShop_batch_upload_${timestamp}.xlsx`);
 }
+
+// ─────────────────────────────────────────────
+// 4. GENERAL EXCEL / GOOGLE SHEETS EXPORT
+// ─────────────────────────────────────────────
+export function exportToExcel(products) {
+  const rows = products.map(product => ({
+    'รหัสสินค้า (SKU)': product.code,
+    'รหัสบาร์โค้ด': product.barcode || '',
+    'ชื่อสินค้า': product.name,
+    'แบรนด์': product.brand || '',
+    'หมวดหมู่': product.category || '',
+    'ราคาส่ง (บาท)': product.wholesalePrice || 0,
+    'ราคาปลีก (บาท)': product.retailPrice || 0,
+    'จำนวนสต็อก (ชิ้น)': product.stock || 0,
+    'สถานะ': product.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
+    'รายละเอียด': product.description || '',
+    'ขนาด': product.size || '',
+    'น้ำหนัก': product.weight || '',
+    'หมายเลข อย.': product.fdaNumber || '',
+    'หมายเลข มอก.': product.tisiNumber || '',
+    'วันที่ลงทะเบียน': product.createdAt || ''
+  }));
+
+  const ws = XLSX.utils.json_to_sheet(rows);
+  applyColumnWidths(ws, [15, 15, 35, 15, 15, 15, 15, 15, 12, 50, 12, 12, 18, 18, 18]);
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'สินค้าในคลัง');
+
+  const timestamp = new Date().toISOString().slice(0, 10);
+  downloadWorkbook(wb, `PIM_products_export_${timestamp}.xlsx`);
+}

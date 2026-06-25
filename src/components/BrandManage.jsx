@@ -11,6 +11,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
   const [editBrandName, setEditBrandName] = useState('');
   const [targetEditBrand, setTargetEditBrand] = useState('');
   const [brandToDelete, setBrandToDelete] = useState(null);
+  const [deleteProductCount, setDeleteProductCount] = useState(0);
   const [alertPopup, setAlertPopup] = useState(null);
 
   useEffect(() => {
@@ -64,10 +65,11 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
 
   const handleDeleteClick = (brandName, productCount) => {
     if (currentUser.role === 'manager' || currentUser.role === 'user') return;
-    if (productCount > 0) {
+    if (productCount > 0 && currentUser.role !== 'admin') {
       alert("ไม่สามารถลบแบรนด์ได้ เนื่องจากยังมีสินค้าที่ใช้แบรนด์นี้อยู่");
       return;
     }
+    setDeleteProductCount(productCount);
     setBrandToDelete(brandName);
   };
 
@@ -134,7 +136,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                 <th className="p-4">แบรนด์</th>
                 <th className="p-4 text-center">จำนวนผลิตภัณฑ์ในระบบ</th>
                 <th className="p-4 text-right"></th>
-                <th className="p-4 text-center w-28">การจัดการ</th>
+                {currentUser?.role !== 'user' && <th className="p-4 text-center w-28">การจัดการ</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e8e8ed]">
@@ -152,9 +154,9 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                     </td>
                     <td className="p-4 text-right">
                     </td>
-                    <td className="p-4 text-center">
-                      <div className="flex justify-center gap-1.5">
-                        {currentUser?.role !== 'user' && (
+                    {currentUser?.role !== 'user' && (
+                      <td className="p-4 text-center">
+                        <div className="flex justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleStartEdit(brand)}
@@ -163,24 +165,24 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                           >
                             <Edit className="w-4 h-4" />
                           </button>
-                        )}
-                        {currentUser.role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteClick(brand, productCount)}
-                            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
-                              productCount > 0 
-                                ? 'text-zinc-300 cursor-not-allowed' 
-                                : 'text-red-650 hover:bg-red-50'
-                            }`}
-                            title={productCount > 0 ? "ไม่สามารถลบได้เนื่องจากมีสินค้าผูกอยู่" : "ลบแบรนด์สินค้า"}
-                            disabled={productCount > 0}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
+                          {currentUser.role === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteClick(brand, productCount)}
+                              className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+                                productCount > 0 && currentUser.role !== 'admin'
+                                  ? 'text-zinc-300 cursor-not-allowed' 
+                                  : 'text-red-650 hover:bg-red-50'
+                              }`}
+                              title={productCount > 0 && currentUser.role !== 'admin' ? "ไม่สามารถลบได้เนื่องจากมีสินค้าผูกอยู่" : "ลบแบรนด์สินค้า"}
+                              disabled={productCount > 0 && currentUser.role !== 'admin'}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
                   </tr>
                 );
               })}
@@ -316,10 +318,17 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
               <AlertTriangle className="w-6 h-6 text-red-500" />
             </div>
             <div>
-              <h3 className="font-bold text-sm uppercase tracking-wide">ยืนยันลบแบรนด์สินค้า?</h3>
-              <p className="text-[#555557] text-xs mt-1.5 leading-relaxed">
-                คุณกำลังจะดำเนินการลบแบรนด์สินค้า <strong>{brandToDelete}</strong> จากระบบถาวร ซึ่งไม่สามารถกู้คืนกลับมาได้
-              </p>
+              <h3 className="font-bold text-sm uppercase tracking-wide text-red-650">ยืนยันลบแบรนด์สินค้า?</h3>
+              {deleteProductCount > 0 ? (
+                <p className="text-[#555557] text-xs mt-1.5 leading-relaxed bg-red-50/50 p-3 rounded-xl border border-red-100 text-red-700 font-semibold">
+                  ⚠️ แบรนด์ <strong>{brandToDelete}</strong> นี้มีสินค้าในคลังผูกอยู่อย่างน้อย <strong>{deleteProductCount} รายการ</strong><br/>
+                  การยืนยันลบจะย้ายสินค้าเหล่านี้ไปเป็นแบรนด์ว่าง (ไม่มีแบรนด์) ทันที
+                </p>
+              ) : (
+                <p className="text-[#555557] text-xs mt-1.5 leading-relaxed">
+                  คุณกำลังจะดำเนินการลบแบรนด์สินค้า <strong>{brandToDelete}</strong> จากระบบถาวร ซึ่งไม่สามารถกู้คืนกลับมาได้
+                </p>
+              )}
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
               <button

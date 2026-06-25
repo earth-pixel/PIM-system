@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Printer, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 export default function Report({ products, brands, categories }) {
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+
 
   const filteredProducts = products.filter(product => {
     const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
@@ -13,119 +15,178 @@ export default function Report({ products, brands, categories }) {
     return matchesBrand && matchesCategory && matchesStatus;
   });
 
-  const totalValue = filteredProducts.reduce((acc, p) => acc + ((p.retailPrice || 0) * p.stock), 0);
-  const totalStock = filteredProducts.reduce((acc, p) => acc + p.stock, 0);
+
   const averagePrice = filteredProducts.length > 0 
     ? Math.round(filteredProducts.reduce((acc, p) => acc + (p.retailPrice || 0), 0) / filteredProducts.length) 
     : 0;
 
+
+
   const handlePrint = () => window.print();
 
-  // ── Helper: download CSV ──────────────────────────────────────────
-  const downloadCSV = (rows, filename) => {
-    const csvContent = '\uFEFF' + rows.map(r => r.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const downloadViaRedirect = async (base64Data, filename) => {
+    try {
+      const response = await fetch('/api/store-download', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          data: base64Data,
+          filename: filename
+        })
+      });
+      if (!response.ok) throw new Error('Failed to store download on server');
+      const res = await response.json();
+      if (res.id) {
+        window.location.href = `/api/download?id=${res.id}`;
+        return;
+      }
+    } catch (err) {
+      console.error('Server download failed, falling back to local download:', err);
+    }
+
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
+    
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
+    link.style.position = 'absolute';
+    link.style.top = '-9999px';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+
+    setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+      URL.revokeObjectURL(url);
+    }, 10000);
   };
 
-  const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  // ─────────────────────────────────────────────────────────────
+// ฟังก์ชันดาวน์โหลด Excel
+// ─────────────────────────────────────────────────────────────
+const downloadXLSX = async (headers, rows, filename) => {
+  try {
+    // รวม Header และข้อมูลทั้งหมด
+    const data = [headers, ...rows];
 
-  // ── Export: ข้อมูลคลัง (เดิม) ────────────────────────────────────
-  const handleExportExcel = () => {
-    const headers = [
-      'รหัสสินค้า (SKU)', 'รหัสบาร์โค้ด', 'ชื่อสินค้า', 'แบรนด์', 'หมวดหมู่สินค้า',
-      'ราคาขายส่ง (บาท)', 'ราคาขายปลีก (บาท)', 'ค่าฝา (บาท)', 'ขนาด', 'น้ำหนัก',
-      'หมายเลข อย.', 'หมายเลข มอก.', 'จำนวนสต็อก (ชิ้น)', 'มูลค่ารวมราคาขายปลีก (บาท)',
-      'สถานะ', 'วันที่เพิ่มข้อมูล', 'วันที่แก้ไขข้อมูลล่าสุด'
+    // สร้าง Worksheet
+    const worksheet = XLSX.utils.aoa_to_sheet(data);
+
+    // กำหนดความกว้างคอลัมน์
+    worksheet['!cols'] = [
+      { wch: 20 }, // SKU
+      { wch: 20 }, // Barcode
+      { wch: 40 }, // Product Name
+      { wch: 20 }, // Brand
+      { wch: 20 }, // Category
+      { wch: 18 }, // Wholesale Price
+      { wch: 18 }, // Retail Price
+      { wch: 15 }, // Cap Fee
+      { wch: 15 }, // Size
+      { wch: 15 }, // Weight
+      { wch: 20 }, // FDA
+      { wch: 20 }, // TISI
+      { wch: 15 }, // Status
+      { wch: 25 }, // Created At
+      { wch: 25 }  // Updated At
     ];
-    const rows = filteredProducts.map(p => [
-      q(p.code), q(p.barcode || ''), q(p.name), q(p.brand), q(p.category),
-      p.wholesalePrice || 0, p.retailPrice || 0, p.capFee || 0,
-      q(p.size || ''), q(p.weight || ''), q(p.fdaNumber || ''), q(p.tisiNumber || ''),
-      p.stock, (p.retailPrice || 0) * p.stock,
-      q(p.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'),
-      q(p.createdAt || ''), q(p.updatedAt || '')
-    ]);
-    downloadCSV([headers, ...rows], `PIM_Report_Phanvadee_${new Date().toISOString().slice(0,10)}.csv`);
-  };
 
-  // ── Export: Shopee ────────────────────────────────────────────────
-  const handleExportShopee = () => {
-    const headers = [
-      'ps_category', 'ps_product_name', 'ps_product_description',
-      'ps_price', 'ps_stock', 'ps_sku_short', 'ps_weight', 'ps_item_cover_image'
-    ];
-    const rows = filteredProducts.map(p => [
-      601469,
-      q(p.name),
-      q(p.description || p.desc || ''),
-      p.retailPrice || 0,
-      p.stock,
-      q(p.code),
-      p.weight || 0,
-      q(p.image || '')
-    ]);
-    downloadCSV([headers, ...rows], `Shopee_Upload_${new Date().toISOString().slice(0,10)}.csv`);
-  };
+    // สร้าง Workbook
+    const workbook = XLSX.utils.book_new();
 
-  // ── Export: TikTok Shop ───────────────────────────────────────────
-  const handleExportTikTok = () => {
-    const headers = [
-      'category', 'product_name', 'product_description',
-      'price', 'quantity', 'seller_sku', 'parcel_weight', 'main_image'
-    ];
-    const rows = filteredProducts.map(p => [
-      q('การดูแลและการจัดแต่งทรงผม/แชมพูและครีมนวด'),
-      q(p.name),
-      q(p.description || p.desc || ''),
-      p.retailPrice || 0,
-      p.stock,
-      q(p.code),
-      (p.weight || 0) * 1000,   // kg → g
-      q(p.image || '')
-    ]);
-    downloadCSV([headers, ...rows], `TikTok_Upload_${new Date().toISOString().slice(0,10)}.csv`);
-  };
+    // เพิ่ม Worksheet ลง Workbook
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      'รายงานสินค้า'
+    );
 
-  // ── Export: Lazada ────────────────────────────────────────────────
-  const handleExportLazada = () => {
-    const headers = [
-      'ชื่อสินค้า', 'คำอธิบายหลัก', 'ราคา',
-      'จำนวน', 'SellerSKU', 'น้ำหนัก แพคเกจ (กก)', 'รูปภาพสินค้า1'
-    ];
-    const rows = filteredProducts.map(p => [
-      q(p.name),
-      q(p.description || p.desc || ''),
-      p.retailPrice || 0,
-      p.stock,
-      q(p.code),
-      p.weight || 0,
-      q(p.image || '')
-    ]);
-    downloadCSV([headers, ...rows], `Lazada_Upload_${new Date().toISOString().slice(0,10)}.csv`);
-  };
+    // Generate base64 and export using the server download endpoint
+    const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+    await downloadViaRedirect(base64, filename);
 
-  // ── Dropdown state ────────────────────────────────────────────────
-  const [showPlatformDrop, setShowPlatformDrop] = useState(false);
-  const dropRef = React.useRef(null);
-  React.useEffect(() => {
-    const handler = (e) => { if (dropRef.current && !dropRef.current.contains(e.target)) setShowPlatformDrop(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาดในการ Export Excel:', error);
+    alert('ไม่สามารถดาวน์โหลดรายงานได้');
+  }
+};
 
-  const platformOptions = [
-    { label: 'Shopee', icon: 'bi bi-bag-fill', color: 'text-orange-500', fn: handleExportShopee },
-    { label: 'TikTok Shop', icon: 'bi bi-tiktok', color: 'text-black', fn: handleExportTikTok },
-    { label: 'Lazada', icon: 'bi bi-bag-check-fill', color: 'text-blue-600', fn: handleExportLazada },
+
+// ─────────────────────────────────────────────────────────────
+// Export รายงานสินค้า
+// ─────────────────────────────────────────────────────────────
+const handleExportExcel = async () => {
+
+  const headers = [
+    'รหัสสินค้า (SKU)',
+    'รหัสบาร์โค้ด',
+    'ชื่อสินค้า',
+    'แบรนด์',
+    'หมวดหมู่สินค้า',
+    'ราคาขายส่ง (บาท)',
+    'ราคาขายปลีก (บาท)',
+    'ค่าฝา (บาท)',
+    'ขนาด',
+    'น้ำหนัก',
+    'หมายเลข อย.',
+    'หมายเลข มอก.',
+    'สถานะ',
+    'วันที่เพิ่มข้อมูล',
+    'วันที่แก้ไขข้อมูลล่าสุด'
   ];
+
+  const rows = filteredProducts.map(p => [
+    p.code || '',
+    p.barcode || '',
+    p.name || '',
+    p.brand || '',
+    p.category || '',
+    Number(p.wholesalePrice || 0),
+    Number(p.retailPrice || 0),
+    Number(p.capFee || 0),
+    p.size || '',
+    p.weight || '',
+    p.fdaNumber || '',
+    p.tisiNumber || '',
+    p.status === 'Active'
+      ? 'เปิดใช้งาน'
+      : 'ปิดใช้งาน',
+    p.createdAt
+      ? new Date(p.createdAt).toLocaleString('th-TH')
+      : '',
+    p.updatedAt
+      ? new Date(p.updatedAt).toLocaleString('th-TH')
+      : ''
+  ]);
+
+  // ชื่อไฟล์
+  const filename =
+    `PIM_Report_Phanvadee_${
+      new Date()
+        .toISOString()
+        .split('T')[0]
+    }.xlsx`;
+  // ดาวน์โหลดไฟล์
+  await downloadXLSX(
+    headers,
+    rows,
+    filename
+  );
+};
+
+
+
+
 
   return (
     <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
@@ -136,41 +197,12 @@ export default function Report({ products, brands, categories }) {
         </div>
 
         <div className="flex gap-2 items-center">
-          {/* ── Platform Export Dropdown ── */}
-          <div className="relative" ref={dropRef}>
-            <button
-              onClick={() => setShowPlatformDrop(v => !v)}
-              className="px-4 py-2.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
-            >
-              <i className="bi bi-shop text-sm" />
-              ดาวน์โหลด Excel แพลตฟอร์มอื่นๆ
-              <i className={`bi bi-chevron-down text-[10px] transition-transform duration-200 ${showPlatformDrop ? 'rotate-180' : ''}`} />
-            </button>
-
-            {showPlatformDrop && (
-              <div className="absolute right-0 top-full mt-1.5 w-48 bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xl p-1.5 z-30 animate-scale-in">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider px-3 pt-1 pb-1.5">เลือกแพลตฟอร์ม</p>
-                {platformOptions.map(opt => (
-                  <button
-                    key={opt.label}
-                    onClick={() => { opt.fn(); setShowPlatformDrop(false); }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-semibold text-zinc-700 hover:bg-zinc-50 hover:text-black transition-colors cursor-pointer"
-                  >
-                    <i className={`${opt.icon} text-sm ${opt.color}`} />
-                    {opt.label}
-                    <Download className="w-3 h-3 ml-auto text-zinc-300" />
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
           <button
             onClick={handleExportExcel}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
-            <Download className="w-4.5 h-4.5" />
-            ดาวน์โหลด Excel
+            <Download className="w-4 h-4" />
+            ดาวน์โหลดรายงาน
           </button>
           <button
             onClick={handlePrint}
@@ -224,17 +256,11 @@ export default function Report({ products, brands, categories }) {
       </div>
 
       {/* KPI Display Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 print-grid-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 print-grid-2">
         <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
-          <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">มูลค่าคงคลังรวม (ประเมิน)</p>
-          <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1">{totalValue.toLocaleString()} บาท</h3>
-          <span className="text-xs text-[#555557] mt-0.5 block">อิงจากราคาขายปลีกคูณด้วยสต็อก</span>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
-          <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">จำนวนสินค้าคงคลังรวม</p>
-          <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1">{totalStock.toLocaleString()} ชิ้น</h3>
-          <span className="text-xs text-[#555557] mt-0.5 block">จำนวนหน่วยผลิตภัณฑ์พร้อมขาย</span>
+          <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">จำนวนรายการสินค้าทั้งหมด</p>
+          <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1">{filteredProducts.length.toLocaleString()} รายการ</h3>
+          <span className="text-xs text-[#555557] mt-0.5 block">รายการสินค้าที่ลงทะเบียนในระบบ PIM</span>
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
@@ -246,7 +272,7 @@ export default function Report({ products, brands, categories }) {
 
       {/* Printable Sheet Header */}
       <div className="hidden print-only text-center border-b pb-6 space-y-2">
-        <h2 className="text-xl font-bold text-black uppercase tracking-wider">รายงานสรุปข้อมูลผลิตภัณฑ์และสถานะสต็อกสินค้า</h2>
+        <h2 className="text-xl font-bold text-black uppercase tracking-wider">รายงานสรุปข้อมูลผลิตภัณฑ์</h2>
         <h3 className="text-md font-semibold text-zinc-700">บริษัท พันธ์วาดี จำกัด</h3>
         <p className="text-xs text-zinc-500">
           เงื่อนไขรายงาน: แบรนด์ [{selectedBrand}] / หมวดหมู่ [{selectedCategory}] / สถานะ [{selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}] • วันที่: {new Date().toLocaleString('th-TH')}
@@ -271,8 +297,6 @@ export default function Report({ products, brands, categories }) {
                 <th className="p-4 text-right">ราคาขายส่ง</th>
                 <th className="p-4 text-right">ราคาขายปลีก</th>
                 <th className="p-4 text-right">ค่าฝา</th>
-                <th className="p-4 text-center">คลัง (ชิ้น)</th>
-                <th className="p-4 text-right">มูลค่ารวม (ปลีก)</th>
                 <th className="p-4 text-center">สถานะ</th>
               </tr>
             </thead>
@@ -288,14 +312,6 @@ export default function Report({ products, brands, categories }) {
                   <td className="p-4 text-right font-bold">{(p.retailPrice || 0).toLocaleString()}</td>
                   <td className="p-4 text-right text-zinc-500">{(p.capFee || 0).toLocaleString()}</td>
                   <td className="p-4 text-center">
-                    <span className={p.stock === 0 ? 'text-red-600 font-bold' : ''}>
-                      {p.stock}
-                    </span>
-                  </td>
-                  <td className="p-4 text-right font-bold text-black">
-                    {((p.retailPrice || 0) * p.stock).toLocaleString()}
-                  </td>
-                  <td className="p-4 text-center">
                     <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border whitespace-nowrap inline-block ${
                       p.status === 'Active' 
                         ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
@@ -306,15 +322,6 @@ export default function Report({ products, brands, categories }) {
                   </td>
                 </tr>
               ))}
-              {filteredProducts.length > 0 && (
-                <tr className="bg-[#f5f5f7]/50 font-bold border-t border-[#d2d2d7]">
-                  <td colSpan="8" className="p-4 text-right text-black font-bold uppercase tracking-wider text-xs">สรุปมูลค่าคลังสินค้ารวมสุทธิ:</td>
-                  <td className="p-4 text-center text-black font-bold">{totalStock.toLocaleString()} ชิ้น</td>
-                  <td className="p-4 text-right text-[#0071e3] text-sm font-bold">{(totalValue).toLocaleString()} บาท</td>
-                  <td className="p-4"></td>
-                </tr>
-              )}
-
             </tbody>
           </table>
         </div>
