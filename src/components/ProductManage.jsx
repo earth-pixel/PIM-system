@@ -1684,7 +1684,7 @@ export default function ProductManage({
 
         {viewMode === 'table' ? (
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs table-fixed min-w-[960px]">
+            <table className="w-full text-left border-collapse text-xs table-fixed min-w-full">
               <thead>
                 <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7]/50 uppercase tracking-wider text-[11px]">
                   <th className="px-2 py-2.5 w-12 text-center">ลำดับ</th>
