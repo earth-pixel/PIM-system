@@ -1,13 +1,4 @@
-/**
- * Marketplace Import/Export Utility — ฉบับแก้ปัญหา "code หาย"
- * Phanvadee Co., Ltd. PIM System
- *
- * สิ่งที่แก้:
- *  1) ทุก exporter เพิ่มคอลัมน์ "รหัสสินค้า (SKU)" เป็นคอลัมน์แรก -> code ติดไปกับไฟล์
- *  2) ทุก importer เปลี่ยนมาอ่าน "ตามชื่อหัวตาราง" (header-driven) แทนการ
- *     hardcode เลขคอลัมน์/แถว -> ทนต่อการสลับคอลัมน์ และหาแถวข้อมูลเริ่มต้นเอง
- *  3) importer อ่าน code จากคอลัมน์ SKU จริง -> ไม่ต้อง fallback เป็นรหัสปลอม
- */
+
 import ExcelJS from 'exceljs';
 
 const LAZADA_SHEETS = [
@@ -40,17 +31,60 @@ export function formatWeightStr(value, sourceUnit = 'kg') {
   if (kg < 1) return Math.round(kg * 1000) + 'g';
   return kg + 'kg';
 }
-function getPimCategoryFromLazada(sheetName) {
-  if (sheetName === 'ผลิตภัณฑ์จัดแต่งทรงผม') return 'Styling';
-  if (sheetName === 'ผลิตภัณฑ์เปลี่ยนสีผม') return 'Hair Color';
-  if (sheetName === 'ครีมบำรุงผม') return 'Treatment';
+export function getPimCategoryFromLazada(sheetName) {
+  if (sheetName === 'ผลิตภัณฑ์จัดแต่งทรงผม') return 'Grooming - ผลิตภัณพ์จัดแต่งทรงผมและหนวด';
+  if (sheetName === 'ผลิตภัณฑ์เปลี่ยนสีผม') return 'Chemical - เคมีภัณฑ์';
+  if (sheetName === 'ครีมบำรุงผม') return 'Hair Treatment - ผลิตภัณฑ์บำรุงเส้นผม';
   return sheetName;
 }
-function guessBrandFromName(name) {
+
+export function guessBrandFromName(name) {
   if (!name) return '';
   const firstWord = name.trim().split(/\s+/)[0];
   if (!firstWord || firstWord.length < 2 || /^\d+$/.test(firstWord)) return '';
   return firstWord;
+}
+
+export function guessCategoryFromName(name) {
+  if (!name) return 'ไม่ระบุ';
+  const n = name.toLowerCase();
+  
+  // Grooming / Styling
+  if (n.includes('จัดแต่งทรงผม') || n.includes('styling') || n.includes('เจลจับลอน') || n.includes('แว็กซ์') || n.includes('สเปรย์ฝุ่น') || n.includes('wax') || n.includes('pomade') || n.includes('โพเมด') || n.includes('สเปรย์จัดแต่ง') || n.includes('จัดแต่งทรง') || n.includes('กรูมมิ่ง') || n.includes('grooming') || n.includes('จับลอน')) {
+    return 'Grooming - ผลิตภัณพ์จัดแต่งทรงผมและหนวด';
+  }
+  
+  // Chemical / Hair Color
+  if (n.includes('เปลี่ยนสีผม') || n.includes('ย้อม') || n.includes('hair color') || n.includes('color cream') || n.includes('ครีมเปลี่ยนสีผม') || n.includes('ผงฟอก') || n.includes('ไฮโดรเจน') || n.includes('ย้อมสีผม') || n.includes('ฟอกสีผม') || n.includes('ฟอกผม') || n.includes('เคมีภัณฑ์') || n.includes('chemical') || n.includes('สีกัด') || n.includes('กัดสี')) {
+    return 'Chemical - เคมีภัณฑ์';
+  }
+  
+  // Hair Treatment
+  if (n.includes('บำรุงผม') || n.includes('ทรีทเมนต์') || n.includes('แชมพู') || n.includes('treatment') || n.includes('shampoo') || n.includes('ครีมนวด') || n.includes('เซรั่ม') || n.includes('hair mask') || n.includes('ทรีทเม้นท์') || n.includes('บำรุงเส้นผม') || n.includes('ดูแลเส้นผม') || n.includes('ออยล์') || n.includes('hair oil') || n.includes('ครีมบำรุงผม')) {
+    return 'Hair Treatment - ผลิตภัณฑ์บำรุงเส้นผม';
+  }
+  
+  // Scissors
+  if (n.includes('scissors') || n.includes('กรรไกร') || n.includes('ซอย') || n.includes('กรรไกรตัดซอย')) {
+    return 'Hair Scissors - กรรไกรตัดซอย';
+  }
+
+  // Comb and Brush
+  if (n.includes('comb') || n.includes('brush') || n.includes('หวี') || n.includes('แปรง')) {
+    return 'Comb and Brush - หวีและแปรง';
+  }
+
+  // Apron
+  if (n.includes('apron') || n.includes('ผ้าคลุม') || n.includes('ผ้ากันเปื้อน')) {
+    return 'Apron - ผ้าคลุมและผ้ากันเปื้อน';
+  }
+
+  // Electrical Equipment
+  if (n.includes('clipper') || n.includes('ไดร์') || n.includes('เป่าผม') || n.includes('หนีบผม') || n.includes('เครื่องหนีบ') || n.includes('แบตเตอเลี่ยน') || n.includes('ปัตตาเลี่ยน') || n.includes('dryer') || n.includes('อุปกรณ์ไฟฟ้า')) {
+    return 'Electrical Equipment - อุปกรณ์ไฟฟ้า';
+  }
+
+  return 'ไม่ระบุ';
 }
 
 // ---------- หัวใจของการแก้: ตัวอ่านหัวตารางแบบยืดหยุ่น ----------
@@ -115,6 +149,7 @@ const ALIAS = {
   brand: ['ยี่ห้อ', 'แบรนด์', 'brand'],
   category: ['หมวดหมู่', 'category'],
   barcode:  ['บาร์โค้ด', 'บาร์โคด', 'barcode'],
+  capFee:   ['ค่าฝา', 'หักค่าฝา', 'cap_fee', 'capfee'],
 };
 
 // เติมคำหัวที่รู้จักทั้งหมดลงเซ็ต (ใช้ใน locateLayout / กันอ่านแถวหัวเป็นข้อมูล)
@@ -138,6 +173,7 @@ function readRow(sheet, rowIdx, map) {
     brand: get(ALIAS.brand),
     category: get(ALIAS.category),
     barcode: get(ALIAS.barcode),
+    capFee: get(ALIAS.capFee),
   };
 }
 
@@ -148,16 +184,34 @@ function buildProduct(r, platform, weightUnit, category) {
   const retailPrice = r.price ? Number(r.price) || 0 : 0;
   const stock = r.stock ? Number(r.stock) || 0 : 0;
   const weightStr = r.weight ? formatWeightStr(Number(r.weight), weightUnit) : '';
+
+  const rawCat = category || r.category || '';
+  let resolvedCategory = 'ไม่ระบุ';
+  if (rawCat) {
+    if (rawCat.includes('จัดแต่งทรงผม') || rawCat === 'Styling' || rawCat.includes('Grooming')) {
+      resolvedCategory = 'Grooming - ผลิตภัณพ์จัดแต่งทรงผมและหนวด';
+    } else if (rawCat.includes('เปลี่ยนสีผม') || rawCat.includes('ย้อม') || rawCat === 'Hair Color' || rawCat.includes('Chemical')) {
+      resolvedCategory = 'Chemical - เคมีภัณฑ์';
+    } else if (rawCat.includes('บำรุงผม') || rawCat.includes('ทรีทเมนต์') || rawCat.includes('แชมพู') || rawCat === 'Treatment' || rawCat.includes('Hair Treatment')) {
+      resolvedCategory = 'Hair Treatment - ผลิตภัณฑ์บำรุงเส้นผม';
+    } else {
+      resolvedCategory = rawCat;
+    }
+  }
+  if (resolvedCategory === 'ไม่ระบุ' || resolvedCategory === '') {
+    resolvedCategory = guessCategoryFromName(r.name);
+  }
+
   return {
     code: r.code || r.barcode || '',  // ถ้าไฟล์มี SKU -> ใช้ของจริง (ไม่สร้างรหัสปลอม)
     barcode: r.barcode || '',
     name: r.name,
     brand: r.brand && r.brand !== 'No Brand' && r.brand !== 'ไม่มีแบรนด์'
       ? r.brand : (guessBrandFromName(r.name) || 'Phanvadee'),
-    category: category || r.category || 'ไม่ระบุ',
+    category: resolvedCategory,
     wholesalePrice: Math.round(retailPrice * 0.7),
     retailPrice,
-    capFee: 0,
+    capFee: r.capFee ? Number(r.capFee) || 0 : 0,
     description: r.desc,
     highlights: '',
     howToUse: '',

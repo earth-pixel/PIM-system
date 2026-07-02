@@ -236,8 +236,12 @@ export default function DashboardLayout({
           
           {/* Left: Brand Logo */}
           <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => handleNavClick('dashboard')}>
-            <div className="w-8 h-8 rounded-lg bg-black flex items-center justify-center text-white font-bold text-sm shrink-0">
-              P
+            <div className="w-6 h-7 text-zinc-900 shrink-0">
+              <svg viewBox="0 0 80 90" className="w-full h-full fill-current" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
+                <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
+                <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
+              </svg>
             </div>
             <div className="flex flex-col">
               <span className="font-bold text-sm tracking-tight text-[#1d1d1f] uppercase leading-none">PIM-SYSTEM</span>
@@ -308,6 +312,7 @@ export default function DashboardLayout({
                           <i className="bi bi-clock-history"></i>
                           <span>ประวัติการดำเนินงาน</span>
                         </button>
+
                       </div>
                     </div>
                   )}
@@ -332,6 +337,7 @@ export default function DashboardLayout({
           {/* Right: User Profile & Mobile Toggle */}
           <div className="flex items-center gap-3">
             
+            
             {/* Bell Notification Dropdown (Admin only) */}
             {currentUser.role === 'admin' && (
               <div className="relative" ref={notificationRef}>
@@ -353,8 +359,7 @@ export default function DashboardLayout({
                 >
                   <i className={`bi ${unreadCount > 0 ? 'bi-bell-fill text-[#0071e3]' : 'bi-bell'} text-lg`}></i>
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5.5 h-5.5 bg-gradient-to-tr from-rose-600 to-pink-500 text-white rounded-full text-[9px] font-bold flex items-center justify-center animate-notification-glow border-2 border-white shadow-xs">
-                      {unreadCount}
+                    <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-gradient-to-tr from-rose-600 to-pink-500 rounded-full animate-notification-glow border border-white shadow-xs">
                     </span>
                   )}
                 </button>
@@ -685,7 +690,6 @@ export default function DashboardLayout({
 
                   {currentUser?.role === 'admin' && (
                     <>
-
                       <button
                         onClick={() => handleNavClick('activity-log')}
                         className={`
@@ -733,7 +737,6 @@ export default function DashboardLayout({
                 ))}
               </div>
             </div>
-
             <hr className="border-zinc-200/50 my-1" />
 
             {/* Logout button */}
@@ -763,6 +766,33 @@ export default function DashboardLayout({
         </div>
       </main>
 
+      {/* Apple-Style Minimalist Footer (Hidden on dashboard tab to maintain fixed layout height) */}
+      {activeTab !== 'dashboard' && (
+        <footer className="w-full bg-[#f5f5f7]/50 border-t border-[#d2d2d7]/30 py-4 px-6 lg:px-12 no-print shrink-0 text-[#86868b]">
+          <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] md:text-[11px] font-medium">
+            {/* Left Side: Copyright */}
+            <div className="flex items-center gap-1.5 flex-wrap justify-center md:justify-start">
+              <span className="font-bold text-[#1d1d1f]">© {new Date().getFullYear()} PHANVADEE CO., LTD.</span>
+              <span className="text-[#d2d2d7]">|</span>
+              <span>ALL RIGHTS RESERVED.</span>
+            </div>
+
+            {/* Middle: Secure Connection Indicator */}
+            <div className="flex items-center gap-1.5 bg-[#e8f5e9]/70 text-[#2e7d32] border border-[#a5d6a7]/20 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#4caf50] animate-pulse" />
+              <span>PIM Secure API Connected</span>
+            </div>
+
+            {/* Right Side: Helpdesk */}
+            <div className="flex items-center gap-3 flex-wrap justify-center md:justify-end text-[10px] md:text-[11px]">
+              <span className="font-semibold text-[#1d1d1f]">
+                IT Support: <a href="tel:0865231495" className="text-[#0071e3] hover:underline font-bold">086-523-1495</a>
+              </span>
+            </div>
+          </div>
+        </footer>
+      )}
+
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print animate-fade-in">
@@ -773,9 +803,7 @@ export default function DashboardLayout({
             </div>
             <div>
               <h3 className="font-bold text-sm uppercase tracking-wide">ยืนยันออกจากระบบ?</h3>
-              <p className="text-[#555557] text-xs mt-1.5 leading-relaxed">
-                คุณต้องการออกจากระบบ PIM-SYSTEM หรือไม่?
-              </p>
+
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
               <button

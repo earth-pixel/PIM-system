@@ -15,6 +15,41 @@ import PublicQuotationViewer from './components/PublicQuotationViewer';
 // Initialize database at module load time to guarantee localStorage is populated
 const freshUsers = initializeDB();
 
+// Helper to migrate product brands and ensure updatedAt date is populated
+const migrateProducts = (parsedProducts) => {
+  const baseDate = new Date('2026-06-11T23:59:59');
+  let patched = false;
+  const migrated = parsedProducts.map((p, i) => {
+    let updatedProd = { ...p };
+    
+    // Brand migration
+    if (p.brand === "Barber Brain (บาร์เบอร์ เบรน)") {
+      updatedProd.brand = "Barber Brain";
+      patched = true;
+    } else if (p.brand === "L'Angel (แอลแองเจล)") {
+      updatedProd.brand = "LANGEL แอลแองเจล";
+      patched = true;
+    } else if (p.brand === "VALENTE (วาเลนเต้)") {
+      updatedProd.brand = "VALENTE";
+      patched = true;
+    }
+
+    // Date migration
+    if (!p.updatedAt) {
+      const d = new Date(baseDate);
+      d.setDate(d.getDate() - (i % 30));
+      const yyyy = d.getFullYear();
+      const mm   = String(d.getMonth() + 1).padStart(2, '0');
+      const dd   = String(d.getDate()).padStart(2, '0');
+      updatedProd.updatedAt = `${yyyy}-${mm}-${dd}`;
+      patched = true;
+    }
+    
+    return updatedProd;
+  });
+  return { migrated, patched };
+};
+
 export default function App() {
   // Sessions and Authentication State
   const [currentUser, setCurrentUser] = useState(() => {
@@ -39,7 +74,11 @@ export default function App() {
   const [products, setProducts] = useState(() => {
     try {
       const saved = localStorage.getItem('pim_products');
-      return saved ? JSON.parse(saved) : [];
+      if (!saved) return [];
+      const parsed = JSON.parse(saved);
+      const { migrated, patched } = migrateProducts(parsed);
+      if (patched) localStorage.setItem('pim_products', JSON.stringify(migrated));
+      return migrated;
     } catch {
       return [];
     }
@@ -48,7 +87,15 @@ export default function App() {
   const [brands, setBrands] = useState(() => {
     try {
       const saved = localStorage.getItem('pim_brands');
-      return saved ? JSON.parse(saved) : [];
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        const cleaned = parsed.filter(b => b !== "Barber Brain (บาร์เบอร์ เบรน)" && b !== "L'Angel (แอลแองเจล)" && b !== "VALENTE (วาเลนเต้)");
+        if (cleaned.length !== parsed.length) {
+          localStorage.setItem('pim_brands', JSON.stringify(cleaned));
+        }
+        return cleaned;
+      }
+      return [];
     } catch {
       return [];
     }
@@ -78,12 +125,9 @@ export default function App() {
   // Active view tab state
   const [activeTab, setActiveTab] = useState(() => {
     const saved = localStorage.getItem('pim_active_tab');
-    return saved || 'dashboard';
+    return saved === 'settings' ? 'dashboard' : (saved || 'dashboard');
   });
-
-  // Active stock level filter state (shared between Dashboard and ProductList)
-  const [stockFilter, setStockFilter] = useState('All');
-
+  
   // Product being edited (null for new product)
   const [editProduct, setEditProduct] = useState(null);
 
@@ -97,9 +141,65 @@ export default function App() {
     }
   });
 
+  const saveToServer = async (key, data) => {
+    try {
+      await fetch('/api/db/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, data })
+      });
+    } catch (err) {
+      console.error(`Failed to save ${key} to server:`, err);
+    }
+  };
+
+  // Load database from server on mount
+  useEffect(() => {
+    const loadDB = async () => {
+      try {
+        const res = await fetch('/api/db');
+        if (res.ok) {
+          const db = await res.json();
+          if (db.products && Array.isArray(db.products)) {
+            const { migrated, patched } = migrateProducts(db.products);
+            setProducts(migrated);
+            localStorage.setItem('pim_products', JSON.stringify(migrated));
+            if (patched) {
+              saveToServer('products', migrated);
+            }
+          }
+          if (db.brands && Array.isArray(db.brands)) {
+            setBrands(db.brands);
+            localStorage.setItem('pim_brands', JSON.stringify(db.brands));
+          }
+          if (db.categories && Array.isArray(db.categories)) {
+            setCategories(db.categories);
+            localStorage.setItem('pim_categories', JSON.stringify(db.categories));
+          }
+          if (db.users && Array.isArray(db.users)) {
+            setUsers(db.users);
+            localStorage.setItem('pim_users', JSON.stringify(db.users));
+          }
+          if (db.quotations && Array.isArray(db.quotations)) {
+            setQuotations(db.quotations);
+            localStorage.setItem('pim_quotations', JSON.stringify(db.quotations));
+          }
+          if (db.activityLog && Array.isArray(db.activityLog)) {
+            setActivityLog(db.activityLog);
+            localStorage.setItem('pim_activity_log', JSON.stringify(db.activityLog));
+          }
+        }
+      } catch (err) {
+        console.error("Failed to load database from server:", err);
+      }
+    };
+    loadDB();
+  }, []);
+
   const syncQuotations = (newQuotations) => {
     setQuotations(newQuotations);
     localStorage.setItem('pim_quotations', JSON.stringify(newQuotations));
+    saveToServer('quotations', newQuotations);
   };
 
   const handleSaveQuotation = (data) => {
@@ -128,6 +228,7 @@ export default function App() {
       if (mergedProducts && Array.isArray(mergedProducts)) {
         setProducts(mergedProducts);
         localStorage.setItem('pim_products', JSON.stringify(mergedProducts));
+        saveToServer('products', mergedProducts);
 
         // Log to activity log
         try {
@@ -148,6 +249,7 @@ export default function App() {
             const updatedLogs = [logEntry, ...currentLogs].slice(0, 200);
             localStorage.setItem('pim_activity_log', JSON.stringify(updatedLogs));
             setActivityLog(updatedLogs);
+            saveToServer('activityLog', updatedLogs);
           }
         } catch {
           console.error("Error writing activity log for import");
@@ -165,32 +267,77 @@ export default function App() {
   }, [activeTab]);
 
   // Handle tab transition and reset edit state if switching to creation
-  const handleTabChange = (tab) => {
+  const handleTabChange = useCallback((tab) => {
     if (tab === 'manage-products') {
       setEditProduct(null);
     }
     setActiveTab(tab);
-  };
+  }, []);
+
+  // Handle global arrow key navigation for switching tabs (left/right)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const handleKeyDown = (e) => {
+      // Ignore key events if the user is typing in form controls (inputs, textarea)
+      const activeEl = document.activeElement;
+      if (activeEl) {
+        const tagName = activeEl.tagName.toLowerCase();
+        if (tagName === 'input' || tagName === 'textarea' || activeEl.isContentEditable) {
+          return;
+        }
+      }
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const tabs = ['dashboard', 'manage-products', 'quotations', 'brands', 'categories', 'reports'];
+        if (currentUser.role === 'admin') {
+          tabs.push('users');
+          tabs.push('activity-log');
+        } else if (currentUser.role === 'manager') {
+          tabs.push('users');
+        }
+
+        const currentIndex = tabs.indexOf(activeTab);
+        if (currentIndex === -1) return;
+
+        let nextIndex = currentIndex;
+        if (e.key === 'ArrowRight') {
+          nextIndex = (currentIndex + 1) % tabs.length;
+        } else if (e.key === 'ArrowLeft') {
+          nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+        }
+
+        handleTabChange(tabs[nextIndex]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [currentUser, activeTab, handleTabChange]);
 
   // Sync states to local storage
   const syncProducts = (newProducts) => {
     setProducts(newProducts);
     localStorage.setItem('pim_products', JSON.stringify(newProducts));
+    saveToServer('products', newProducts);
   };
 
   const syncBrands = (newBrands) => {
     setBrands(newBrands);
     localStorage.setItem('pim_brands', JSON.stringify(newBrands));
+    saveToServer('brands', newBrands);
   };
 
   const syncCategories = (newCategories) => {
     setCategories(newCategories);
     localStorage.setItem('pim_categories', JSON.stringify(newCategories));
+    saveToServer('categories', newCategories);
   };
 
   const syncUsers = (newUsers) => {
     setUsers(newUsers);
     localStorage.setItem('pim_users', JSON.stringify(newUsers));
+    saveToServer('users', newUsers);
   };
 
   const handleImportProducts = (productsArray, platformName) => {
@@ -211,10 +358,16 @@ export default function App() {
         updatedCategories.push(newP.category);
       }
 
-      const existingIdx = updatedProducts.findIndex(p => 
-        p.code.toLowerCase() === newP.code.toLowerCase() ||
-        p.name.trim().toLowerCase() === newP.name.trim().toLowerCase()
-      );
+      const existingIdx = updatedProducts.findIndex(p => {
+        const pCode = p.code ? p.code.trim().toLowerCase() : '';
+        const newCode = newP.code ? newP.code.trim().toLowerCase() : '';
+        const pName = p.name ? p.name.trim().toLowerCase() : '';
+        const newName = newP.name ? newP.name.trim().toLowerCase() : '';
+
+        const hasSameCode = pCode !== '' && newCode !== '' && pCode === newCode;
+        const hasSameName = pName !== '' && newName !== '' && pName === newName;
+        return hasSameCode || hasSameName;
+      });
       const currentFormattedDate = new Date().toISOString().slice(0, 16).replace('T', ' ');
 
       if (existingIdx !== -1) {
@@ -240,16 +393,127 @@ export default function App() {
           });
         }
 
-        updatedProducts[existingIdx] = {
-          ...existing,
-          ...newP,
-          stock: finalStock,
-          code: existing.code,
-          id: existing.id,
-          createdAt: existing.createdAt || currentFormattedDate,
-          updatedAt: currentFormattedDate,
-          updatedBy: currentUser?.username || 'system'
+        const mergedProduct = { ...existing };
+
+        // 1. Stock is accumulated
+        mergedProduct.stock = finalStock;
+
+        // 2. Code update logic: if name matched but code is new, update the code!
+        const incomingCode = newP.code ? newP.code.trim() : '';
+        if (incomingCode && incomingCode !== existing.code) {
+          mergedProduct.code = incomingCode;
+        } else {
+          mergedProduct.code = existing.code;
+        }
+        mergedProduct.id = existing.id;
+        
+        // 3. Metadata
+        mergedProduct.createdAt = existing.createdAt || currentFormattedDate;
+        mergedProduct.updatedAt = currentFormattedDate;
+        mergedProduct.updatedBy = currentUser?.username || 'system';
+
+        // Helper to check if a field is empty or placeholder
+        const isFieldEmptyOrPlaceholder = (fieldName, value) => {
+          if (value === undefined || value === null) return true;
+          if (typeof value === 'string') {
+            const trimmed = value.trim();
+            if (trimmed === '') return true;
+            if (fieldName === 'image' && trimmed.includes('images.unsplash.com/photo-1540555700478-4be289fbecef')) {
+              return true;
+            }
+            if (fieldName === 'size' && (trimmed === 'N/A' || trimmed.toLowerCase() === 'na')) {
+              return true;
+            }
+            if (fieldName === 'category' && trimmed === 'ไม่ระบุ') {
+              return true;
+            }
+            if (fieldName === 'brand' && (
+              trimmed === 'Phanvadee' || 
+              trimmed === 'Unbranded' || 
+              trimmed === 'No Brand' || 
+              trimmed === 'ไม่มีแบรนด์'
+            )) {
+              return true;
+            }
+          }
+          if (typeof value === 'number') {
+            return value === 0 || isNaN(value);
+          }
+          return false;
         };
+
+        // 4. Selective merge for other fields to prevent overwriting with blanks or default placeholders
+        const fieldsToMerge = [
+          'name',
+          'barcode',
+          'brand',
+          'category',
+          'wholesalePrice',
+          'retailPrice',
+          'capFee',
+          'description',
+          'highlights',
+          'howToUse',
+          'image',
+          'size',
+          'weight',
+          'fdaNumber',
+          'tisiNumber',
+          'packageLength',
+          'packageWidth',
+          'packageHeight'
+        ];
+
+        fieldsToMerge.forEach(field => {
+          const incomingVal = newP[field];
+          const existingVal = existing[field];
+
+          // Check if incoming value is present (not undefined, null, or empty string)
+          let hasIncoming = incomingVal !== undefined && incomingVal !== null;
+          if (hasIncoming && typeof incomingVal === 'string') {
+            hasIncoming = incomingVal.trim() !== '';
+          }
+          if (hasIncoming && typeof incomingVal === 'number') {
+            hasIncoming = incomingVal > 0;
+          }
+
+          if (hasIncoming) {
+            // Determine if incoming value is a default placeholder
+            let isIncomingPlaceholder = false;
+            if (typeof incomingVal === 'string') {
+              const trimmedIn = incomingVal.trim();
+              if (field === 'image' && trimmedIn.includes('images.unsplash.com/photo-1540555700478-4be289fbecef')) {
+                isIncomingPlaceholder = true;
+              }
+              if (field === 'size' && (trimmedIn === 'N/A' || trimmedIn.toLowerCase() === 'na')) {
+                isIncomingPlaceholder = true;
+              }
+              if (field === 'category' && trimmedIn === 'ไม่ระบุ') {
+                isIncomingPlaceholder = true;
+              }
+              if (field === 'brand' && (
+                trimmedIn === 'Phanvadee' || 
+                trimmedIn === 'Unbranded' || 
+                trimmedIn === 'No Brand' || 
+                trimmedIn === 'ไม่มีแบรนด์'
+              )) {
+                isIncomingPlaceholder = true;
+              }
+            }
+
+            const existingIsEmpty = isFieldEmptyOrPlaceholder(field, existingVal);
+            const existingIsCompletelyEmpty = existingVal === undefined || existingVal === null || (typeof existingVal === 'string' && existingVal.trim() === '') || (typeof existingVal === 'number' && (existingVal === 0 || isNaN(existingVal)));
+
+            // Only overwrite if existing field is empty or is a placeholder, and incoming is either not a placeholder or existing is completely empty
+            if (existingIsEmpty) {
+              if (!isIncomingPlaceholder || existingIsCompletelyEmpty) {
+                mergedProduct[field] = typeof incomingVal === 'string' ? incomingVal.trim() : incomingVal;
+              }
+            }
+          }
+        });
+
+        updatedProducts[existingIdx] = mergedProduct;
         overwriteCount++;
       } else {
         const newProduct = {
@@ -322,9 +586,11 @@ export default function App() {
     setActivityLog(prev => {
       const updated = [entry, ...prev].slice(0, 200); // keep latest 200
       localStorage.setItem('pim_activity_log', JSON.stringify(updated));
+      saveToServer('activityLog', updated);
       return updated;
     });
   }, [currentUser]);
+
 
   // Auth Operations
   const handleLogin = (user) => {
@@ -352,10 +618,18 @@ export default function App() {
   const handleSaveProduct = (productData) => {
     let updated;
     const isEdit = products.some(p => p.id === productData.id);
+    const currentFormattedDate = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const originalProduct = products.find(p => p.id === productData.id);
+
+    const productWithMeta = {
+      ...productData,
+      createdAt: originalProduct?.createdAt || currentFormattedDate,
+      updatedAt: currentFormattedDate,
+      updatedBy: currentUser?.username || 'system'
+    };
 
     if (isEdit) {
-      const originalProduct = products.find(p => p.id === productData.id);
-      updated = products.map(p => p.id === productData.id ? productData : p);
+      updated = products.map(p => p.id === productData.id ? productWithMeta : p);
 
       const changes = [];
       if (originalProduct) {
@@ -405,7 +679,7 @@ export default function App() {
         changes.length > 0 ? { type: 'edit_product', changes, remark: productData.editRemark } : null
       );
     } else {
-      updated = [productData, ...products];
+      updated = [productWithMeta, ...products];
       addActivityLog(`เพิ่มสินค้าใหม่: ${productData.name} (${productData.code})`);
     }
 
@@ -459,6 +733,7 @@ export default function App() {
     const updated = [entry];
     setActivityLog(updated);
     localStorage.setItem('pim_activity_log', JSON.stringify(updated));
+    saveToServer('activityLog', updated);
   };
 
   const handleEditProductRequest = (product) => {
@@ -585,8 +860,8 @@ export default function App() {
             products={products}
             brands={allBrands}
             categories={allCategories}
+            quotations={quotations}
             setActiveTab={handleTabChange}
-            setStockFilter={setStockFilter}
             setEditProduct={handleEditProductRequest}
           />
         );
@@ -609,20 +884,8 @@ export default function App() {
             onResetProducts={handleResetProducts}
             onClearAllProducts={handleClearAllProducts}
             addActivityLog={addActivityLog}
-            stockFilter={stockFilter}
-            setStockFilter={setStockFilter}
             onAddCategory={handleAddCategory}
             onAddBrand={handleAddBrand}
-            onUpdateStock={(productId, newStock, entry) => {
-              const updated = products.map(p =>
-                p.id === productId ? { ...p, stock: newStock } : p
-              );
-              syncProducts(updated);
-              addActivityLog(
-                `ปรับสต็อกสินค้า: ${entry.productName} (${entry.productCode}) ${entry.type === 'in' ? '+' : '-'}${entry.qty} ชิ้น (${entry.reason})`,
-                { type: 'stock_adjust', changes: [{ field: 'สต็อก', before: `${entry.stockBefore} ชิ้น`, after: `${entry.stockAfter} ชิ้น` }] }
-              );
-            }}
           />
         );
       case 'brands':
@@ -654,6 +917,7 @@ export default function App() {
             products={products}
             brands={allBrands}
             categories={allCategories}
+            addActivityLog={addActivityLog}
           />
         );
       case 'users':
@@ -691,17 +955,21 @@ export default function App() {
           />
         );
 
+
+
       default:
         return <div className="p-8 text-center">หน้านี้อยู่ระหว่างการพัฒนา...</div>;
     }
   };
 
-  // Check if we are in public sharing mode for quotation viewer
+  // Check if we are in public sharing mode for quotation viewer or catalog
   const urlParams = new URLSearchParams(window.location.search);
   const shareData = urlParams.get('share');
   if (shareData) {
     return <PublicQuotationViewer shareData={shareData} companyInfo={companyInfo} />;
   }
+
+
 
   // Authenticated Screen vs Guest Login
   if (!currentUser) {

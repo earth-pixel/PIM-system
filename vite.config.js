@@ -1,8 +1,64 @@
+/* global process */
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { Buffer } from 'buffer'
 import ExcelJS from 'exceljs'
+import https from 'https'
+import fs from 'fs'
+import path from 'path'
+
+// 1. Safety Helpers
+function isSafeGoogleUrl(targetUrl) {
+  try {
+    const parsed = new URL(targetUrl);
+    const hostname = parsed.hostname.toLowerCase();
+    // Allow only google.com and googleusercontent.com subdomains
+    return hostname === 'google.com' || hostname.endsWith('.google.com') || hostname === 'googleusercontent.com' || hostname.endsWith('.googleusercontent.com');
+  } catch {
+    return false;
+  }
+}
+
+// 2. Custom lightweight rate limiter middleware for Vite Dev Server (no external dependencies)
+const rateLimiter = (limitWindowMs, maxRequests) => {
+  const requestTracker = new Map();
+  
+  // Auto cleanup IP logs every 5 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, timestamps] of requestTracker.entries()) {
+      const fresh = timestamps.filter(time => now - time < limitWindowMs);
+      if (fresh.length === 0) {
+        requestTracker.delete(ip);
+      } else {
+        requestTracker.set(ip, fresh);
+      }
+    }
+  }, 300000);
+
+  return (req, res, onLimitExceeded) => {
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    
+    if (!requestTracker.has(clientIp)) {
+      requestTracker.set(clientIp, []);
+    }
+    
+    const timestamps = requestTracker.get(clientIp).filter(time => now - time < limitWindowMs);
+    timestamps.push(now);
+    requestTracker.set(clientIp, timestamps);
+    
+    if (timestamps.length > maxRequests) {
+      onLimitExceeded();
+      return false;
+    }
+    return true;
+  };
+};
+
+const uploadLimiter = rateLimiter(60000, 10);
+const generalLimiter = rateLimiter(60000, 30);
 
 export default defineConfig({
   plugins: [
@@ -16,13 +72,109 @@ export default defineConfig({
           server.middlewares.use(async (req, res, next) => {
             const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
             
-            if (parsedUrl.pathname === '/api/store-download' && req.method === 'POST') {
+            // 1. GET /api/db (Read JSON Database from server)
+            if (parsedUrl.pathname === '/api/db' && req.method === 'GET') {
               try {
+                const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
+                if (!fs.existsSync(dbPath)) {
+                  res.statusCode = 404;
+                  res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                  res.end(JSON.stringify({ error: 'Database not initialized' }));
+                  return;
+                }
+                const data = fs.readFileSync(dbPath, 'utf8');
+                res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                res.end(data);
+              } catch (err) {
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                res.end(JSON.stringify({ error: err.message }));
+              }
+              return;
+            }
+
+            // 2. POST /api/db/save (Update/Save array to JSON Database key)
+            if (parsedUrl.pathname === '/api/db/save' && req.method === 'POST') {
+              try {
+                const ipAllowed = uploadLimiter(req, res, () => {
+                  res.statusCode = 429;
+                  res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                  res.end(JSON.stringify({ error: 'Too many requests, please slow down.' }));
+                });
+                if (!ipAllowed) return;
+
                 let body = '';
                 req.on('data', chunk => {
                   body += chunk.toString();
                 });
                 req.on('end', () => {
+                  try {
+                    const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
+                    const { key, data } = JSON.parse(body);
+                    const allowedKeys = ['products', 'brands', 'categories', 'users', 'quotations', 'activityLog'];
+                    
+                    if (!allowedKeys.includes(key)) {
+                      res.statusCode = 400;
+                      res.end('Invalid database key');
+                      return;
+                    }
+                    if (!Array.isArray(data)) {
+                      res.statusCode = 400;
+                      res.end('Data must be an array');
+                      return;
+                    }
+
+                    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+                    if (fs.existsSync(dbPath)) {
+                      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+                    }
+                    db[key] = data;
+
+                    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
+                    res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                    res.end(JSON.stringify({ success: true }));
+                  } catch (e) {
+                    res.statusCode = 500;
+                    res.end('Error parsing/writing DB: ' + e.message);
+                  }
+                });
+              } catch (err) {
+                res.statusCode = 500;
+                res.end('Error: ' + err.message);
+              }
+              return;
+            }
+
+            if (parsedUrl.pathname === '/api/store-download' && req.method === 'POST') {
+              try {
+                // Rate Limiting
+                const ipAllowed = uploadLimiter(req, res, () => {
+                  res.statusCode = 429;
+                  res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                  res.end(JSON.stringify({ error: 'Too many requests, please slow down.' }));
+                });
+                if (!ipAllowed) return;
+
+                // Cache Limit
+                if (downloadCache.size >= 50) {
+                  res.statusCode = 503;
+                  res.end('Server cache full, please try again later');
+                  return;
+                }
+
+                let body = '';
+                let oversized = false;
+                req.on('data', chunk => {
+                  body += chunk.toString();
+                  if (body.length > 20 * 1024 * 1024) {
+                    oversized = true;
+                    res.statusCode = 400;
+                    res.end('Payload too large (Max 20MB characters)');
+                    req.destroy();
+                  }
+                });
+                req.on('end', () => {
+                  if (oversized) return;
                   let data;
                   let filename;
                   try {
@@ -62,11 +214,27 @@ export default defineConfig({
                 res.end('Error: ' + err.message);
               }
             } else if (parsedUrl.pathname === '/api/download-direct' && req.method === 'POST') {
-              // Direct POST → file response (used by hidden iframe form submit)
-              // This avoids the UUID filename bug from blob URLs in Chrome/Edge on Windows
+              // Rate Limiting
+              const ipAllowed = uploadLimiter(req, res, () => {
+                res.statusCode = 429;
+                res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                res.end(JSON.stringify({ error: 'Too many requests, please slow down.' }));
+              });
+              if (!ipAllowed) return;
+
               let body = '';
-              req.on('data', chunk => { body += chunk.toString(); });
+              let oversized = false;
+              req.on('data', chunk => { 
+                body += chunk.toString(); 
+                if (body.length > 20 * 1024 * 1024) {
+                  oversized = true;
+                  res.statusCode = 400;
+                  res.end('Payload too large (Max 20MB characters)');
+                  req.destroy();
+                }
+              });
               req.on('end', () => {
+                if (oversized) return;
                 try {
                   const params = new URLSearchParams(body);
                   const data = params.get('data');
@@ -82,7 +250,6 @@ export default defineConfig({
                   let contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
                   if (filename.endsWith('.csv')) contentType = 'text/csv;charset=utf-8';
 
-                  // Use RFC 5987 encoding for filename (works on all modern browsers)
                   const encodedFilename = encodeURIComponent(filename).replace(/'/g, '%27');
                   res.setHeader('Content-Type', contentType);
                   res.setHeader(
@@ -98,6 +265,13 @@ export default defineConfig({
               });
 
             } else if (parsedUrl.pathname.startsWith('/api/download') && req.method === 'GET') {
+              // Rate Limiting
+              const ipAllowed = generalLimiter(req, res, () => {
+                res.statusCode = 429;
+                res.end('Too many requests');
+              });
+              if (!ipAllowed) return;
+
               try {
                 const id = parsedUrl.searchParams.get('id');
                 const cached = downloadCache.get(id);
@@ -129,6 +303,78 @@ export default defineConfig({
                 res.statusCode = 500;
                 res.end('Error: ' + err.message);
               }
+            } else if (parsedUrl.pathname === '/api/fetch-google-sheet' && req.method === 'GET') {
+              // Rate Limiting
+              const ipAllowed = generalLimiter(req, res, () => {
+                res.statusCode = 429;
+                res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                res.end(JSON.stringify({ error: 'Too many requests, please slow down.' }));
+              });
+              if (!ipAllowed) return;
+
+              try {
+                const sheetUrl = parsedUrl.searchParams.get('url');
+                if (!sheetUrl) {
+                  res.statusCode = 400;
+                  res.end(JSON.stringify({ error: 'Missing url parameter' }));
+                  return;
+                }
+
+                // SSRF Protection: validate query URL
+                if (!isSafeGoogleUrl(sheetUrl)) {
+                  res.statusCode = 400;
+                  res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                  res.end(JSON.stringify({ error: 'การดึงข้อมูลจำกัดเฉพาะลิงก์ Google Sheets เท่านั้นเพื่อความปลอดภัย' }));
+                  return;
+                }
+
+                const match = sheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+                if (!match) {
+                  res.statusCode = 400;
+                  res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                  res.end(JSON.stringify({ error: 'ลิงก์ Google Sheets ไม่ถูกต้อง (ไม่พบ Spreadsheet ID)' }));
+                  return;
+                }
+                const spreadsheetId = match[1];
+                const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
+
+                const buffer = await new Promise((resolve, reject) => {
+                  const request = (targetUrl) => {
+                    // SSRF Protection: validate redirect targets
+                    if (!isSafeGoogleUrl(targetUrl)) {
+                      reject(new Error(`SSRF Blocked redirect to unsafe domain: ${targetUrl}`));
+                      return;
+                    }
+
+                    https.get(targetUrl, (response) => {
+                      if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+                        const redirectUrl = response.headers.location;
+                        if (!isSafeGoogleUrl(redirectUrl)) {
+                          reject(new Error(`SSRF Blocked redirect to unsafe domain: ${redirectUrl}`));
+                          return;
+                        }
+                        request(redirectUrl);
+                      } else if (response.statusCode === 200) {
+                        const chunks = [];
+                        response.on('data', (chunk) => chunks.push(chunk));
+                        response.on('end', () => resolve(Buffer.concat(chunks)));
+                      } else {
+                        reject(new Error(`HTTP ${response.statusCode}`));
+                      }
+                    }).on('error', reject);
+                  };
+                  request(exportUrl);
+                });
+
+                res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                res.setHeader('Content-Length', buffer.length);
+                res.end(buffer);
+              } catch (err) {
+                console.error('Fetch Google Sheet Error:', err);
+                res.statusCode = 500;
+                res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                res.end(JSON.stringify({ error: 'ไม่สามารถดึงข้อมูลจาก Google Sheets ได้', message: err.message }));
+              }
             } else if (parsedUrl.pathname === '/api/products/export' && req.method === 'GET') {
               try {
                 const platform = parsedUrl.searchParams.get('platform');
@@ -147,84 +393,38 @@ export default defineConfig({
                   return;
                 }
 
-                // Mock products source database
-                const mockProducts = [
-                  {
-                    id: '1',
-                    name: 'Barber Brain Pomade Gold',
-                    brand: 'Barber Brain',
-                    category: 'Styling',
-                    price: 290,
-                    stock: 45,
-                    weight_kg: 0.12,
-                    image: 'https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?q=80&w=400&auto=format&fit=crop',
-                    description: 'โพเมดสูตรน้ำ พลังจัดทรงสูง ล้างออกง่าย ไม่เหนียวเหนอะหนะ จัดแต่งทรงผมวินเทจได้ยาวนานตลอดวัน',
-                    packageLength: 10,
-                    packageWidth: 10,
-                    packageHeight: 5
-                  },
-                  {
-                    id: '2',
-                    name: "L'Angel Luxury Hair Color Cream 8.1",
-                    brand: "L'Angel",
-                    category: 'Hair Color',
-                    price: 180,
-                    stock: 120,
-                    weight_kg: 0.15,
-                    image: 'https://images.unsplash.com/photo-1595853035070-59a39fe84de3?q=80&w=400&auto=format&fit=crop',
-                    description: 'ครีมเปลี่ยนสีผมสีบลอนด์อ่อนประกายหม่น เม็ดสีแน่น ติดทนนาน บำรุงล้ำลึกด้วยเคราตินเข้มข้น ปลอดภัยต่อหนังศีรษะ',
-                    packageLength: 15,
-                    packageWidth: 5,
-                    packageHeight: 5
-                  },
-                  {
-                    id: '3',
-                    name: 'Valente Professional Hair Dryer Ionic-2000',
-                    brand: 'Valente',
-                    category: 'Salon Equipment',
-                    price: 1450,
-                    stock: 18,
-                    weight_kg: 0.65,
-                    image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400&auto=format&fit=crop',
-                    description: 'ไดร์เป่าผมระดับมืออาชีพ พลังลมแรง 2000W ปล่อยประจุไอออนลบเพื่อช่วยถนอมเส้นผม ลดการชี้ฟูและไฟฟ้าสถิต ปรับความแรงได้ 3 ระดับ',
-                    packageLength: 25,
-                    packageWidth: 20,
-                    packageHeight: 10
-                  },
-                  {
-                    id: '4',
-                    name: 'Barber Brain Matte Clay',
-                    brand: '',
-                    category: 'Styling',
-                    price: 320,
-                    stock: 32,
-                    weight_kg: 0.09,
-                    image: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=400&auto=format&fit=crop',
-                    description: 'แว็กซ์ดินน้ำมันเนื้อแมทท์ ให้ลุคเป็นธรรมชาติ ไม่เงา พลังอยู่ทรงสูง เหมาะสำหรับผมสั้นหรือการเซ็ตทรงที่ต้องการเทกเจอร์เด่นชัด',
-                    packageLength: 8,
-                    packageWidth: 8,
-                    packageHeight: 4
-                  },
-                  {
-                    id: '5',
-                    name: "L'Angel Hair Treatment Keratin Mask",
-                    brand: "L'Angel",
-                    category: 'Treatment',
-                    price: 350,
-                    stock: 0,
-                    weight_kg: 0.3,
-                    image: 'https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?q=80&w=400&auto=format&fit=crop',
-                    description: 'ทรีทเมนท์มาส์กสูตรเคราตินเข้มข้นพิเศษ ฟื้นบำรุงผมเสียจากการทำเคมี ทำสี และความร้อน ช่วยให้เส้นผมกลับมานุ่มสลวย มีน้ำหนัก',
-                    packageLength: 12,
-                    packageWidth: 12,
-                    packageHeight: 12
-                  }
-                ];
+                // Load products from JSON Database
+                const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
+                let db = { products: [] };
+                if (fs.existsSync(dbPath)) {
+                  db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+                }
+                const dbProducts = db.products || [];
 
-                let productsToExport = mockProducts;
+                const parseWeightToKg = (weightStr) => {
+                  if (weightStr === undefined || weightStr === null || weightStr === '') return 0;
+                  if (typeof weightStr === 'number') return weightStr;
+                  const cleaned = String(weightStr).toLowerCase().replace(/\s+/g, '');
+                  const match = cleaned.match(/^([0-9.]+)(g|kg|กิโลกรัม|กรัม)?$/);
+                  if (!match) return 0;
+                  const value = parseFloat(match[1]);
+                  const unit = match[2];
+                  if (isNaN(value)) return 0;
+                  if (unit === 'g' || unit === 'กรัม') return value / 1000;
+                  if (!unit && value >= 10) return value / 1000;
+                  return value;
+                };
+
+                const mappedProducts = dbProducts.map(p => ({
+                  ...p,
+                  price: p.retailPrice || 0,
+                  weight_kg: parseWeightToKg(p.weight) || 0
+                }));
+
+                let productsToExport = mappedProducts;
                 if (ids) {
                   const idArray = ids.split(',').map(id => id.trim());
-                  productsToExport = mockProducts.filter(p => idArray.includes(p.id));
+                  productsToExport = mappedProducts.filter(p => idArray.includes(p.id));
                 }
 
                 const workbook = new ExcelJS.Workbook();
@@ -261,13 +461,13 @@ export default defineConfig({
                       sheet.addRow([
                         p.name,
                         p.description || '',
-                        p.price,
-                        p.stock,
-                        p.weight_kg,
-                        p.packageLength || '',
-                        p.packageWidth || '',
-                        p.packageHeight || '',
-                        categoryMapping[p.category] || 100
+                        p.price || 0,
+                        p.stock || 0,
+                        p.weight_kg || 0,
+                        p.packageLength || 0,
+                        p.packageWidth || 0,
+                        p.packageHeight || 0,
+                        categoryMapping[p.category] || 0
                       ]);
                     });
                     break;
@@ -291,12 +491,12 @@ export default defineConfig({
                       sheet.addRow([
                         p.name,
                         p.description || '',
-                        p.price,
-                        p.stock,
-                        Math.round((p.weight_kg || 0) * 1000), // grams
-                        p.packageLength || '',
-                        p.packageWidth || '',
-                        p.packageHeight || '',
+                        p.price || 0,
+                        p.stock || 0,
+                        Math.round((p.weight_kg || 0) * 1000) || 0, // grams
+                        p.packageLength || 0,
+                        p.packageWidth || 0,
+                        p.packageHeight || 0,
                         p.image || ''
                       ]);
                     });
@@ -333,12 +533,12 @@ export default defineConfig({
                           p.image || '',
                           p.brand && p.brand.trim() ? p.brand : 'No Brand',
                           p.description || '',
-                          p.weight_kg,
-                          p.stock,
-                          p.price,
-                          p.packageLength || '',
-                          p.packageWidth || '',
-                          p.packageHeight || ''
+                          p.weight_kg || 0,
+                          p.stock || 0,
+                          p.price || 0,
+                          p.packageLength || 0,
+                          p.packageWidth || 0,
+                          p.packageHeight || 0
                         ]);
                       });
                     });

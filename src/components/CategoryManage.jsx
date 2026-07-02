@@ -26,7 +26,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
   }, [isModalOpen, isEditModalOpen, categoryToDelete, alertPopup]);
 
   const handleStartEdit = (catName) => {
-    if (currentUser?.role === 'user') return;
+    if (currentUser?.role !== 'admin') return;
     setTargetEditCategory(catName);
     setEditCategoryName(catName);
     setErrorMsg('');
@@ -64,7 +64,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
   };
 
   const handleDeleteClick = (catName, productCount) => {
-    if (currentUser.role === 'manager' || currentUser.role === 'user') return;
+    if (currentUser.role !== 'admin') return;
     if (productCount > 0 && currentUser.role !== 'admin') {
       alert("ไม่สามารถลบหมวดหมู่ได้ เนื่องจากยังมีสินค้าที่อยู่ในหมวดหมู่นี้อยู่");
       return;
@@ -107,7 +107,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">จัดการข้อมูลหมวดหมู่สินค้า</h1>
         </div>
-        {currentUser?.role !== 'user' && (
+        {currentUser?.role === 'admin' && (
           <button
             type="button"
             onClick={() => {
@@ -125,7 +125,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
       {/* Table Container */}
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden">
         <div className="px-5 py-4 border-b border-[#e8e8ed]">
-          <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase">รายชื่อหมวดหมู่ในฐานข้อมูล</h4>
+          <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase">รายชื่อหมวดหมู่</h4>
         </div>
 
         <div className="overflow-x-auto">
@@ -135,7 +135,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
                 <th className="p-4 text-center w-16">ลำดับ</th>
                 <th className="p-4">หมวดหมู่สินค้า</th>
                 <th className="p-4 text-center">สินค้าที่เปิดใช้งาน</th>
-                {currentUser?.role !== 'user' && <th className="p-4 text-center w-28">การจัดการ</th>}
+                {currentUser?.role === 'admin' && <th className="p-4 text-center w-28">การจัดการ</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e8e8ed]">
@@ -151,7 +151,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
                       </span>
                       <span className="text-xs text-[#555557] ml-1">รายการ</span>
                     </td>
-                    {currentUser?.role !== 'user' && (
+                    {currentUser?.role === 'admin' && (
                       <td className="p-4 text-center">
                         <div className="flex justify-center gap-1.5">
                           <button

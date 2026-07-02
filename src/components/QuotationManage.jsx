@@ -1,11 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Search, X, Plus, Trash2, Edit2, Check, AlertTriangle, AlertCircle,
-  FileText, ChevronRight, Clock, CheckCircle, XCircle, Mail
+  FileText, ChevronRight, Clock, CheckCircle, XCircle, Mail, Printer
 } from 'lucide-react';
 import QuotationPrint from './QuotationPrint';
-import EmailShareModal from './EmailShareModal';
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', {
@@ -164,7 +163,7 @@ const generateNewId = () => `qt-${Date.now()}`;
 const generateItemId = () => Date.now() + Math.floor(Math.random() * 1000);
 
 // ── List Tab ───────────────────────────────────────────────────────────────
-const ListTab = ({ quotations, onView, onDelete, currentUser }) => {
+const ListTab = ({ quotations, onView, onDelete }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
 
@@ -302,7 +301,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser }) => {
     }));
   };
 
-  const addItem = () => setItems(prev => [...prev, { id: generateItemId(), productName: '', description: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent', lineTotal: 0 }]);
+  const addItem = () => setItems(prev => [...prev, { id: generateItemId(), productName: '', productCode: '', productImage: '', description: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent', lineTotal: 0 }]);
   const removeItem = (id) => { setItems(prev => prev.filter(it => it.id !== id)); };
 
   const handleSelectProduct = (product, variant) => {
@@ -311,6 +310,8 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser }) => {
     const newItem = {
       id: generateItemId(),
       productName: variantLabel ? `${product.name} (${variantLabel})` : product.name,
+      productCode: variant?.sku ?? variant?.code ?? product.code ?? '',
+      productImage: variant?.image ?? product.image ?? '',
       description: '',
       unit: 'ชิ้น',
       quantity: 1,
@@ -469,7 +470,17 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser }) => {
                     <tr key={it.id} className="hover:bg-[#fafafa]">
                       <td className="p-3 text-center text-[#555557] font-medium">{idx + 1}</td>
                       <td className="p-3 min-w-[200px]">
-                        <input className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-1 rounded transition-all" placeholder="ชื่อสินค้า" value={it.productName} onChange={e => updateItem(it.id, 'productName', e.target.value)} />
+                        <div className="flex items-center gap-2 mb-1">
+                          {it.productImage && (
+                            <img src={it.productImage} className="w-8 h-8 rounded-lg object-cover border border-[#d2d2d7]/50" alt="" />
+                          )}
+                          <div className="flex-1">
+                            {it.productCode && (
+                              <div className="text-[9px] text-[#555557] uppercase font-bold tracking-wider mb-0.5">SKU: {it.productCode}</div>
+                            )}
+                            <input className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-0.5 rounded transition-all" placeholder="ชื่อสินค้า" value={it.productName} onChange={e => updateItem(it.id, 'productName', e.target.value)} />
+                          </div>
+                        </div>
                         <input className="mt-1 w-full text-[11px] text-[#555557] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-1 rounded transition-all placeholder-[#bbb]" placeholder="รายละเอียด" value={it.description || ''} onChange={e => updateItem(it.id, 'description', e.target.value)} />
                       </td>
                       <td className="p-3">
@@ -642,7 +653,7 @@ const PreviewTab = ({
         ) : (() => {
           const q = selectedQt;
           const index = selectedIndex;
-          const canPrint = q.status !== 'draft' && q.status !== 'rejected';
+          const canPrint = q.status === 'approved';
           const canEdit = q.status !== 'approved' && (
             currentUser?.role === 'admin' ||
             (currentUser?.role === 'manager' && q.status !== 'approved') ||
@@ -669,7 +680,7 @@ const PreviewTab = ({
                 </div>
 
                 <div className="flex flex-wrap gap-2 items-center self-start md:self-auto">
-                  {(q.status === 'sent' || (q.status === 'draft' && (currentUser?.role === 'admin' || currentUser?.role === 'manager'))) && (
+                  {currentUser?.role === 'admin' && (q.status === 'sent' || q.status === 'draft') && (
                     <>
                       <button
                         onClick={() => onStatusChange(index, 'approved')}
@@ -686,7 +697,7 @@ const PreviewTab = ({
                     </>
                   )}
 
-                  {q.status === 'draft' && currentUser?.role === 'user' && (
+                  {q.status === 'draft' && (currentUser?.role === 'user' || currentUser?.role === 'manager') && (
                     <button
                       onClick={() => onStatusChange(index, 'sent')}
                       className="px-3.5 py-2 text-xs font-bold bg-[#e0f2fe] hover:bg-[#bae6fd] text-[#0369a1] border border-[#bae6fd] rounded-xl cursor-pointer transition-colors"
@@ -712,13 +723,12 @@ const PreviewTab = ({
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
-
-                  {q.status !== 'draft' && (
+                  {q.status === 'approved' && (
                     <button
                       onClick={() => onEmailClick(q)}
                       className="px-3.5 py-2 text-xs font-bold bg-[#f0fdf4] hover:bg-[#dcfce7] text-[#166534] border border-[#dcfce7] rounded-xl cursor-pointer transition-colors flex items-center gap-1.5"
                     >
-                      <Mail className="w-3.5 h-3.5" /> ส่งออนไลน์/อีเมล
+                      <Mail className="w-3.5 h-3.5" /> ส่งอีเมล
                     </button>
                   )}
 
@@ -727,7 +737,7 @@ const PreviewTab = ({
                       onClick={() => onPrint(q)}
                       className="px-4 py-2 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                     >
-                      พิมพ์เอกสาร
+                      <Printer className="w-3.5 h-3.5" /> พิมพ์ / ดาวน์โหลด PDF
                     </button>
                   ) : (
                     <span className="text-[10px] font-bold text-[#a32d2d] bg-[#fcebeb] px-3 py-2 rounded-full border border-[#f7c1c1]">
@@ -790,11 +800,12 @@ const PreviewTab = ({
                   <table className="w-full text-xs border-collapse">
                     <thead>
                       <tr className="bg-zinc-800 text-white">
-                        {['ลำดับ', 'รายการสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'ส่วนลด', 'รวม'].map((h, i) => (
+                        {['ลำดับ', 'รูปภาพ', 'รหัสสินค้า', 'รายการสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'ส่วนลด', 'รวม'].map((h, i) => (
                           <th
                             key={i}
-                            className={`p-3 font-bold text-[10px] tracking-wider uppercase ${i >= 2 ? (i <= 3 ? 'text-center' : 'text-right') : 'text-left'
-                              }`}
+                            className={`p-3 font-bold text-[10px] tracking-wider uppercase ${
+                              i === 0 || i === 1 || i === 4 || i === 5 ? 'text-center' : (i === 2 || i === 3 ? 'text-left' : 'text-right')
+                            }`}
                           >
                             {h}
                           </th>
@@ -805,9 +816,17 @@ const PreviewTab = ({
                       {q.items?.map((it, idx) => (
                         <tr key={it.id || idx} className="hover:bg-[#fafafa]/50">
                           <td className="p-3 text-center text-[#555557] font-medium">{idx + 1}</td>
-                          <td className="p-3">
+                          <td className="p-3 text-center">
+                            {it.productImage ? (
+                              <img src={it.productImage} className="w-8 h-8 rounded-lg object-cover border border-[#d2d2d7]/50 mx-auto" alt="" />
+                            ) : (
+                              <span className="text-[#ccc]">—</span>
+                            )}
+                          </td>
+                          <td className="p-3 text-left font-semibold text-zinc-600 text-[11px] uppercase tracking-wider">{it.productCode || '—'}</td>
+                          <td className="p-3 text-left">
                             <div className="font-semibold text-black">{it.productName}</div>
-                            {it.description && <div className="text-[10px] text-[#555557] mt-1">{it.description}</div>}
+                            {it.description && <div className="text-[10px] text-[#555557] mt-1 leading-relaxed">{it.description}</div>}
                           </td>
                           <td className="p-3 text-center font-semibold text-black">{it.quantity}</td>
                           <td className="p-3 text-center text-[#555557]">{it.unit}</td>
@@ -869,8 +888,63 @@ export default function QuotationManage({
   const [previewIndex, setPreviewIndex] = useState(null);
   const [editQt, setEditQt] = useState(null);
   const [printQt, setPrintQt] = useState(null);
+  const [autoPrint, setAutoPrint] = useState(false);
+  const [toast, setToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [emailQt, setEmailQt] = useState(null);
+
+  // Enrich quotations with missing productCode/productImage for backward compatibility
+  const enrichedQuotations = useMemo(() => {
+    return quotations.map(q => ({
+      ...q,
+      items: q.items?.map(it => {
+        if (it.productCode && it.productImage) return it;
+        
+        // Find matching product in products database
+        const match = products.find(p => {
+          const pName = p.name ? p.name.trim().toLowerCase() : '';
+          const itName = it.productName ? it.productName.trim().toLowerCase() : '';
+          return pName === itName || itName.startsWith(pName) || pName.startsWith(itName);
+        });
+        
+        return {
+          ...it,
+          productCode: it.productCode || match?.code || '',
+          productImage: it.productImage || match?.image || '',
+        };
+      })
+    }));
+  }, [quotations, products]);
+
+  const handleDirectEmailSend = (q) => {
+    const email = q.customer?.email || '';
+    const subject = `[ใบเสนอราคา] เลขที่ ${q.quotationNumber} - โครงการ ${q.projectName || '-'}`;
+    
+    const message = `เรียนคุณ ${q.customer?.name || 'ลูกค้า'}${q.customer?.companyName ? ` (${q.customer.companyName})` : ''},\n\nเรื่อง: นำเสนอใบเสนอราคา เลขที่ ${q.quotationNumber}\n\nทางเรามีความยินดีเป็นอย่างยิ่งที่ได้รับโอกาสในการนำเสนอราคาสำหรับโครงการ "${q.projectName || '-'}"\n\nรายละเอียดรายการสินค้า ยอดรวม และเงื่อนไขการค้าต่างๆ ปรากฏตามเอกสารใบเสนอราคาแนบ PDF ในอีเมลฉบับนี้\n\nหากท่านมีข้อสงสัยประการใด หรือต้องการให้ปรับปรุงรายการสินค้าในใบเสนอราคา โปรดติดต่อกลับที่เบอร์โทร ${q.salespersonPhone || '-'} ได้ทันทีครับ\n\nขอแสดงความนับถืออย่างสูง,\n${q.salespersonName || 'ผู้ประสานงานขาย'}\nบริษัท ${companyInfo.name || 'พันธ์วาดี จำกัด'}`;
+
+    navigator.clipboard.writeText(message)
+      .then(() => {
+        setToast({
+          title: 'คัดลอกร่างจดหมายและเตรียม PDF แล้ว',
+          msg: `ระบบเปิดหน้าต่างพิมพ์เพื่อเซฟ PDF และเปิดแอปอีเมลของท่านแล้ว กรุณาบันทึก PDF และลากไฟล์ไปปล่อยเพื่อแนบส่งไปยัง ${email || 'ลูกค้า'}`
+        });
+        setTimeout(() => setToast(null), 6000);
+      })
+      .catch(err => {
+        console.error('Failed to copy to clipboard:', err);
+      });
+
+    // 1. Trigger Auto Print preview & print dialog
+    setAutoPrint(true);
+    setPrintQt(q);
+
+    // 2. Open native mail client
+    const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(message)}`;
+    window.open(mailtoUrl, '_blank');
+
+    if (addActivityLog) {
+      addActivityLog(`ดาวน์โหลดเอกสารและเปิดเขียนอีเมลส่งใบเสนอราคาไปยัง ${email || 'ลูกค้า'} (เลขที่: ${q.quotationNumber})`);
+    }
+  };
 
   const handleView = (i) => {
     setPreviewIndex(i);
@@ -923,7 +997,11 @@ export default function QuotationManage({
       <QuotationPrint
         quotation={printQt}
         companyInfo={companyInfo}
-        onClose={() => setPrintQt(null)}
+        onClose={() => {
+          setPrintQt(null);
+          setAutoPrint(false);
+        }}
+        autoPrint={autoPrint}
       />
     );
   }
@@ -938,9 +1016,6 @@ export default function QuotationManage({
             <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">
               {editQt ? 'แก้ไขใบเสนอราคา' : 'สร้างใบเสนอราคาใหม่'}
             </h1>
-            <p className="text-xs text-[#555557] mt-0.5">
-              {editQt ? `แก้ไขเอกสารเลขที่ ${editQt.quotationNumber || editQt.id}` : 'ระบุรายละเอียดและรายการสินค้าด้านล่าง'}
-            </p>
           </div>
           <button
             onClick={() => setTab('list')}
@@ -964,18 +1039,6 @@ export default function QuotationManage({
   // Normal view layout with List and Preview tabs
   return (
     <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
-      {/* Email Share Modal */}
-      <EmailShareModal
-        isOpen={emailQt !== null}
-        onClose={() => setEmailQt(null)}
-        quotation={emailQt}
-        onLogActivity={(actionText) => {
-          if (addActivityLog) {
-            addActivityLog(actionText);
-          }
-        }}
-      />
-
       {/* Delete Confirm Modal */}
       {deleteTarget && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">
@@ -1039,22 +1102,36 @@ export default function QuotationManage({
           quotations={quotations}
           onView={handleView}
           onDelete={setDeleteTarget}
-          currentUser={currentUser}
         />
       )}
 
       {tab === 'preview' && (
         <PreviewTab
-          quotations={quotations}
+          quotations={enrichedQuotations}
           selectedIndex={previewIndex !== null ? previewIndex : (quotations.length > 0 ? 0 : null)}
           onSelectIndex={setPreviewIndex}
           onStatusChange={handleStatusChange}
           onPrint={setPrintQt}
           onEdit={handleEdit}
           onDelete={setDeleteTarget}
-          onEmailClick={setEmailQt}
+          onEmailClick={handleDirectEmailSend}
           currentUser={currentUser}
         />
+      )}
+      {/* Toast Notification */}
+      {toast && (
+        <div className="fixed top-6 right-6 z-[9999] bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-slate-800 text-xs max-w-sm" style={{ animation: 'fade-in 0.2s ease-out' }}>
+          <div className="w-6 h-6 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center shrink-0">
+            <Mail className="w-3.5 h-3.5" />
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-white">{toast.title}</p>
+            <p className="text-zinc-400 mt-0.5 leading-relaxed">{toast.msg}</p>
+          </div>
+          <button onClick={() => setToast(null)} className="text-zinc-500 hover:text-white cursor-pointer p-0.5">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       )}
     </div>
   );

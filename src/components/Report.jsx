@@ -2,12 +2,10 @@ import { useState } from 'react';
 import { Printer, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
-export default function Report({ products, brands, categories }) {
+export default function Report({ products, brands, categories, addActivityLog }) {
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
-
-
   const filteredProducts = products.filter(product => {
     const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
@@ -15,14 +13,15 @@ export default function Report({ products, brands, categories }) {
     return matchesBrand && matchesCategory && matchesStatus;
   });
 
-
-  const averagePrice = filteredProducts.length > 0 
-    ? Math.round(filteredProducts.reduce((acc, p) => acc + (p.retailPrice || 0), 0) / filteredProducts.length) 
-    : 0;
-
-
-
-  const handlePrint = () => window.print();
+  const activeCount = filteredProducts.filter(p => p.status === 'Active').length;
+  const inactiveCount = filteredProducts.filter(p => p.status !== 'Active').length;
+  const handlePrint = () => {
+    window.print();
+    if (addActivityLog) {
+      const filterText = `แบรนด์: ${selectedBrand === 'All' ? 'ทั้งหมด' : selectedBrand}, หมวดหมู่: ${selectedCategory === 'All' ? 'ทั้งหมด' : selectedCategory}, สถานะ: ${selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`;
+      addActivityLog(`พิมพ์รายงานข้อมูลสินค้า (จำนวน ${filteredProducts.length} รายการ, ตัวกรอง - ${filterText})`);
+    }
+  };
 
   const downloadViaRedirect = async (base64Data, filename) => {
     try {
@@ -39,7 +38,7 @@ export default function Report({ products, brands, categories }) {
       if (!response.ok) throw new Error('Failed to store download on server');
       const res = await response.json();
       if (res.id) {
-        window.location.href = `/api/download?id=${res.id}`;
+        window.location.assign(`/api/download?id=${res.id}`);
         return;
       }
     } catch (err) {
@@ -182,11 +181,11 @@ const handleExportExcel = async () => {
     rows,
     filename
   );
+  if (addActivityLog) {
+    const filterText = `แบรนด์: ${selectedBrand === 'All' ? 'ทั้งหมด' : selectedBrand}, หมวดหมู่: ${selectedCategory === 'All' ? 'ทั้งหมด' : selectedCategory}, สถานะ: ${selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`;
+    addActivityLog(`ดาวน์โหลดรายงานสินค้าเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ, ตัวกรอง - ${filterText})`);
+  }
 };
-
-
-
-
 
   return (
     <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
@@ -260,13 +259,16 @@ const handleExportExcel = async () => {
         <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
           <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">จำนวนรายการสินค้าทั้งหมด</p>
           <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1">{filteredProducts.length.toLocaleString()} รายการ</h3>
-          <span className="text-xs text-[#555557] mt-0.5 block">รายการสินค้าที่ลงทะเบียนในระบบ PIM</span>
+
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
-          <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">ราคาเฉลี่ยต่อผลิตภัณฑ์</p>
-          <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1">{averagePrice.toLocaleString()} บาท</h3>
-          <span className="text-xs text-[#555557] mt-0.5 block">ราคาปลีกเฉลี่ยต่อรายการสินค้าทั้งหมด</span>
+          <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">จำนวนสถานะการเปิดและปิดใช้งาน</p>
+          <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span>เปิดใช้งาน: {activeCount.toLocaleString()}</span>
+            <span className="text-[#d2d2d7] font-light hidden sm:inline">|</span>
+            <span>ปิดใช้งาน: {inactiveCount.toLocaleString()}</span>
+          </h3>
         </div>
       </div>
 

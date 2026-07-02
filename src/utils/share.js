@@ -1,7 +1,3 @@
-/**
- * Utility to encode and decode quotation objects into URL-safe Base64 strings.
- * This is safe for Unicode characters (Thai language).
- */
 
 export function encodeQuotation(quotation) {
   try {

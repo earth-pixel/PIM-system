@@ -5,25 +5,25 @@ import { UserPlus, Shield, Lock, Plus, Check, AlertCircle, Search } from 'lucide
 export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUser, currentUser }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName]         = useState('');
-  const [role, setRole]         = useState('user');
+  const [name, setName] = useState('');
+  const [role, setRole] = useState('user');
 
-  const [errorMsg, setErrorMsg]     = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
   const [alertPopup, setAlertPopup] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   const [editingUser, setEditingUser] = useState(null);
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
-  
+
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('All');
-  
+
   const isOnlyAdmin = editingUser && editingUser.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
 
   const filteredUsers = users
     .filter(u => !(currentUser.role === 'manager' && u.role === 'admin'))
     .filter(u => {
-      const matchesSearch = 
+      const matchesSearch =
         u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
         (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesRole = selectedRole === 'All' || u.role === selectedRole;
@@ -48,7 +48,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
           <Lock className="w-6 h-6" />
         </div>
         <h2 className="font-bold text-[#1d1d1f] text-sm uppercase tracking-wide">สิทธิ์เข้าใช้งานถูกจำกัด</h2>
-        
+
       </div>
     );
   }
@@ -257,40 +257,40 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                 </tr>
               ) : (
                 filteredUsers.map((u) => (
-                <tr key={u.username} className="hover:bg-[#f5f5f7]/30 transition-colors">
-                  <td className="p-4 font-mono font-bold text-[#1d1d1f]">{u.username}</td>
-                  <td className="p-4 font-medium text-[#1d1d1f]">{u.name}</td>
-                  <td className="p-4">{getRoleBadge(u.role)}</td>
-                  <td className="p-4 text-[#555557] font-mono text-xs">{u.createdAt}</td>
-                  <td className="p-4 text-center">
-                    <div className="flex justify-center gap-1.5">
-                      {canEdit(u) && (
-                        <button
-                          type="button"
-                          onClick={() => handleStartEdit(u)}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                          title="แก้ไขผู้ใช้งาน"
-                        >
-                          <i className="bi bi-pencil-square text-base"></i>
-                        </button>
-                      )}
-                      {canDelete(u) && (
-                        <button
-                          type="button"
-                          onClick={() => setConfirmDeleteUser(u)}
-                          className="p-1.5 text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="ลบผู้ใช้งาน"
-                        >
-                          <i className="bi bi-trash3 text-base"></i>
-                        </button>
-                      )}
-                      {!canEdit(u) && !canDelete(u) && (
-                        <span className="text-zinc-300 text-xs">-</span>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              )))}
+                  <tr key={u.username} className="hover:bg-[#f5f5f7]/30 transition-colors">
+                    <td className="p-4 font-mono font-bold text-[#1d1d1f]">{u.username}</td>
+                    <td className="p-4 font-medium text-[#1d1d1f]">{u.name}</td>
+                    <td className="p-4">{getRoleBadge(u.role)}</td>
+                    <td className="p-4 text-[#555557] font-mono text-xs">{u.createdAt}</td>
+                    <td className="p-4 text-center">
+                      <div className="flex justify-center gap-1.5">
+                        {canEdit(u) && (
+                          <button
+                            type="button"
+                            onClick={() => handleStartEdit(u)}
+                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="แก้ไขผู้ใช้งาน"
+                          >
+                            <i className="bi bi-pencil-square text-base"></i>
+                          </button>
+                        )}
+                        {canDelete(u) && (
+                          <button
+                            type="button"
+                            onClick={() => setConfirmDeleteUser(u)}
+                            className="p-1.5 text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                            title="ลบผู้ใช้งาน"
+                          >
+                            <i className="bi bi-trash3 text-base"></i>
+                          </button>
+                        )}
+                        {!canEdit(u) && !canDelete(u) && (
+                          <span className="text-zinc-300 text-xs">-</span>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )))}
             </tbody>
           </table>
         </div>
@@ -315,7 +315,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                 <Plus className="w-5 h-5 rotate-45 animate-fade-in" />
               </button>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
                 {errorMsg && (
@@ -479,11 +479,10 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                   if (alertPopup.action) alertPopup.action();
                   setAlertPopup(null);
                 }}
-                className={`w-full py-2.5 rounded-full text-white transition-colors cursor-pointer shadow-xs ${
-                  alertPopup.type === 'success'
+                className={`w-full py-2.5 rounded-full text-white transition-colors cursor-pointer shadow-xs ${alertPopup.type === 'success'
                     ? 'bg-emerald-600 hover:bg-emerald-700'
                     : 'bg-red-650 hover:bg-red-700'
-                }`}
+                  }`}
               >
                 ตกลง
               </button>

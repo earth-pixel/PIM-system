@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { decodeQuotation } from '../utils/share';
-import { X, Printer, CheckCircle, AlertCircle, Phone, Mail, Globe, MapPin, Building } from 'lucide-react';
+import { Printer, CheckCircle, AlertCircle, Globe, Building } from 'lucide-react';
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -9,20 +9,34 @@ const fmtDate = (d) => {
   if (!d) return '-';
   try {
     return new Date(d).toLocaleDateString('th-TH', {
-      day: 'numeric', month: 'short', year: 'numeric',
+      day: 'numeric', month: 'long', year: 'numeric',
     });
   } catch { return d; }
 };
 
+// Deterministic pseudo-random configuration for confetti rendering (avoids Math.random inside render)
+const getConfettiConfig = (i) => {
+  const sin1 = Math.sin(i * 12.9898) * 43758.5453;
+  const left = Math.floor((sin1 - Math.floor(sin1)) * 100);
+  const sin2 = Math.sin(i * 78.233) * 43758.5453;
+  const delay = (sin2 - Math.floor(sin2)) * 2;
+  const sin3 = Math.sin(i * 45.123) * 43758.5453;
+  const size = Math.floor((sin3 - Math.floor(sin3)) * 8) + 6;
+  const colors = ['bg-red-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-pink-500'];
+  const colorIndex = Math.floor((sin1 - Math.floor(sin1)) * colors.length);
+  return { left, delay, size, randomColor: colors[colorIndex] };
+};
+
 export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
-  const [quotation, setQuotation] = useState(null);
   const [isAccepted, setIsAccepted] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  useEffect(() => {
-    if (shareData) {
-      const decoded = decodeQuotation(shareData);
-      setQuotation(decoded);
+  const quotation = useMemo(() => {
+    if (!shareData) return null;
+    try {
+      return decodeQuotation(shareData);
+    } catch {
+      return null;
     }
   }, [shareData]);
 
@@ -73,11 +87,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
           {[...Array(50)].map((_, i) => {
-            const left = Math.random() * 100;
-            const delay = Math.random() * 2;
-            const size = Math.random() * 8 + 6;
-            const colors = ['bg-red-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-pink-500'];
-            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            const { left, delay, size, randomColor } = getConfettiConfig(i);
             return (
               <div
                 key={i}
@@ -105,7 +115,13 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
       {/* Top Navbar / Action Panel */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#d2d2d7]/30 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-black flex items-center justify-center text-white font-black text-lg">P</div>
+          <div className="w-9 h-9 flex items-center justify-center text-zinc-900 shrink-0">
+            <svg viewBox="0 0 80 90" className="w-9 h-9 fill-current" xmlns="http://www.w3.org/2000/svg">
+              <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
+              <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
+              <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
+            </svg>
+          </div>
           <div>
             <h1 className="text-sm font-extrabold text-[#1d1d1f]">เอกสารใบเสนอราคาออนไลน์</h1>
             <p className="text-[11px] text-[#555557] font-medium font-mono">{quotation.quotationNumber}</p>
@@ -157,7 +173,13 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
           {/* SECTION 1: HEADER */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-[#f5f5f7] pb-6 mb-8">
             <div className="flex gap-4 items-start">
-              <div className="w-12 h-12 rounded-xl bg-black flex items-center justify-center text-white font-black text-2xl flex-shrink-0">P</div>
+              <div className="w-12 h-12 flex items-center justify-center text-zinc-900 flex-shrink-0">
+                <svg viewBox="0 0 80 90" className="w-12 h-12 fill-current" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
+                  <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
+                  <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
+                </svg>
+              </div>
               <div className="text-xs text-[#1d1d1f] leading-relaxed">
                 <div className="font-extrabold text-sm mb-1 text-black">{co.name}</div>
                 <div className="text-[#555557] max-w-sm">{co.address}</div>
@@ -219,6 +241,8 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
               <thead>
                 <tr className="bg-black text-white text-[10px] font-bold uppercase tracking-wider">
                   <th className="p-3 text-center rounded-l-xl w-12">ลำดับ</th>
+                  <th className="p-3 text-center w-16">รูปภาพ</th>
+                  <th className="p-3 w-28">รหัสสินค้า</th>
                   <th className="p-3">รายการสินค้า / คำอธิบาย</th>
                   <th className="p-3 text-center w-16">จำนวน</th>
                   <th className="p-3 text-center w-16">หน่วย</th>
@@ -230,7 +254,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
               <tbody className="divide-y divide-[#f5f5f7]">
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-[#86868b]">— ไม่มีรายการสินค้า —</td>
+                    <td colSpan={9} className="p-8 text-center text-[#86868b]">— ไม่มีรายการสินค้า —</td>
                   </tr>
                 ) : (
                   items.map((item, idx) => {
@@ -240,7 +264,15 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
                     return (
                       <tr key={item.id || idx} className="hover:bg-[#fafafa]/50">
                         <td className="p-4 text-center text-[#86868b] font-medium">{idx + 1}</td>
-                        <td className="p-4">
+                        <td className="p-4 text-center">
+                          {item.productImage ? (
+                            <img src={item.productImage} className="w-8 h-8 rounded-lg object-cover border border-[#e2e8f0] mx-auto" alt="" />
+                          ) : (
+                            <span className="text-[#ccc]">—</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-left font-semibold text-zinc-600 text-[11px] uppercase tracking-wider">{item.productCode || '—'}</td>
+                        <td className="p-4 text-left">
                           <div className="font-bold text-[#1d1d1f]">{item.productName}</div>
                           {item.description && <div className="text-[10px] text-[#555557] mt-1 leading-relaxed">{item.description}</div>}
                         </td>

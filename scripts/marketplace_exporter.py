@@ -245,11 +245,9 @@ class MarketplaceExporter:
                     if col_map.get("var_sku"):
                         sheet.cell(row=current_row, column=col_map["var_sku"], value=var["var_sku"])
                     
-                    # Shopee variation price / stock
+                    # Shopee variation price
                     if col_map.get("price"):
                         sheet.cell(row=current_row, column=col_map["price"], value=var["var_price"])
-                    if col_map.get("stock"):
-                        sheet.cell(row=current_row, column=col_map["stock"], value=var["var_stock"])
 
                     current_row += 1
 
@@ -337,8 +335,6 @@ class MarketplaceExporter:
                         sheet.cell(row=current_row, column=col_map["var_sku"], value=var["var_sku"])
                     if col_map.get("price"):
                         sheet.cell(row=current_row, column=col_map["price"], value=var["var_price"])
-                    if col_map.get("stock"):
-                        sheet.cell(row=current_row, column=col_map["stock"], value=var["var_stock"])
 
                     current_row += 1
 
@@ -437,8 +433,6 @@ class MarketplaceExporter:
                         sheet.cell(row=current_row, column=col_map["group_no"], value=group_key)
                     if col_map.get("price"):
                         sheet.cell(row=current_row, column=col_map["price"], value=var["var_price"])
-                    if col_map.get("stock"):
-                        sheet.cell(row=current_row, column=col_map["stock"], value=var["var_stock"])
 
                     current_row += 1
                 

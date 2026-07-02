@@ -1,5 +1,8 @@
 const express = require('express');
 const ExcelJS = require('exceljs');
+const { URL } = require('url');
+const fs = require('fs');
+const path = require('path');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -7,82 +10,65 @@ const PORT = process.env.PORT || 3000;
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// 1. Safety Helpers
+function isSafeGoogleUrl(targetUrl) {
+  try {
+    const parsed = new URL(targetUrl);
+    const hostname = parsed.hostname.toLowerCase();
+    // Allow only google.com and googleusercontent.com subdomains
+    return hostname === 'google.com' || hostname.endsWith('.google.com') || hostname === 'googleusercontent.com' || hostname.endsWith('.googleusercontent.com');
+  } catch (e) {
+    return false;
+  }
+}
+
+// 2. Custom lightweight rate limiter middleware (no external dependencies)
+const rateLimiter = (limitWindowMs, maxRequests) => {
+  const requestTracker = new Map();
+  
+  // Auto cleanup old IP logs every 5 minutes to prevent memory leak
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, timestamps] of requestTracker.entries()) {
+      const fresh = timestamps.filter(time => now - time < limitWindowMs);
+      if (fresh.length === 0) {
+        requestTracker.delete(ip);
+      } else {
+        requestTracker.set(ip, fresh);
+      }
+    }
+  }, 300000);
+
+  return (req, res, next) => {
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
+    const now = Date.now();
+    
+    if (!requestTracker.has(clientIp)) {
+      requestTracker.set(clientIp, []);
+    }
+    
+    const timestamps = requestTracker.get(clientIp).filter(time => now - time < limitWindowMs);
+    timestamps.push(now);
+    requestTracker.set(clientIp, timestamps);
+    
+    if (timestamps.length > maxRequests) {
+      return res.status(429).json({
+        error: 'Rate Limit Exceeded',
+        message: 'คุณส่งคำขอรวดเร็วเกินไป กรุณารอสักครู่แล้วลองใหม่ (Too many requests, please slow down.)'
+      });
+    }
+    
+    next();
+  };
+};
+
+const uploadLimiter = rateLimiter(60000, 10);  // max 10 requests per minute
+const generalLimiter = rateLimiter(60000, 30); // max 30 requests per minute
+
 // Cache to temporarily hold base64 download buffers
 const downloadCache = new Map();
 
-// 2. Mock Product Data
-const MOCK_PRODUCTS = [
-  {
-    id: '1',
-    name: 'Barber Brain Pomade Gold',
-    brand: 'Barber Brain',
-    category: 'Styling',
-    price: 290,
-    stock: 45,
-    weight_kg: 0.12,
-    image: 'https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?q=80&w=400&auto=format&fit=crop',
-    description: 'โพเมดสูตรน้ำ พลังจัดทรงสูง ล้างออกง่าย ไม่เหนียวเหนอะหนะ จัดแต่งทรงผมวินเทจได้ยาวนานตลอดวัน',
-    packageLength: 10,
-    packageWidth: 10,
-    packageHeight: 5
-  },
-  {
-    id: '2',
-    name: "L'Angel Luxury Hair Color Cream 8.1",
-    brand: "L'Angel",
-    category: 'Hair Color',
-    price: 180,
-    stock: 120,
-    weight_kg: 0.15,
-    image: 'https://images.unsplash.com/photo-1595853035070-59a39fe84de3?q=80&w=400&auto=format&fit=crop',
-    description: 'ครีมเปลี่ยนสีผมสีบลอนด์อ่อนประกายหม่น เม็ดสีแน่น ติดทนนาน บำรุงล้ำลึกด้วยเคราตินเข้มข้น ปลอดภัยต่อหนังศีรษะ',
-    packageLength: 15,
-    packageWidth: 5,
-    packageHeight: 5
-  },
-  {
-    id: '3',
-    name: 'Valente Professional Hair Dryer Ionic-2000',
-    brand: 'Valente',
-    category: 'Salon Equipment',
-    price: 1450,
-    stock: 18,
-    weight_kg: 0.65,
-    image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400&auto=format&fit=crop',
-    description: 'ไดร์เป่าผมระดับมืออาชีพ พลังลมแรง 2000W ปล่อยประจุไอออนลบเพื่อช่วยถนอมเส้นผม ลดการชี้ฟูและไฟฟ้าสถิต ปรับความแรงได้ 3 ระดับ',
-    packageLength: 25,
-    packageWidth: 20,
-    packageHeight: 10
-  },
-  {
-    id: '4',
-    name: 'Barber Brain Matte Clay',
-    brand: '', // Empty brand to trigger 'No Brand' default mapping
-    category: 'Styling',
-    price: 320,
-    stock: 32,
-    weight_kg: 0.09,
-    image: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=400&auto=format&fit=crop',
-    description: 'แว็กซ์ดินน้ำมันเนื้อแมทท์ ให้ลุคเป็นธรรมชาติ ไม่เงา พลังอยู่ทรงสูง เหมาะสำหรับผมสั้นหรือการเซ็ตทรงที่ต้องการเทกเจอร์เด่นชัด',
-    packageLength: 8,
-    packageWidth: 8,
-    packageHeight: 4
-  },
-  {
-    id: '5',
-    name: "L'Angel Hair Treatment Keratin Mask",
-    brand: "L'Angel",
-    category: 'Treatment',
-    price: 350,
-    stock: 0,
-    weight_kg: 0.3,
-    image: 'https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?q=80&w=400&auto=format&fit=crop',
-    description: 'ทรีทเมนท์มาส์กสูตรเคราตินเข้มข้นพิเศษ ฟื้นบำรุงผมเสียจากการทำเคมี ทำสี และความร้อน ช่วยให้เส้นผมกลับมานุ่มสลวย มีน้ำหนัก',
-    packageLength: 12,
-    packageWidth: 12,
-    packageHeight: 12
-  }
-];
+// 2. Mock Product Data Removed (Replaced by Server JSON Database)
 
 // Helper to map category names to Shopee Category IDs
 const getShopeeCategoryId = (category) => {
@@ -92,7 +78,7 @@ const getShopeeCategoryId = (category) => {
     'Treatment': 103,
     'Salon Equipment': 104
   };
-  return mapping[category] || 100;
+  return mapping[category] || 0;
 };
 
 // Helper to map category names to Lazada sheet names
@@ -110,9 +96,20 @@ const getLazadaSheetName = (category) => {
 // ─────────────────────────────────────────────────────────────
 
 // 1. POST /api/store-download
-app.post('/api/store-download', (req, res) => {
+app.post('/api/store-download', uploadLimiter, (req, res) => {
   try {
     const { data, filename } = req.body;
+    
+    // DoS Protection: Limit payload size inside the code (Max 20MB characters)
+    if (data && data.length > 20 * 1024 * 1024) {
+      return res.status(400).send('Payload too large (Max 20MB characters)');
+    }
+
+    // DoS Protection: Limit maximum cache size
+    if (downloadCache.size >= 50) {
+      return res.status(503).send('Server cache full, please try again later');
+    }
+
     if (data) {
       const id = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
       downloadCache.set(id, { data, filename });
@@ -132,7 +129,7 @@ app.post('/api/store-download', (req, res) => {
 });
 
 // 2. GET /api/download
-app.get('/api/download', (req, res) => {
+app.get('/api/download', generalLimiter, (req, res) => {
   try {
     const { id } = req.query;
     const cached = downloadCache.get(id);
@@ -164,13 +161,18 @@ app.get('/api/download', (req, res) => {
 });
 
 // 3. POST /api/download-direct
-app.post('/api/download-direct', (req, res) => {
+app.post('/api/download-direct', uploadLimiter, (req, res) => {
   try {
     const { data, filename } = req.body;
     const exportFilename = filename || 'export.xlsx';
 
     if (!data) {
       return res.status(400).send('Missing data');
+    }
+
+    // DoS Protection: Limit payload size inside the code (Max 20MB characters)
+    if (data.length > 20 * 1024 * 1024) {
+      return res.status(400).send('Payload too large (Max 20MB characters)');
     }
 
     const buffer = Buffer.from(data, 'base64');
@@ -190,6 +192,70 @@ app.post('/api/download-direct', (req, res) => {
   }
 });
 
+const https = require('https');
+
+// helper function to fetch a URL that handles redirects (with SSRF protection)
+function downloadFile(url) {
+  return new Promise((resolve, reject) => {
+    const request = (targetUrl) => {
+      // Validate initial URL & redirect targets
+      if (!isSafeGoogleUrl(targetUrl)) {
+        reject(new Error(`Security Blocked: SSRF attempt to non-Google domain: ${targetUrl}`));
+        return;
+      }
+
+      https.get(targetUrl, (response) => {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          const redirectUrl = response.headers.location;
+          // Validate redirect domain before following
+          if (!isSafeGoogleUrl(redirectUrl)) {
+            reject(new Error(`Security Blocked: Redirect SSRF attempt to non-Google domain: ${redirectUrl}`));
+            return;
+          }
+          request(redirectUrl);
+        } else if (response.statusCode === 200) {
+          const chunks = [];
+          response.on('data', (chunk) => chunks.push(chunk));
+          response.on('end', () => resolve(Buffer.concat(chunks)));
+        } else {
+          reject(new Error(`Failed to download sheet: HTTP ${response.statusCode}`));
+        }
+      }).on('error', (err) => reject(err));
+    };
+    request(url);
+  });
+}
+
+// GET /api/fetch-google-sheet
+app.get('/api/fetch-google-sheet', generalLimiter, async (req, res) => {
+  try {
+    const { url } = req.query;
+    if (!url) {
+      return res.status(400).json({ error: 'Missing url parameter' });
+    }
+
+    // SSRF Whitelist Check for query URL
+    if (!isSafeGoogleUrl(url)) {
+      return res.status(400).json({ error: 'การดึงข้อมูลจำกัดเฉพาะลิงก์ Google Sheets เท่านั้นเพื่อความปลอดภัย' });
+    }
+
+    const match = url.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    if (!match) {
+      return res.status(400).json({ error: 'ลิงก์ Google Sheets ไม่ถูกต้อง (ไม่พบ Spreadsheet ID)' });
+    }
+    const spreadsheetId = match[1];
+    const exportUrl = `https://docs.google.com/spreadsheets/d/${spreadsheetId}/export?format=xlsx`;
+
+    const buffer = await downloadFile(exportUrl);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Length', buffer.length);
+    res.send(buffer);
+  } catch (err) {
+    console.error('Fetch Google Sheet Error:', err);
+    res.status(500).json({ error: 'ไม่สามารถดึงข้อมูลจาก Google Sheets ได้', message: err.message });
+  }
+});
+
 // 1. GET /api/products/export
 app.get('/api/products/export', async (req, res) => {
   try {
@@ -205,11 +271,33 @@ app.get('/api/products/export', async (req, res) => {
       return res.status(400).json({ error: 'Invalid platform. Supported platforms are: shopee, lazada, tiktok' });
     }
 
+    const dbProducts = readDB().products || [];
+
+    const parseWeightToKg = (weightStr) => {
+      if (weightStr === undefined || weightStr === null || weightStr === '') return 0;
+      if (typeof weightStr === 'number') return weightStr;
+      const cleaned = String(weightStr).toLowerCase().replace(/\s+/g, '');
+      const match = cleaned.match(/^([0-9.]+)(g|kg|กิโลกรัม|กรัม)?$/);
+      if (!match) return 0;
+      const value = parseFloat(match[1]);
+      const unit = match[2];
+      if (isNaN(value)) return 0;
+      if (unit === 'g' || unit === 'กรัม') return value / 1000;
+      if (!unit && value >= 10) return value / 1000;
+      return value;
+    };
+
+    const mappedProducts = dbProducts.map(p => ({
+      ...p,
+      price: p.retailPrice || 0,
+      weight_kg: parseWeightToKg(p.weight) || 0
+    }));
+
     // Filter products if ids are provided
-    let productsToExport = MOCK_PRODUCTS;
+    let productsToExport = mappedProducts;
     if (ids) {
       const idArray = ids.split(',').map(id => id.trim());
-      productsToExport = MOCK_PRODUCTS.filter(p => idArray.includes(p.id));
+      productsToExport = mappedProducts.filter(p => idArray.includes(p.id));
     }
 
     const workbook = new ExcelJS.Workbook();
@@ -254,13 +342,13 @@ app.get('/api/products/export', async (req, res) => {
           sheet.addRow([
             p.name,
             p.description || '',
-            p.price,
-            p.stock,
-            p.weight_kg, // Shopee uses KG
-            p.packageLength || '',
-            p.packageWidth || '',
-            p.packageHeight || '',
-            getShopeeCategoryId(p.category) // Translate category name to ID
+            p.price || 0,
+            p.stock || 0,
+            p.weight_kg || 0, // Shopee uses KG
+            p.packageLength || 0,
+            p.packageWidth || 0,
+            p.packageHeight || 0,
+            getShopeeCategoryId(p.category) || 0 // Translate category name to ID
           ]);
         });
         break;
@@ -293,12 +381,12 @@ app.get('/api/products/export', async (req, res) => {
           sheet.addRow([
             p.name,
             p.description || '',
-            p.price,
-            p.stock,
-            weightGrams, // Forced Grams conversion
-            p.packageLength || '',
-            p.packageWidth || '',
-            p.packageHeight || '',
+            p.price || 0,
+            p.stock || 0,
+            weightGrams || 0, // Forced Grams conversion
+            p.packageLength || 0,
+            p.packageWidth || 0,
+            p.packageHeight || 0,
             p.image || ''
           ]);
         });
@@ -346,12 +434,12 @@ app.get('/api/products/export', async (req, res) => {
               p.image || '',
               brandName, // Default to 'No Brand' if empty
               p.description || '',
-              p.weight_kg, // Lazada uses KG
-              p.stock,
-              p.price,
-              p.packageLength || '',
-              p.packageWidth || '',
-              p.packageHeight || ''
+              p.weight_kg || 0, // Lazada uses KG
+              p.stock || 0,
+              p.price || 0,
+              p.packageLength || 0,
+              p.packageWidth || 0,
+              p.packageHeight || 0
             ]);
           });
         });
@@ -372,6 +460,54 @@ app.get('/api/products/export', async (req, res) => {
     res.status(500).json({ error: 'Server Internal Error', message: err.message });
   }
 });
+
+// DATABASE PERSISTENCE ENDPOINTS
+const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
+
+// Helper to read database safely
+const readDB = () => {
+  try {
+    if (!fs.existsSync(dbPath)) {
+      return { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+    }
+    const data = fs.readFileSync(dbPath, 'utf8');
+    return JSON.parse(data);
+  } catch (err) {
+    console.error('Error reading db.json:', err);
+    return { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+  }
+};
+
+// 1. GET /api/db (Read JSON Database from server)
+app.get('/api/db', (req, res) => {
+  res.json(readDB());
+});
+
+// 2. POST /api/db/save (Update/Save array to JSON Database key)
+app.post('/api/db/save', uploadLimiter, (req, res) => {
+  try {
+    const { key, data } = req.body;
+    const allowedKeys = ['products', 'brands', 'categories', 'users', 'quotations', 'activityLog'];
+    
+    if (!allowedKeys.includes(key)) {
+      return res.status(400).send('Invalid database key');
+    }
+    if (!Array.isArray(data)) {
+      return res.status(400).send('Data must be an array');
+    }
+
+    const db = readDB();
+    db[key] = data;
+
+    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error saving to db.json:', err);
+    res.status(500).send('Error saving database: ' + err.message);
+  }
+});
+
+
 
 app.listen(PORT, () => {
   console.log(`PIM Export Server running on port ${PORT}`);

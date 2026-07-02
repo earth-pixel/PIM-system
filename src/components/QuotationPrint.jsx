@@ -45,28 +45,14 @@ const fmtDate = (d) => {
   if (!d) return '-';
   try {
     return new Date(d).toLocaleDateString('th-TH', {
-      day: 'numeric', month: 'short', year: 'numeric',
+      day: 'numeric', month: 'long', year: 'numeric',
     });
   } catch { return d; }
 };
 
-const THAI_MONTHS_SHORT = [
-  'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
-  'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
-];
 
-const fmtThaiDate = (isoStr) => {
-  if (!isoStr) return '.....................................................................';
-  try {
-    const d = new Date(isoStr);
-    const date = d.getDate();
-    const month = THAI_MONTHS_SHORT[d.getMonth()];
-    const year = d.getFullYear() + 543;
-    return `${date} ${month} ${year}`;
-  } catch {
-    return isoStr;
-  }
-};
+
+
 
 // ─── Print Styles ─────────────────────────────────────────────
 const PRINT_CSS = `
@@ -122,49 +108,78 @@ const PRINT_CSS = `
     }
     .print-page .items-table th:nth-child(1),
     .print-page .items-table td:nth-child(1) {
-      width: 6% !important;
+      width: 5% !important;
       text-align: center !important;
     }
     .print-page .items-table th:nth-child(2),
     .print-page .items-table td:nth-child(2) {
-      width: 44% !important;
-      text-align: left !important;
+      width: 8% !important;
+      text-align: center !important;
     }
     .print-page .items-table th:nth-child(3),
     .print-page .items-table td:nth-child(3) {
-      width: 8% !important;
-      text-align: center !important;
+      width: 15% !important;
+      text-align: left !important;
     }
     .print-page .items-table th:nth-child(4),
     .print-page .items-table td:nth-child(4) {
-      width: 8% !important;
-      text-align: center !important;
+      width: 35% !important;
+      text-align: left !important;
     }
     .print-page .items-table th:nth-child(5),
     .print-page .items-table td:nth-child(5) {
-      width: 12% !important;
-      text-align: right !important;
+      width: 7% !important;
+      text-align: center !important;
     }
     .print-page .items-table th:nth-child(6),
     .print-page .items-table td:nth-child(6) {
-      width: 10% !important;
-      text-align: right !important;
+      width: 7% !important;
+      text-align: center !important;
     }
     .print-page .items-table th:nth-child(7),
     .print-page .items-table td:nth-child(7) {
-      width: 12% !important;
+      width: 10% !important;
+      text-align: right !important;
+    }
+    .print-page .items-table th:nth-child(8),
+    .print-page .items-table td:nth-child(8) {
+      width: 6% !important;
+      text-align: right !important;
+    }
+    .print-page .items-table th:nth-child(9),
+    .print-page .items-table td:nth-child(9) {
+      width: 7% !important;
       text-align: right !important;
     }
   }
 `;
 
+const getDocTitle = (printType) => {
+  switch (printType) {
+    case 'sales_order':    return 'ใบสั่งขาย';
+    case 'delivery_order': return 'ใบส่งของ';
+    default:               return 'ใบเสนอราคา';
+  }
+};
+
 // ─── Component ────────────────────────────────────────────────
-export default function QuotationPrint({ quotation, companyInfo = {}, onClose, printType = 'quotation' }) {
+export default function QuotationPrint({ quotation, companyInfo = {}, onClose, printType = 'quotation', autoPrint = false }) {
+
+  // Auto print if requested (e.g. for email attachment flow)
+  useEffect(() => {
+    if (autoPrint && quotation && quotation.status === 'approved') {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [autoPrint, quotation]);
+
   // Block printing via keyboard shortcuts if the quotation is draft or rejected
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key?.toLowerCase() === 'p') {
-        if (quotation && (quotation.status === 'draft' || quotation.status === 'rejected')) {
+        if (quotation && quotation.status !== 'approved') {
           e.preventDefault();
           e.stopPropagation();
         }
@@ -174,9 +189,23 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
     return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [quotation]);
 
+  // Set document title dynamically to customize printed/saved PDF filename
+  useEffect(() => {
+    const originalTitle = document.title;
+    if (quotation) {
+      const docType = getDocTitle(printType);
+      const coName = companyInfo.name || 'บริษัท พันธ์วาดี จำกัด';
+      const docNum = quotation.quotationNumber || quotation.id || '';
+      document.title = `${docType} ${docNum} - ${coName}`;
+    }
+    return () => {
+      document.title = originalTitle;
+    };
+  }, [quotation, companyInfo, printType]);
+
   if (!quotation) return null;
 
-  if (quotation.status === 'draft' || quotation.status === 'rejected') {
+  if (quotation.status !== 'approved') {
     return createPortal(
       <div 
         className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
@@ -189,8 +218,8 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
           <div className="space-y-2">
             <h2 className="font-bold text-lg text-[#1d1d1f] tracking-tight">ไม่สามารถพิมพ์เอกสารใบเสนอราคาได้</h2>
             <p className="text-xs text-[#555557] leading-relaxed">
-              เอกสารนี้อยู่ในสถานะ <strong className="text-rose-600">"{quotation.status === 'draft' ? 'ร่าง' : 'ไม่อนุมัติ'}"</strong><br />
-              ระบบไม่อนุญาตให้ออกคำสั่งพิมพ์ หรือดาวน์โหลดเอกสารจนกว่าจะได้รับการส่งหรืออนุมัติ
+              เอกสารนี้อยู่ในสถานะ <strong className="text-rose-600">"{quotation.status === 'draft' ? 'ร่าง' : quotation.status === 'sent' ? 'รออนุมัติ' : 'ไม่อนุมัติ'}"</strong><br />
+              ระบบไม่อนุญาตให้ออกคำสั่งพิมพ์ หรือดาวน์โหลดเอกสารจนกว่าจะได้รับการอนุมัติ
             </p>
           </div>
           <div className="pt-2">
@@ -225,13 +254,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
     website: companyInfo.website || 'www.phanvadee.com',
   };
 
-  const getDocTitle = () => {
-    switch (printType) {
-      case 'sales_order':    return 'ใบสั่งขาย';
-      case 'delivery_order': return 'ใบส่งของ';
-      default:               return 'ใบเสนอราคา';
-    }
-  };
+
 
   // colors matching the reference design
   const ACCENT   = '#111111'; // Black Accent
@@ -248,37 +271,64 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
         className="no-print"
         style={{
           position: 'sticky', top: 0, zIndex: 10,
-          background: '#1e293b', color: '#fff',
-          padding: '12px 24px',
+          height: '60px',
+          background: 'rgba(15, 23, 42, 0.88)',
+          backdropFilter: 'blur(12px)',
+          color: '#fff',
+          padding: '0 24px',
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          boxShadow: '0 2px 12px rgba(0,0,0,0.3)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
           <button
             onClick={onClose}
             style={{
-              background: 'rgba(255,255,255,0.1)', border: 'none', color: '#fff',
-              borderRadius: 8, padding: '6px 8px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff',
+              borderRadius: 8, padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              transition: 'background 0.2s, transform 0.1s',
             }}
+            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
+            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             <X size={18} />
           </button>
-          <div>
-            <div style={{ fontWeight: 700, fontSize: 14 }}>ตัวอย่าง{getDocTitle()}</div>
-            <div style={{ fontSize: 11, color: '#94a3b8' }}>{quotation.quotationNumber} · {customer.name}</div>
+          <div style={{ lineHeight: 1.2 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '0.01em' }}>ตัวอย่าง{getDocTitle(printType)}</div>
+            <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>{quotation.quotationNumber} · {customer.name}</div>
           </div>
         </div>
         <button
           onClick={() => window.print()}
           style={{
-            background: ACCENT, border: 'none', color: '#fff',
-            fontWeight: 700, fontSize: 13, padding: '9px 20px',
+            background: '#0071e3', border: 'none', color: '#fff',
+            fontWeight: 700, fontSize: 12.5, padding: '9px 20px',
             borderRadius: 10, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 8,
+            display: 'flex', alignItems: 'center', gap: 7,
+            boxShadow: '0 4px 12px rgba(0, 113, 227, 0.3)',
+            transition: 'background 0.2s, transform 0.2s, box-shadow 0.2s',
+          }}
+          onMouseOver={(e) => {
+            e.currentTarget.style.background = '#0077ed';
+            e.currentTarget.style.transform = 'translateY(-1px)';
+            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 113, 227, 0.45)';
+          }}
+          onMouseOut={(e) => {
+            e.currentTarget.style.background = '#0071e3';
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 113, 227, 0.3)';
+          }}
+          onMouseDown={(e) => {
+            e.currentTarget.style.transform = 'translateY(1px) scale(0.98)';
+          }}
+          onMouseUp={(e) => {
+            e.currentTarget.style.transform = 'translateY(-1px) scale(1)';
           }}
         >
-          <Printer size={16} />
+          <Printer size={15} />
           พิมพ์ / บันทึก PDF
         </button>
       </div>
@@ -307,14 +357,18 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
           {/* Left: Company Details */}
           <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            {/* Logo placeholder */}
+            {/* Logo */}
             <div style={{
-              width: 44, height: 44, borderRadius: 8,
-              background: ACCENT,
+              width: 44, height: 44,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 900, fontSize: 20,
               flexShrink: 0,
-            }}>P</div>
+            }}>
+              <svg viewBox="0 0 80 90" style={{ width: 44, height: 44, fill: ACCENT }} xmlns="http://www.w3.org/2000/svg">
+                <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
+                <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
+                <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
+              </svg>
+            </div>
             <div style={{ fontSize: '10.5px', color: DARK, lineHeight: 1.6 }}>
               <div style={{ fontWeight: 800, fontSize: '13px', marginBottom: 3, color: '#000' }}>{co.name}</div>
               <div style={{ color: GRAY }}>{co.address}</div>
@@ -327,11 +381,8 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
 
           {/* Right: Title & Doc Number */}
           <div style={{ textAlign: 'right' }}>
-            <div style={{ fontSize: '10px', color: GRAY, fontWeight: 'bold', marginBottom: 2 }}>
-              ต้นฉบับ (เอกสารออกเป็นชุด)
-            </div>
             <div style={{ fontSize: '28px', fontWeight: 900, color: ACCENT, lineHeight: 1 }}>
-              {getDocTitle()}
+              {getDocTitle(printType)}
             </div>
             <div style={{ fontSize: '18px', fontWeight: '800', color: ACCENT, marginTop: 4 }}>
               {quotation.referenceNumber || quotation.quotationNumber}
@@ -348,8 +399,12 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                 <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
                   <tbody>
                     <tr>
-                      <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>ชื่อลูกค้า / บริษัท</td>
+                      <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>ชื่อลูกค้า</td>
                       <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{customer.name || '-'}</td>
+                    </tr>
+                    <tr>
+                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>บริษัท</td>
+                      <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{customer.companyName || '-'}</td>
                     </tr>
                     {customer.contactPerson && (
                       <tr>
@@ -426,19 +481,21 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
         <table className="items-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, tableLayout: 'fixed' }}>
           <thead>
             <tr style={{ background: ACCENT, color: '#fff' }}>
-              <th style={{ padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
-              <th style={{ padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>รายการสินค้า</th>
-              <th style={{ padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>จำนวน</th>
-              <th style={{ padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>หน่วย</th>
-              <th style={{ padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา/หน่วย</th>
-              <th style={{ padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ส่วนลด</th>
-              <th style={{ padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ยอดรวม</th>
+              <th style={{ width: '5%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
+              <th style={{ width: '8%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รูปภาพ</th>
+              <th style={{ width: '15%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>รหัสสินค้า</th>
+              <th style={{ width: '35%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>รายการสินค้า</th>
+              <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>จำนวน</th>
+              <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>หน่วย</th>
+              <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา/หน่วย</th>
+              <th style={{ width: '6%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ส่วนลด</th>
+              <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ยอดรวม</th>
             </tr>
           </thead>
           <tbody>
             {items.length === 0 ? (
               <tr>
-                <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: GRAY, borderBottom: `1px solid ${BORDER}` }}>— ไม่มีรายการสินค้า —</td>
+                <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: GRAY, borderBottom: `1px solid ${BORDER}` }}>— ไม่มีรายการสินค้า —</td>
               </tr>
             ) : items.map((item, idx) => {
               const discountDisplay = item.discount > 0
@@ -447,10 +504,20 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
               return (
                 <tr key={item.id || idx} style={{ borderBottom: `1px solid ${BORDER}` }}>
                   <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{idx + 1}</td>
+                  <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                    {item.productImage ? (
+                      <img src={item.productImage} style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: `1px solid ${BORDER}` }} alt="" />
+                    ) : (
+                      <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
+                    )}
+                  </td>
+                  <td style={{ padding: '8px 10px', textAlign: 'left', color: DARK, fontSize: '10.5px', wordBreak: 'break-all' }}>
+                    {item.productCode || '—'}
+                  </td>
                   <td style={{ padding: '8px 10px', textAlign: 'left' }}>
                     <div style={{ fontWeight: 'bold', color: '#000' }}>{item.productName}</div>
                     {item.description && (
-                      <div style={{ color: GRAY, fontSize: '10px', marginTop: 2, whiteSpace: 'pre-line', paddingLeft: 4 }}>{item.description}</div>
+                      <div style={{ color: GRAY, fontSize: '10px', marginTop: 2, whiteSpace: 'pre-line' }}>{item.description}</div>
                     )}
                   </td>
                   <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 'bold' }}>{item.quantity}</td>
@@ -513,7 +580,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
             <div style={{ fontSize: '10.5px', color: DARK, marginTop: 2 }}>
               ({customer.name || '...................................................'})
             </div>
-            <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'left' }}>
+            <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'center' }}>
               วันที่ .....................................................................
             </div>
           </div>
@@ -525,21 +592,13 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
 
           {/* Authorized Signature Box */}
           <div style={{ width: '230px', textAlign: 'center' }}>
-            <div style={{ height: '24px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
-              {quotation.status === 'approved' && quotation.approvedBy ? (
-                <span style={{ fontFamily: "'Sarabun', sans-serif", fontStyle: 'italic', fontSize: '11px', color: '#111', fontWeight: 'bold', borderBottom: '1px solid transparent', paddingBottom: 2 }}>
-                  {quotation.approvedBy}
-                </span>
-              ) : (
-                <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6 }} />
-              )}
-            </div>
+            <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
             <div style={{ fontWeight: 'bold', fontSize: '11px', color: DARK, marginTop: 4 }}>ผู้อนุมัติ</div>
             <div style={{ fontSize: '10.5px', color: DARK, marginTop: 2 }}>
-              ({quotation.status === 'approved' && quotation.approvedBy ? quotation.approvedBy : '...................................................'})
+              ({quotation.salespersonName || '...................................................'})
             </div>
-            <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'left' }}>
-              วันที่ {quotation.status === 'approved' && quotation.approvedDate ? fmtThaiDate(quotation.approvedDate) : '.....................................................................'}
+            <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'center' }}>
+              วันที่ {quotation.issuedDate ? fmtDate(quotation.issuedDate) : '.....................................................................'}
             </div>
           </div>
         </div>

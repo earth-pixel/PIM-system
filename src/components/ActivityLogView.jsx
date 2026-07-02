@@ -141,7 +141,6 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
       <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">ประวัติการดำเนินงาน</h1>
-          <p className="text-sm text-[#555557] mt-1">บันทึกประวัติการกระทำและเปลี่ยนแปลงข้อมูลต่างๆ ของพนักงานในหน่วยงาน PIM</p>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {selectedLogIds.size > 0 && (

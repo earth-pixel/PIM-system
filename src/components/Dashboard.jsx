@@ -1,15 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { Package, Award, FolderKanban, AlertTriangle, CalendarDays } from 'lucide-react';
+import { Package, Award, FolderKanban, CalendarDays, FileText } from 'lucide-react';
 
-export default function Dashboard({ products, brands, categories, setActiveTab, setStockFilter }) {
+export default function Dashboard({ products, brands, categories, quotations = [], setActiveTab }) {
   // Stats calculations (Overall static stats)
   const totalProducts = products.length;
   const activeProducts = products.filter(p => p.status === 'Active').length;
   const totalBrands = brands.length;
   const totalCategories = categories.length;
-
-  const lowStockProducts = products.filter(p => p.stock <= 10);
-  const outOfStockProducts = products.filter(p => p.stock === 0);
+  const totalQuotations = quotations.length;
+  const approvedQuotations = quotations.filter(q => q.status === 'approved').length;
 
   // Dynamic Chart States
   const [chartType, setChartType] = useState('brand'); // 'brand' | 'category'
@@ -72,12 +71,13 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
         count: filteredProducts.filter(p => p.brand === brand).length,
       }))
     : categories.map(cat => ({
-        name: cat.split(' ')[0],
+        name: cat.split(' ').slice(0, 2).join(' '),
         fullName: cat,
         count: filteredProducts.filter(p => p.category === cat).length,
       }));
 
-  const maxCount = Math.max(...aggregatedData.map(d => d.count), 1);
+  const realMaxCount = Math.max(...aggregatedData.map(d => d.count), 0);
+  const maxCount = realMaxCount === 0 ? 4 : (realMaxCount < 4 ? 4 : Math.ceil(realMaxCount / 4) * 4);
 
   // SVG Line Chart coordinates calculations
   const N = aggregatedData.length;
@@ -108,126 +108,90 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
     : '';
 
   return (
-    <div className="flex-1 flex flex-col gap-6 lg:gap-8 animate-fade-in text-[#1d1d1f]">
-
-      {/* ─── Page Header ─────────────────────────────────────── */}
-      <div>
-        <h1 className="text-2xl lg:text-3xl font-bold tracking-tight text-[#1d1d1f]">
-          Dashboard
-        </h1>
-      </div>
+    <div className="flex-1 flex flex-col gap-3 lg:gap-4 animate-fade-in text-[#1d1d1f]">
 
       {/* ─── KPI Cards ───────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-5">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
 
-        {/* Total Products */}
-        <div 
-          onClick={() => {
-            setStockFilter('All');
-            setActiveTab('manage-products');
-          }}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setStockFilter('All');
-              setActiveTab('manage-products');
-            }
-          }}
-          className="bg-white p-3.5 sm:p-5 rounded-2xl border border-[#d2d2d7]/50 flex items-center gap-2.5 sm:gap-4 shadow-xs hover:shadow-md hover:border-zinc-300 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer select-none"
+        {/* Total Products — Blue accent */}
+        <div
+          onClick={() => { setActiveTab('manage-products'); }}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('manage-products'); } }}
+          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-blue-100 flex items-center gap-3 shadow-sm hover:shadow-blue-100/60 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group"
         >
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-black shrink-0">
-            <Package className="w-5 h-5 sm:w-6 sm:h-6" />
+          {/* Decorative bg circle */}
+          <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-blue-50/60 group-hover:bg-blue-100/50 transition-colors duration-300" />
+          {/* Left accent bar */}
+          <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-blue-400 to-blue-600" />
+          {/* Icon */}
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-700 flex items-center justify-center text-white shrink-0 shadow-sm shadow-blue-300/40">
+            <Package className="w-4 h-4" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-[#555557] uppercase tracking-wider truncate">สินค้าทั้งหมด</p>
-            <h3 className="text-2xl sm:text-3xl font-bold text-[#1d1d1f] mt-0.5">{totalProducts}</h3>
-            <p className="text-[10px] sm:text-xs text-[#555557] mt-0.5 flex items-center gap-1 truncate">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block shrink-0" />
-              เปิด {activeProducts} รายการ
+          <div className="min-w-0 relative">
+            <p className="text-[9px] font-semibold text-blue-400 uppercase tracking-widest truncate">สินค้าทั้งหมด</p>
+            <h3 className="text-2xl font-extrabold text-[#1d1d1f] leading-none tracking-tight">{totalProducts}</h3>
+            <p className="text-[9px] text-[#8e8e93] flex items-center gap-1 mt-0.5 truncate">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 inline-block shrink-0" />
+              เปิดใช้งาน {activeProducts} รายการ
             </p>
           </div>
         </div>
 
-        {/* Brands */}
-        <div 
+        {/* Brands — Purple accent */}
+        <div
           onClick={() => setActiveTab('brands')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setActiveTab('brands');
-            }
-          }}
-          className="bg-white p-3.5 sm:p-5 rounded-2xl border border-[#d2d2d7]/50 flex items-center gap-2.5 sm:gap-4 shadow-xs hover:shadow-md hover:border-zinc-300 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer select-none"
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('brands'); } }}
+          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-purple-100 flex items-center gap-3 shadow-sm hover:shadow-purple-100/60 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group"
         >
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-black shrink-0">
-            <Award className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-purple-50/60 group-hover:bg-purple-100/50 transition-colors duration-300" />
+          <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-purple-400 to-purple-600" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-purple-500 to-purple-700 flex items-center justify-center text-white shrink-0 shadow-sm shadow-purple-300/40">
+            <Award className="w-4 h-4" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-[#555557] uppercase tracking-wider truncate">แบรนด์สินค้า</p>
-            <h3 className="text-2xl sm:text-3xl font-bold text-[#1d1d1f] mt-0.5">{totalBrands}</h3>
-            <p className="text-[10px] sm:text-xs text-[#555557] mt-0.5 truncate">จำแนกตามแบรนด์</p>
+          <div className="min-w-0 relative">
+            <p className="text-[9px] font-semibold text-purple-400 uppercase tracking-widest truncate">แบรนด์สินค้า</p>
+            <h3 className="text-2xl font-extrabold text-[#1d1d1f] leading-none tracking-tight">{totalBrands}</h3>
+            <p className="text-[9px] text-[#8e8e93] mt-0.5 truncate">จำแนกตามแบรนด์</p>
           </div>
         </div>
 
-        {/* Categories */}
-        <div 
+        {/* Categories — Amber accent */}
+        <div
           onClick={() => setActiveTab('categories')}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setActiveTab('categories');
-            }
-          }}
-          className="bg-white p-3.5 sm:p-5 rounded-2xl border border-[#d2d2d7]/50 flex items-center gap-2.5 sm:gap-4 shadow-xs hover:shadow-md hover:border-zinc-300 hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer select-none"
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('categories'); } }}
+          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-amber-100 flex items-center gap-3 shadow-sm hover:shadow-amber-100/60 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group"
         >
-          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-[#f5f5f7] flex items-center justify-center text-black shrink-0">
-            <FolderKanban className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-amber-50/60 group-hover:bg-amber-100/50 transition-colors duration-300" />
+          <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-amber-400 to-orange-500" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-amber-300/40">
+            <FolderKanban className="w-4 h-4" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-[#555557] uppercase tracking-wider truncate">หมวดหมู่สินค้า</p>
-            <h3 className="text-2xl sm:text-3xl font-bold text-[#1d1d1f] mt-0.5">{totalCategories}</h3>
-            <p className="text-[10px] sm:text-xs text-[#555557] mt-0.5 truncate">จำแนกตามหมวดหมู่</p>
+          <div className="min-w-0 relative">
+            <p className="text-[9px] font-semibold text-amber-500 uppercase tracking-widest truncate">หมวดหมู่สินค้า</p>
+            <h3 className="text-2xl font-extrabold text-[#1d1d1f] leading-none tracking-tight">{totalCategories}</h3>
+            <p className="text-[9px] text-[#8e8e93] mt-0.5 truncate">จำแนกตามหมวดหมู่</p>
           </div>
         </div>
 
-        {/* Stock Alert */}
-        <div 
-          onClick={() => {
-            setStockFilter('Low');
-            setActiveTab('manage-products');
-          }}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault();
-              setStockFilter('Low');
-              setActiveTab('manage-products');
-            }
-          }}
-          className={`bg-white p-3.5 sm:p-5 rounded-2xl border flex items-center gap-2.5 sm:gap-4 shadow-xs hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 cursor-pointer select-none ${
-            lowStockProducts.length > 0 ? 'border-red-200/60 hover:border-red-400' : 'border-[#d2d2d7]/50 hover:border-zinc-300'
-          }`}
+        {/* Quotations — Emerald/Teal accent */}
+        <div
+          onClick={() => setActiveTab('quotations')}
+          role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('quotations'); } }}
+          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-emerald-100 flex items-center gap-3 shadow-sm hover:shadow-emerald-100/60 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group"
         >
-          <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center shrink-0 ${
-            lowStockProducts.length > 0 ? 'bg-red-50 text-red-500' : 'bg-[#f5f5f7] text-[#555557]'
-          }`}>
-            <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6" />
+          <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-emerald-50/60 group-hover:bg-emerald-100/50 transition-colors duration-300" />
+          <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-emerald-400 to-teal-500" />
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-emerald-300/40">
+            <FileText className="w-4 h-4" />
           </div>
-          <div className="min-w-0">
-            <p className="text-[10px] sm:text-xs font-bold text-[#555557] uppercase tracking-wider truncate">สต็อกสินค้าต่ำ</p>
-            <h3 className={`text-2xl sm:text-3xl font-bold mt-0.5 ${lowStockProducts.length > 0 ? 'text-red-500' : 'text-[#1d1d1f]'}`}>
-              {lowStockProducts.length}
-            </h3>
-            <p className="text-[10px] sm:text-xs text-[#555557] mt-0.5 truncate">
-              {outOfStockProducts.length > 0 ? `หมด ${outOfStockProducts.length} ชิ้น` : 'ระดับสต็อกปกติ'}
-            </p>
+          <div className="min-w-0 relative">
+            <p className="text-[9px] font-semibold text-emerald-500 uppercase tracking-widest truncate">ใบเสนอราคา</p>
+            <h3 className="text-2xl font-extrabold text-[#1d1d1f] leading-none tracking-tight">{totalQuotations}</h3>
+            <p className="text-[9px] text-[#8e8e93] mt-0.5 truncate">อนุมัติแล้ว {approvedQuotations} รายการ</p>
           </div>
         </div>
 
@@ -302,7 +266,7 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
               </button>
 
               {isDatePickerOpen && (
-                <div className="absolute right-0 bottom-full mb-1.5 w-72 bg-white rounded-3xl border border-[#d2d2d7]/50 shadow-xl p-4 sm:p-5 z-30 animate-scale-in text-left space-y-4">
+                <div className="absolute right-0 top-full mt-1.5 w-72 bg-white rounded-3xl border border-[#d2d2d7]/50 shadow-xl p-4 sm:p-5 z-30 animate-scale-in text-left space-y-4">
                   <div className="space-y-1">
                     <h5 className="text-xs font-bold text-[#1d1d1f] tracking-wide uppercase">กำหนดช่วงเวลาเอง</h5>
                     <p className="text-[10px] text-[#555557]">กรองสถิติการอัปเดตข้อมูลสินค้าในระบบ</p>
@@ -381,8 +345,9 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
               {/* If line chart, render the SVG line graph */}
               {chartDisplay === 'line' && (
                 <>
-                  {/* Subtle green tint background when in line mode */}
-                  <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-[#34c759]/[0.04] to-transparent pointer-events-none" />
+                  {/* Premium green glassy background tint */}
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-emerald-400/[0.07] via-green-300/[0.03] to-transparent pointer-events-none" />
+
                   <svg
                     className="absolute inset-0 w-full h-full overflow-visible"
                     viewBox="0 0 1000 256"
@@ -390,102 +355,96 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
                     style={{ paddingLeft: '28px' }}
                   >
                     <defs>
-                      {/* 3-stop gradient fill under line */}
+                      {/* 4-stop area gradient */}
                       <linearGradient id="lineAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#34c759" stopOpacity="0.28" />
-                        <stop offset="55%" stopColor="#30d158" stopOpacity="0.10" />
-                        <stop offset="100%" stopColor="#34c759" stopOpacity="0" />
+                        <stop offset="0%"   stopColor="#22c55e" stopOpacity="0.40" />
+                        <stop offset="40%"  stopColor="#16a34a" stopOpacity="0.18" />
+                        <stop offset="100%" stopColor="#14532d" stopOpacity="0" />
                       </linearGradient>
-                      {/* Glow filter for the main line */}
+
+                      {/* Horizontal gradient stroke */}
+                      <linearGradient id="lineStrokeGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%"   stopColor="#4ade80" />
+                        <stop offset="50%"  stopColor="#22c55e" />
+                        <stop offset="100%" stopColor="#16a34a" />
+                      </linearGradient>
+
+                      {/* Single-pass glow — lighter than before for perf */}
                       <filter id="lineGlow" x="-10%" y="-60%" width="120%" height="220%">
-                        <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
                         <feMerge>
                           <feMergeNode in="blur" />
                           <feMergeNode in="SourceGraphic" />
                         </feMerge>
                       </filter>
-                      {/* Clip path so area fill stays within chart */}
+
+                      {/* Clip path */}
                       <clipPath id="chartClip">
                         <rect x="0" y="0" width="1000" height="256" />
                       </clipPath>
                     </defs>
 
-                    {/* Area fill under the line */}
+                  {/* Area fill */}
                     {smoothAreaPath && (
                       <path
                         d={smoothAreaPath}
                         fill="url(#lineAreaGradient)"
                         clipPath="url(#chartClip)"
-                        opacity="1"
                       />
                     )}
 
-                    {/* Glow shadow line (wider, blurred) */}
+                    {/* Glow layer */}
                     {smoothLinePath && (
                       <path
                         d={smoothLinePath}
                         fill="none"
-                        stroke="#34c759"
+                        stroke="#4ade80"
                         strokeWidth="8"
                         strokeLinecap="round"
                         strokeLinejoin="round"
-                        opacity="0.25"
+                        opacity="0.30"
                         filter="url(#lineGlow)"
                       />
                     )}
 
-                    {/* Main crisp line */}
+                    {/* Main crisp gradient stroke */}
                     {smoothLinePath && (
                       <path
                         d={smoothLinePath}
                         fill="none"
-                        stroke="#2db54e"
-                        strokeWidth="3"
+                        stroke="url(#lineStrokeGradient)"
+                        strokeWidth="3.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       />
                     )}
 
-                    {/* Animated outer pulse rings + inner dots */}
+                    {/* Data point dots — single pulse ring only for performance */}
                     {svgPoints.map((p, idx) => (
                       <g key={idx}>
-                        {/* Outer pulse ring (animated) */}
+                        {/* Pulse ring */}
                         <circle
-                          cx={p.x}
-                          cy={p.y}
-                          r="10"
+                          cx={p.x} cy={p.y} r="12"
                           fill="none"
-                          stroke="#34c759"
+                          stroke="#22c55e"
                           strokeWidth="1.5"
-                          opacity="0.35"
+                          opacity="0.28"
                           style={{
                             transformOrigin: `${p.x}px ${p.y}px`,
-                            animation: `pulse-ring 2s ease-out ${idx * 0.15}s infinite`,
+                            animation: `pulse-ring 2.2s ease-out ${idx * 0.12}s infinite`,
                           }}
                         />
-                        {/* Mid ring */}
+                        {/* White ring */}
                         <circle
-                          cx={p.x}
-                          cy={p.y}
-                          r="7"
-                          fill="#34c759"
-                          opacity="0.15"
-                        />
-                        {/* White border ring */}
-                        <circle
-                          cx={p.x}
-                          cy={p.y}
-                          r="5.5"
+                          cx={p.x} cy={p.y} r="6"
                           fill="white"
-                          stroke="#34c759"
-                          strokeWidth="2"
+                          stroke="#16a34a"
+                          strokeWidth="2.5"
                         />
-                        {/* Inner green fill */}
+                        {/* Green core */}
                         <circle
-                          cx={p.x}
-                          cy={p.y}
-                          r="3"
-                          fill="#34c759"
+                          cx={p.x} cy={p.y} r="3"
+                          fill="#4ade80"
                         />
                       </g>
                     ))}
@@ -494,13 +453,13 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
               )}
 
               {/* Flex row overlay for bars or hover tooltips */}
-              <div className="absolute inset-0 pl-7 flex items-end gap-1.5 h-full">
-                {aggregatedData.map(({ name, fullName, count }, idx) => {
+              <div className="absolute inset-0 pl-7 flex items-end h-full">
+                {aggregatedData.map(({ name, count }, idx) => {
                   const heightPercent = maxCount > 0 ? (count / maxCount) * 100 : 0;
                   return (
                     <div
                       key={name}
-                      className="flex-1 flex flex-col items-center justify-end h-full group relative"
+                      className="flex-1 flex flex-col items-center justify-end h-full group relative min-w-0"
                       style={{ animationDelay: `${idx * 60}ms` }}
                     >
                       {/* Hover tooltip badge */}
@@ -516,8 +475,8 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
                         {count} รายการ
                       </div>
 
-                      {/* Bar content - only visible if chartDisplay === 'bar' */}
-                      {chartDisplay === 'bar' && (
+                      {/* Bar content - only visible if chartDisplay === 'bar' and count > 0 */}
+                      {chartDisplay === 'bar' && count > 0 && (
                         <div className="w-full max-w-[36px] h-full flex flex-col justify-end">
                           <div
                             style={{
@@ -533,14 +492,13 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
                               group-hover:shadow-[0_-4px_20px_rgba(255,59,48,0.55)]
                               border-t border-l border-r border-red-400/20
                             "
-                            title={`${fullName ?? name}: ${count} รายการ`}
                           />
                         </div>
                       )}
 
                       {/* Interactive hover hotspot area if chartDisplay === 'line' */}
                       {chartDisplay === 'line' && (
-                        <div className="w-full h-full cursor-pointer" title={`${fullName ?? name}: ${count} รายการ`} />
+                        <div className="w-full h-full cursor-pointer" />
                       )}
                     </div>
                   );
@@ -549,16 +507,31 @@ export default function Dashboard({ products, brands, categories, setActiveTab, 
             </div>
 
             {/* ── X-axis label row (separate, below bars) ─────── */}
-            <div className="flex items-start gap-1.5 pl-7 pt-2 border-t border-[#f0f0f5]">
+            <div className="flex items-start pl-7 pt-2 border-t border-[#f0f0f5]">
               {aggregatedData.map(({ name, fullName }) => (
                 <div
                   key={name}
-                  className="flex-1 text-center px-0.5"
-                  title={fullName ?? name}
+                  className="flex-1 text-center px-0.5 min-w-0 group relative cursor-help"
                 >
                   <span className="text-xs text-[#555557] font-medium leading-tight block truncate">
                     {name}
                   </span>
+
+                  {/* Custom Popover Tooltip for long name on label hover */}
+                  <div className="
+                    absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                    text-[10px] sm:text-xs font-semibold text-white bg-[#1d1d1f]/95
+                    px-2.5 sm:px-3 py-1.5 rounded-xl shadow-xl backdrop-blur-md
+                    opacity-0 scale-90 translate-y-1
+                    group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0
+                    transition-all duration-200 ease-out pointer-events-none z-30
+                    w-max max-w-[150px] sm:max-w-[200px] text-center border border-white/10
+                    flex flex-col items-center gap-0.5
+                  ">
+                    <span className="leading-tight break-words">{fullName ?? name}</span>
+                    {/* Tooltip arrow */}
+                    <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-[4px] border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]/95" />
+                  </div>
                 </div>
               ))}
             </div>

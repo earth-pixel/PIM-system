@@ -1,54 +1,184 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { 
-  Image as ImageIcon, 
-  X, 
-  Save, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Search, 
-  AlertTriangle, 
-  Check, 
-  AlertCircle, 
-  Info, 
-  Copy, 
+import {
+  Image as ImageIcon,
+  X,
+  Save,
+  Plus,
+  Edit,
+  Trash2,
+  Search,
+  AlertTriangle,
+  Check,
+  AlertCircle,
+  Info,
+  Copy,
   FileSpreadsheet,
   Download,
   Upload,
-  ChevronDown
+  ChevronDown,
+  LayoutGrid,
+  List
 } from 'lucide-react';
-import { exportShopee, exportLazada, exportTikTok } from '../utils/exportUtils';
-import { 
-  autoDetectPlatformAndImport
+import { exportShopee, exportLazada, exportTikTok, exportToExcel } from '../utils/exportUtils';
+import {
+  guessBrandFromName,
+  guessCategoryFromName,
+  parseWeightToKg
 } from '../utils/marketplaceIO';
 import ExcelJS from 'exceljs';
 
-const PRESET_IMAGES = [
-  { url: 'https://images.unsplash.com/photo-1608248597279-f99d160bfcbc?q=80&w=400&auto=format&fit=crop', label: 'Pomade Waxes' },
-  { url: 'https://images.unsplash.com/photo-1595853035070-59a39fe84de3?q=80&w=400&auto=format&fit=crop', label: 'Color Cream' },
-  { url: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400&auto=format&fit=crop', label: 'Hair Dryer' },
-  { url: 'https://images.unsplash.com/photo-1598440947619-2c35fc9aa908?q=80&w=400&auto=format&fit=crop', label: 'Matte Clay' },
-  { url: 'https://images.unsplash.com/photo-1535585209827-a15fcdbc4c2d?q=80&w=400&auto=format&fit=crop', label: 'Hair Mask' },
-  { url: 'https://images.unsplash.com/photo-1527799863830-53a84e6ad82b?q=80&w=400&auto=format&fit=crop', label: 'Scissors Set' }
+
+
+const shopeeCols = [
+  { label: 'หมวดหมู่สินค้า', value: (p) => p.category || '' },
+  { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
+  {
+    label: 'รายละเอียดสินค้า', value: (p) => {
+      let desc = p.description || '';
+      if (p.highlights) desc += `\n\nจุดเด่นสินค้า:\n${p.highlights}`;
+      if (p.howToUse) desc += `\n\nวิธีใช้งาน:\n${p.howToUse}`;
+      return desc;
+    }
+  },
+  { label: 'ราคา', value: (p) => (Number(p.retailPrice) || 0).toLocaleString() },
+  { label: 'คลังสินค้า', value: (p) => p.stock || 0 },
+  { label: 'ภาพปก', value: (p) => p.image || '' },
+  { label: 'รูปภาพ 1', value: (p) => p.image || '' },
+  { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+  { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
+  { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
+  { label: 'ความสูง (ซม)', value: (p) => p.packageHeight || '' },
 ];
 
-export default function ProductManage({ 
-  editProduct, 
-  onCancelEdit, 
-  onSaveProduct, 
-  brands, 
-  categories, 
+const tiktokCols = [
+  { label: 'หมวดหมู่', value: (p) => p.category || '' },
+  { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
+  {
+    label: 'คำอธิบายสินค้า', value: (p) => {
+      let desc = p.description || '';
+      if (p.highlights) desc += `\n\nจุดเด่นสินค้า:\n${p.highlights}`;
+      if (p.howToUse) desc += `\n\nวิธีใช้งาน:\n${p.howToUse}`;
+      return desc;
+    }
+  },
+  { label: 'ภาพหลัก', value: (p) => p.image || '' },
+  { label: 'น้ำหนักพัสดุ(g)', value: (p) => Math.round(parseWeightToKg(p.weight) * 1000) || '' },
+  { label: 'ความยาวของพัสดุ(cm)', value: (p) => p.packageLength || '' },
+  { label: 'ความกว้างของพัสดุ(cm)', value: (p) => p.packageWidth || '' },
+  { label: 'ความสูงของพัสดุ(cm)', value: (p) => p.packageHeight || '' },
+  { label: 'ราคาขายปลีก', value: (p) => (Number(p.retailPrice) || 0).toLocaleString() },
+  { label: 'ปริมาณ', value: (p) => p.stock || 0 },
+];
+
+const lazadaCategorySheets = [
+  'ผลิตภัณฑ์จัดแต่งทรงผม',
+  'ผลิตภัณฑ์เปลี่ยนสีผม',
+  'ครีมบำรุงผม',
+  'ทรีทเมนต์สำหรับผม',
+  'แชมพู'
+];
+
+const LAZADA_PREVIEW_COLS = {
+  'ผลิตภัณฑ์จัดแต่งทรงผม': [
+    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
+    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
+    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
+    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    { label: 'ระดับการจัดทรง', value: () => '' },
+    { label: 'ประเภทเส้นผม', value: () => '' },
+    { label: 'ประโยชน์ดูแลผม', value: () => '' },
+    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'จำนวน', value: () => 0 },
+    { label: 'ราคา', value: (p) => p.retailPrice || 0 },
+    { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
+    { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
+    { label: 'ความสูง (ซม)', value: (p) => p.packageHeight || '' },
+    { label: 'SellerSKU', value: (p) => p.code || '' }
+  ],
+  'ผลิตภัณฑ์เปลี่ยนสีผม': [
+    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
+    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
+    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
+    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    { label: 'ประเภทสีย้อมผม', value: () => '' },
+    { label: 'รูปแบบผลิตภัณฑ์', value: () => '' },
+    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'จำนวน', value: () => 0 },
+    { label: 'ราคา', value: (p) => p.retailPrice || 0 },
+    { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
+    { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
+    { label: 'ความสูง (ซม)', value: (p) => p.packageHeight || '' },
+    { label: 'SellerSKU', value: (p) => p.code || '' }
+  ],
+  'ครีมบำรุงผม': [
+    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
+    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
+    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
+    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    { label: 'ประเภทเส้นผม', value: () => '' },
+    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'จำนวน', value: () => 0 },
+    { label: 'ราคา', value: (p) => p.retailPrice || 0 },
+    { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
+    { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
+    { label: 'ความสูง (ซม)', value: (p) => p.packageHeight || '' },
+    { label: 'SellerSKU', value: (p) => p.code || '' }
+  ],
+  'ทรีทเมนต์สำหรับผม': [
+    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
+    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
+    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
+    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    { label: 'ประเภทเส้นผม', value: () => '' },
+    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'จำนวน', value: () => 0 },
+    { label: 'ราคา', value: (p) => p.retailPrice || 0 },
+    { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
+    { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
+    { label: 'ความสูง (ซม)', value: (p) => p.packageHeight || '' },
+    { label: 'SellerSKU', value: (p) => p.code || '' }
+  ],
+  'แชมพู': [
+    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
+    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
+    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
+    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    { label: 'ประเภทเส้นผม', value: () => '' },
+    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'จำนวน', value: () => 0 },
+    { label: 'ราคา', value: (p) => p.retailPrice || 0 },
+    { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
+    { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
+    { label: 'ความสูง (ซม)', value: (p) => p.packageHeight || '' },
+    { label: 'SellerSKU', value: (p) => p.code || '' }
+  ]
+};
+
+function resolveLazadaSheet(product) {
+  const cat = (product.category || '').trim();
+  if (cat.startsWith('Grooming') || cat.includes('จัดแต่งทรงผม') || cat === 'Styling') return 'ผลิตภัณฑ์จัดแต่งทรงผม';
+  if (cat.startsWith('Chemical') || cat.includes('เคมีภัณฑ์') || cat.includes('เปลี่ยนสีผม') || cat === 'Hair Color') return 'ผลิตภัณฑ์เปลี่ยนสีผม';
+  if (cat.startsWith('Hair Treatment') || cat.includes('บำรุงเส้นผม') || cat === 'Treatment') return 'ครีมบำรุงผม';
+  if (cat.includes('แชมพู') || cat.toLowerCase().includes('shampoo')) return 'แชมพู';
+  if (cat.includes('ทรีทเมนต์')) return 'ทรีทเมนต์สำหรับผม';
+  return 'ครีมบำรุงผม';
+}
+
+export default function ProductManage({
+  editProduct,
+  onCancelEdit,
+  onSaveProduct,
+  brands,
+  categories,
   currentUser,
   products = [],
   onDeleteProduct,
   onEditProduct,
   onImportProducts,
-  onClearAllProducts = () => {},
-  stockFilter = 'All',
-  setStockFilter = () => {},
-  onUpdateStock = () => {}
+  onClearAllProducts = () => { },
+  addActivityLog
 }) {
   const [code, setCode] = useState('');
   const [barcode, setBarcode] = useState('');
@@ -66,23 +196,44 @@ export default function ProductManage({
   const [weight, setWeight] = useState('');
   const [fdaNumber, setFdaNumber] = useState('');
   const [tisiNumber, setTisiNumber] = useState('');
-  const [stock, setStock] = useState('');
   const [status, setStatus] = useState('Active');
   const [createdAt, setCreatedAt] = useState('');
   const [packageLength, setPackageLength] = useState('');
   const [packageWidth, setPackageWidth] = useState('');
   const [packageHeight, setPackageHeight] = useState('');
   const [platform, setPlatform] = useState('');
-  
+  const [isDragging, setIsDragging] = useState(false);
+
   const [errorMsg, setErrorMsg] = useState('');
+  const [formErrors, setFormErrors] = useState({
+    code: false,
+    name: false,
+    editRemark: false,
+    packageLength: false,
+    packageWidth: false,
+    packageHeight: false,
+    category: false,
+    brand: false,
+    weight: false,
+    retailPrice: false,
+    wholesalePrice: false,
+    capFee: false,
+    description: false,
+    highlights: false,
+    howToUse: false,
+    image: false,
+    barcode: false,
+    size: false,
+    fdaNumber: false,
+    tisiNumber: false
+  });
 
   // Marketplace Import Modals States
-  const [importPlatform, setImportPlatform] = useState('shopee');
   const [parsedProducts, setParsedProducts] = useState([]);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState('');
 
-  // Custom Excel / Google Sheets Import States
+  // Custom Excel Import States
   const [customWorkbook, setCustomWorkbook] = useState(null);
   const [sheetNames, setSheetNames] = useState([]);
   const [selectedSheetName, setSelectedSheetName] = useState('');
@@ -125,27 +276,27 @@ export default function ProductManage({
   const handleSelectSheet = (sheetName, workbookInstance = customWorkbook) => {
     if (!workbookInstance) return;
     setSelectedSheetName(sheetName);
-    
+
     const worksheet = workbookInstance.getWorksheet(sheetName);
     if (!worksheet) {
       setSheetHeaders([]);
       return;
     }
-    
+
     // Find first row containing headers (usually row 1)
     let headerRow = null;
-    worksheet.eachRow((row, rowNumber) => {
+    worksheet.eachRow((row) => {
       if (!headerRow && row.values.some(v => v !== null && v !== '')) {
         headerRow = row;
       }
     });
-    
+
     if (!headerRow) {
       setSheetHeaders([]);
       setImportError('ไม่พบข้อมูลหรือหัวตารางในแผ่นงานนี้');
       return;
     }
-    
+
     const headersList = [];
     headerRow.eachCell((cell, colNumber) => {
       headersList.push({
@@ -153,9 +304,9 @@ export default function ProductManage({
         name: String(cell.value || '').trim()
       });
     });
-    
+
     setSheetHeaders(headersList);
-    
+
     // Auto map columns
     const newMapping = {
       code: '',
@@ -177,82 +328,68 @@ export default function ProductManage({
       packageWidth: '',
       packageHeight: ''
     };
-    
+
     headersList.forEach(h => {
       const nameLower = h.name.toLowerCase();
-      
-      if (!newMapping.code && (nameLower === 'code' || nameLower === 'sku' || nameLower.includes('รหัส') || nameLower.includes('sku'))) {
-        newMapping.code = String(h.colNumber);
+
+      if (!newMapping.code && (nameLower === 'code' || nameLower === 'sku' || nameLower.includes('รหัส') || nameLower.includes('sku')) && !nameLower.includes('บาร์') && !nameLower.includes('barcode')) {
+        newMapping.code = h.name;
       }
       if (!newMapping.barcode && (nameLower.includes('barcode') || nameLower.includes('บาร์โค้ด') || nameLower.includes('รหัสบาร์'))) {
-        newMapping.barcode = String(h.colNumber);
+        newMapping.barcode = h.name;
       }
-      if (!newMapping.name && (nameLower === 'name' || nameLower === 'title' || nameLower.includes('ชื่อ') || nameLower.includes('รายการ') || nameLower.includes('สินค้า'))) {
-        newMapping.name = String(h.colNumber);
+      if (!newMapping.name && (nameLower === 'name' || nameLower === 'title' || nameLower.includes('ชื่อ') || nameLower.includes('รายการ') || (nameLower.includes('สินค้า') && !nameLower.includes('รหัส') && !nameLower.includes('sku')))) {
+        newMapping.name = h.name;
       }
       if (!newMapping.brand && (nameLower === 'brand' || nameLower.includes('แบรนด์') || nameLower.includes('ยี่ห้อ'))) {
-        newMapping.brand = String(h.colNumber);
+        newMapping.brand = h.name;
       }
       if (!newMapping.category && (nameLower === 'category' || nameLower.includes('หมวดหมู่') || nameLower.includes('ประเภท') || nameLower.includes('กลุ่มสินค้า'))) {
-        newMapping.category = String(h.colNumber);
+        newMapping.category = h.name;
       }
       if (!newMapping.wholesalePrice && (nameLower.includes('wholesale') || nameLower.includes('ราคาส่ง') || nameLower.includes('ส่ง') || nameLower.includes('ราคาขายส่ง'))) {
-        newMapping.wholesalePrice = String(h.colNumber);
+        newMapping.wholesalePrice = h.name;
       }
       if (!newMapping.retailPrice && (nameLower.includes('retail') || nameLower === 'price' || nameLower.includes('ปลีก') || nameLower.includes('ขายปลีก') || nameLower.includes('ราคาขายปลีก') || nameLower.includes('ราคาขาย') || nameLower.includes('ราคาปลีก'))) {
-        newMapping.retailPrice = String(h.colNumber);
+        newMapping.retailPrice = h.name;
       }
       if (!newMapping.capFee && (nameLower.includes('cap') || nameLower.includes('ฝา') || nameLower.includes('ค่าฝา') || nameLower.includes('ค่าบริการฝา'))) {
-        newMapping.capFee = String(h.colNumber);
+        newMapping.capFee = h.name;
       }
       if (!newMapping.description && (nameLower.includes('desc') || nameLower.includes('รายละเอียด') || nameLower.includes('ข้อมูล') || nameLower.includes('คำอธิบาย'))) {
-        newMapping.description = String(h.colNumber);
+        newMapping.description = h.name;
       }
       if (!newMapping.highlights && (nameLower.includes('highlight') || nameLower.includes('จุดเด่น') || nameLower.includes('คำโปรย') || nameLower.includes('ไฮไลท์'))) {
-        newMapping.highlights = String(h.colNumber);
+        newMapping.highlights = h.name;
       }
       if (!newMapping.howToUse && (nameLower.includes('use') || nameLower.includes('วิธีใช้') || nameLower.includes('วิธีใช้งาน'))) {
-        newMapping.howToUse = String(h.colNumber);
+        newMapping.howToUse = h.name;
       }
       if (!newMapping.size && (nameLower.includes('size') || nameLower.includes('ขนาด') || nameLower.includes('ปริมาตร') || nameLower.includes('ความจุ'))) {
-        newMapping.size = String(h.colNumber);
+        newMapping.size = h.name;
       }
       if (!newMapping.weight && (nameLower.includes('weight') || nameLower.includes('น้ำหนัก') || nameLower.includes('กก') || nameLower.includes('g') || nameLower.includes('kg'))) {
-        newMapping.weight = String(h.colNumber);
+        newMapping.weight = h.name;
       }
       if (!newMapping.fdaNumber && (nameLower.includes('fda') || nameLower.includes('อย') || nameLower.includes('เลข อย') || nameLower.includes('ใบรับจด'))) {
-        newMapping.fdaNumber = String(h.colNumber);
+        newMapping.fdaNumber = h.name;
       }
       if (!newMapping.tisiNumber && (nameLower.includes('tisi') || nameLower.includes('มอก') || nameLower.includes('เลข มอก'))) {
-        newMapping.tisiNumber = String(h.colNumber);
+        newMapping.tisiNumber = h.name;
       }
       if (!newMapping.packageLength && (nameLower.includes('length') || nameLower.includes('ยาว') || nameLower.includes('ความยาวพัสดุ'))) {
-        newMapping.packageLength = String(h.colNumber);
+        newMapping.packageLength = h.name;
       }
       if (!newMapping.packageWidth && (nameLower.includes('width') || nameLower.includes('กว้าง') || nameLower.includes('ความกว้างพัสดุ'))) {
-        newMapping.packageWidth = String(h.colNumber);
+        newMapping.packageWidth = h.name;
       }
       if (!newMapping.packageHeight && (nameLower.includes('height') || nameLower.includes('สูง') || nameLower.includes('ความสูงพัสดุ'))) {
-        newMapping.packageHeight = String(h.colNumber);
+        newMapping.packageHeight = h.name;
       }
     });
-    
-    // Smart fallbacks for SKU (code) and Name if not auto-detected
-    if (!newMapping.code && headersList.length > 0) {
-      newMapping.code = String(headersList[0].colNumber);
-    }
-    if (!newMapping.name && headersList.length > 0) {
-      const unusedHeader = headersList.find(h => 
-        String(h.colNumber) !== newMapping.code && 
-        String(h.colNumber) !== newMapping.barcode
-      );
-      if (unusedHeader) {
-        newMapping.name = String(unusedHeader.colNumber);
-      } else {
-        newMapping.name = headersList.length > 1 ? String(headersList[1].colNumber) : String(headersList[0].colNumber);
-      }
-    }
-    
+
+    // No fallback for code and name so they stay empty if not matched
+
     setColumnMapping(newMapping);
     setParsedProducts([]);
   };
@@ -267,12 +404,12 @@ export default function ProductManage({
     setSelectedSheetName('');
     setSheetHeaders([]);
     setParsedProducts([]);
-    
+
     try {
       const arrayBuffer = await file.arrayBuffer();
       const workbook = new ExcelJS.Workbook();
       await workbook.xlsx.load(arrayBuffer);
-      
+
       const names = workbook.worksheets.map(ws => ws.name);
       setCustomWorkbook(workbook);
       setSheetNames(names);
@@ -286,7 +423,6 @@ export default function ProductManage({
       setImportLoading(false);
     }
   };
-
   const closeImportModal = () => {
     setShowImportModal(false);
     setParsedProducts([]);
@@ -319,14 +455,14 @@ export default function ProductManage({
 
   // Run dynamic parser when mapping/selection changes
   useEffect(() => {
-    if (!customWorkbook || !selectedSheetName || !columnMapping.code || !columnMapping.name) {
+    if (!customWorkbook || !selectedSheetName) {
       setParsedProducts([]);
       return;
     }
-    
+
     const worksheet = customWorkbook.getWorksheet(selectedSheetName);
     if (!worksheet) return;
-    
+
     // Find header row again to skip it
     let headerRowNumber = 1;
     worksheet.eachRow((row, rowNumber) => {
@@ -334,23 +470,32 @@ export default function ProductManage({
         headerRowNumber = rowNumber;
       }
     });
-    
+
     const tempProducts = [];
-    
+
     worksheet.eachRow((row, rowNumber) => {
       if (rowNumber <= headerRowNumber) return; // skip header and prior rows
-      
-      const getVal = (colKey) => {
-        if (!colKey) return '';
-        const cell = row.getCell(Number(colKey));
+
+      const getVal = (headerName) => {
+        if (!headerName) return '';
+        const header = sheetHeaders.find(h => h.name === headerName);
+        if (!header) return '';
+        const cell = row.getCell(header.colNumber);
         return getCellValue(cell).trim();
       };
-      
+
+      // Check if the row is empty across all mapped columns
+      const mappedKeys = Object.keys(columnMapping);
+      const hasAnyMappedValue = mappedKeys.some(key => {
+        const headerName = columnMapping[key];
+        if (!headerName) return false;
+        return getVal(headerName) !== '';
+      });
+
+      if (!hasAnyMappedValue) return; // skip empty rows
+
       const codeVal = getVal(columnMapping.code);
       const nameVal = getVal(columnMapping.name);
-      
-      if (!codeVal && !nameVal) return; // skip empty rows
-      
       const barcodeVal = getVal(columnMapping.barcode);
       const brandVal = getVal(columnMapping.brand);
       const categoryVal = getVal(columnMapping.category);
@@ -367,13 +512,34 @@ export default function ProductManage({
       const packageLengthVal = Number(getVal(columnMapping.packageLength)) || null;
       const packageWidthVal = Number(getVal(columnMapping.packageWidth)) || null;
       const packageHeightVal = Number(getVal(columnMapping.packageHeight)) || null;
-      
+
+      const finalName = nameVal || `สินค้าไม่มีชื่อแถวที่ ${rowNumber}`;
+      const finalBrand = brandVal && brandVal !== 'No Brand' && brandVal !== 'ไม่มีแบรนด์'
+        ? brandVal : (guessBrandFromName(finalName) || 'Phanvadee');
+
+      const rawCat = categoryVal || '';
+      let resolvedCategory = 'ไม่ระบุ';
+      if (rawCat) {
+        if (rawCat.includes('จัดแต่งทรงผม') || rawCat === 'Styling' || rawCat.includes('Grooming')) {
+          resolvedCategory = 'Grooming - ผลิตภัณพ์จัดแต่งทรงผมและหนวด';
+        } else if (rawCat.includes('เปลี่ยนสีผม') || rawCat.includes('ย้อม') || rawCat === 'Hair Color' || rawCat.includes('Chemical')) {
+          resolvedCategory = 'Chemical - เคมีภัณฑ์';
+        } else if (rawCat.includes('บำรุงผม') || rawCat.includes('ทรีทเมนต์') || rawCat.includes('แชมพู') || rawCat === 'Treatment' || rawCat.includes('Hair Treatment')) {
+          resolvedCategory = 'Hair Treatment - ผลิตภัณฑ์บำรุงเส้นผม';
+        } else {
+          resolvedCategory = rawCat;
+        }
+      }
+      if (resolvedCategory === 'ไม่ระบุ' || resolvedCategory === '') {
+        resolvedCategory = guessCategoryFromName(finalName);
+      }
+
       tempProducts.push({
         code: codeVal || `SKU-${rowNumber}`,
-        name: nameVal || `สินค้าไม่มีชื่อแถวที่ ${rowNumber}`,
+        name: finalName,
         barcode: barcodeVal,
-        brand: brandVal,
-        category: categoryVal,
+        brand: finalBrand,
+        category: resolvedCategory,
         wholesalePrice: wholesaleVal,
         retailPrice: retailVal,
         capFee: capVal,
@@ -391,45 +557,44 @@ export default function ProductManage({
         _platform: 'custom'
       });
     });
-    
-    setParsedProducts(tempProducts);
-  }, [columnMapping, selectedSheetName, customWorkbook]);
 
-  const getMappedHeaderName = (colNum) => {
-    if (!colNum) return null;
-    const header = sheetHeaders.find(h => String(h.colNumber) === String(colNum));
-    return header ? header.name : null;
-  };
+    setParsedProducts(tempProducts);
+  }, [columnMapping, selectedSheetName, customWorkbook, sheetHeaders]);
 
   const renderMappingSummaryItem = (label, valueKey) => {
-    const colNum = columnMapping[valueKey];
-    const headerName = getMappedHeaderName(colNum);
-    const isRequired = label.endsWith('*');
-    
+    const selectedHeaderName = columnMapping[valueKey] || '';
+
     return (
-      <div className="flex flex-col gap-1 bg-white p-2.5 rounded-xl border border-[#d2d2d7]/50 shadow-2xs">
+      <div className="flex flex-col gap-1 bg-white p-2.5 rounded-xl border border-[#d2d2d7]/50 shadow-2xs transition-all hover:border-[#d2d2d7]">
         <span className="font-bold text-[#555557] text-[10px] uppercase tracking-wider flex items-center gap-1">
           {label}
         </span>
-        {colNum ? (
-          <div className="mt-1 flex items-center justify-between bg-emerald-50 border border-emerald-250 text-emerald-700 rounded-lg px-2.5 py-1.5 text-[10px] font-bold">
-            <span className="truncate max-w-[120px]" title={headerName}>
-              {headerName}
-            </span>
-            <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded font-mono">
-              คอลัมน์ {colNum}
-            </span>
+        <div className="relative mt-1">
+          <select
+            value={selectedHeaderName}
+            onChange={(e) => {
+              const val = e.target.value;
+              setColumnMapping(prev => ({
+                ...prev,
+                [valueKey]: val
+              }));
+            }}
+            className={`w-full text-[11.5px] bg-white border rounded-lg px-2.5 py-1.5 outline-none appearance-none cursor-pointer focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] font-semibold pr-8 transition-colors ${selectedHeaderName
+                ? 'border-emerald-200 bg-emerald-50/50 text-emerald-800'
+                : 'border-[#d2d2d7] bg-[#f5f5f7] text-zinc-400'
+              }`}
+          >
+            <option value="">-- ไม่ระบุ (เว้นว่าง) --</option>
+            {sheetHeaders.map(h => (
+              <option key={h.colNumber} value={h.name} className="text-black bg-white">
+                {h.name} (คอลัมน์ {h.colNumber})
+              </option>
+            ))}
+          </select>
+          <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-450">
+            <ChevronDown className="w-3.5 h-3.5" />
           </div>
-        ) : (
-          <div className="mt-1 flex items-center justify-between bg-[#f5f5f7] border border-[#d2d2d7]/50 text-zinc-400 rounded-lg px-2.5 py-1.5 text-[10px]">
-            <span>ไม่ได้ระบุ (เว้นว่าง)</span>
-            {isRequired ? (
-              <span className="text-[9px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded font-semibold animate-pulse">
-                ต้องการค่า
-              </span>
-            ) : null}
-          </div>
-        )}
+        </div>
       </div>
     );
   };
@@ -446,15 +611,19 @@ export default function ProductManage({
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
-  
+
   // Product details modal state
   const [drawerProduct, setDrawerProduct] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
 
   // Quick add brand/category modal state
   const [quickAddModal, setQuickAddModal] = useState({ isOpen: false, type: 'brand', value: '' });
 
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showExportPreviewModal, setShowExportPreviewModal] = useState(false);
+  const [previewPlatform, setPreviewPlatform] = useState('shopee'); // 'shopee' | 'lazada' | 'tiktok'
+  const [previewLazadaCategory, setPreviewLazadaCategory] = useState('ผลิตภัณฑ์จัดแต่งทรงผม');
 
 
 
@@ -474,7 +643,7 @@ export default function ProductManage({
   }, [drawerProduct, showForm]);
 
   const handleCopyMarketingContent = (product) => {
-    const text = `📦 ข้อมูลสินค้าสำหรับงานขายและการตลาด\n---------------------------------\nชื่อสินค้า: ${product.name}\nรหัสสินค้า (SKU): ${product.code}\nแบรนด์: ${product.brand}\nหมวดหมู่: ${product.category}\nราคาแนะนำ: ${(product.retailPrice || 0).toLocaleString()} บาท\nจำนวนในสต็อก: ${product.stock > 0 ? `${product.stock} ชิ้น` : 'สินค้าหมด (Out of Stock)'}\nรายละเอียดสินค้า:\n${product.description || 'ไม่มีรายละเอียดเพิ่มเติม'}\n---------------------------------\n*จัดเก็บโดยระบบ PIM พันธ์วาดี*`;
+    const text = `📦 ข้อมูลสินค้าสำหรับงานขายและการตลาด\n---------------------------------\nชื่อสินค้า: ${product.name}\nรหัสสินค้า (SKU): ${product.code}\nแบรนด์: ${product.brand}\nหมวดหมู่: ${product.category}\nราคาแนะนำ: ${(product.retailPrice || 0).toLocaleString()} บาท\nรายละเอียดสินค้า:\n${product.description || 'ไม่มีรายละเอียดเพิ่มเติม'}\n---------------------------------\n*จัดเก็บโดยระบบ PIM พันธ์วาดี*`;
 
     navigator.clipboard.writeText(text).then(() => {
       setCopiedId(product.id);
@@ -489,6 +658,9 @@ export default function ProductManage({
       setQuickAddModal({ isOpen: true, type: 'category', value: '' });
     } else {
       setCategory(val);
+      if (val) {
+        setFormErrors(prev => ({ ...prev, category: false }));
+      }
     }
   };
 
@@ -499,14 +671,17 @@ export default function ProductManage({
       setQuickAddModal({ isOpen: true, type: 'brand', value: '' });
     } else {
       setBrand(val);
+      if (val) {
+        setFormErrors(prev => ({ ...prev, brand: false }));
+      }
     }
   };
 
   const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          product.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          (product.barcode && product.barcode.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                          (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.barcode && product.barcode.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
     const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
     const matchesStatus = selectedStatus === 'All' || product.status === selectedStatus;
@@ -533,7 +708,6 @@ export default function ProductManage({
     setWeight('');
     setFdaNumber('');
     setTisiNumber('');
-    setStock('');
     setStatus('Active');
     setCreatedAt('');
     setErrorMsg('');
@@ -542,6 +716,24 @@ export default function ProductManage({
     setPackageWidth('');
     setPackageHeight('');
     setPlatform('');
+    setFormErrors({
+      code: false,
+      name: false,
+      editRemark: false,
+      packageLength: false,
+      packageWidth: false,
+      packageHeight: false,
+      category: false,
+      brand: false,
+      weight: false,
+      retailPrice: false,
+      description: false,
+      image: false,
+      barcode: false,
+      size: false,
+      fdaNumber: false,
+      tisiNumber: false
+    });
   };
 
   useEffect(() => {
@@ -574,7 +766,6 @@ export default function ProductManage({
       setWeight(editProduct.weight || '');
       setFdaNumber(editProduct.fdaNumber || '');
       setTisiNumber(editProduct.tisiNumber || '');
-      setStock(editProduct.stock || '');
       setStatus(editProduct.status || 'Active');
       setCreatedAt(editProduct.createdAt || '');
       setPackageLength(editProduct.packageLength || '');
@@ -583,6 +774,24 @@ export default function ProductManage({
       setPlatform(editProduct.platform || editProduct._platform || '');
       setEditRemark('');
       setErrorMsg('');
+      setFormErrors({
+        code: false,
+        name: false,
+        editRemark: false,
+        packageLength: false,
+        packageWidth: false,
+        packageHeight: false,
+        category: false,
+        brand: false,
+        weight: false,
+        retailPrice: false,
+        description: false,
+        image: false,
+        barcode: false,
+        size: false,
+        fdaNumber: false,
+        tisiNumber: false
+      });
       setShowForm(true);
     } else {
       resetForm();
@@ -607,7 +816,7 @@ export default function ProductManage({
     return () => {
       document.body.style.overflow = 'unset';
     };
-     }, [showForm]);
+  }, [showForm]);
 
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -622,71 +831,179 @@ export default function ProductManage({
     reader.onloadend = () => {
       setImage(reader.result);
       setErrorMsg('');
+      setFormErrors(prev => ({ ...prev, image: false }));
     };
     reader.readAsDataURL(file);
   };
 
-  /**
-   * ดาวน์โหลดไฟล์จาก Base64 โดยตรงบนฝั่งไคลเอนต์
-   * หน่วงเวลาการลบลิงก์และยกเลิก URL เพื่อให้บราวเซอร์ตั้งชื่อไฟล์เสร็จสิ้นอย่างถูกต้อง
-   */
-  const downloadViaRedirect = (base64Data, filename) => {
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.position = 'absolute';
-    link.style.top = '-9999px';
-    document.body.appendChild(link);
-    link.click();
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
 
-    setTimeout(() => {
-      if (document.body.contains(link)) {
-        document.body.removeChild(link);
-      }
-      URL.revokeObjectURL(url);
-    }, 10000);
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    setIsDragging(false);
+
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg('ขนาดรูปภาพต้องไม่เกิน 2MB');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImage(reader.result);
+      setErrorMsg('');
+      setFormErrors(prev => ({ ...prev, image: false }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!code.trim()) {
+    const errors = {
+      code: !code.trim(),
+      name: !name.trim(),
+      category: !category,
+      brand: !brand,
+      weight: !weight.trim(),
+      retailPrice: retailPrice === '' || isNaN(retailPrice) || Number(retailPrice) <= 0,
+      wholesalePrice: wholesalePrice === '' || isNaN(wholesalePrice) || Number(wholesalePrice) < 0,
+      capFee: capFee === '' || isNaN(capFee) || Number(capFee) < 0,
+      description: !description.trim(),
+      highlights: !highlights.trim(),
+      howToUse: !howToUse.trim(),
+      image: !image,
+      packageLength: !String(packageLength).trim(),
+      packageWidth: !String(packageWidth).trim(),
+      packageHeight: !String(packageHeight).trim(),
+      editRemark: !!editProduct && !editRemark.trim(),
+      barcode: !barcode.trim(),
+      size: !size.trim(),
+      fdaNumber: !fdaNumber.trim(),
+      tisiNumber: !tisiNumber.trim()
+    };
+
+    setFormErrors(errors);
+
+    if (errors.code) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกรหัสสินค้า' });
+      document.getElementById('product-code')?.focus();
       return;
     }
     const isDuplicate = products.some(p => p.code.toLowerCase() === code.trim().toLowerCase() && (!editProduct || p.id !== editProduct.id));
     if (isDuplicate) {
       setAlertPopup({ type: 'error', title: 'รหัสสินค้าซ้ำในระบบ', message: `รหัสสินค้า "${code.trim()}" ถูกใช้ลงทะเบียนสินค้าชิ้นอื่นแล้ว` });
+      setFormErrors(prev => ({ ...prev, code: true }));
+      document.getElementById('product-code')?.focus();
       return;
     }
-    if (!name.trim()) {
+    if (errors.barcode) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกรหัสบาร์โค้ด' });
+      document.getElementById('product-barcode')?.focus();
+      return;
+    }
+    if (errors.name) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกชื่อสินค้า/ผลิตภัณฑ์' });
+      document.getElementById('product-name')?.focus();
       return;
     }
-    if (wholesalePrice !== '' && (isNaN(wholesalePrice) || Number(wholesalePrice) < 0)) {
-      setAlertPopup({ type: 'error', title: 'ข้อมูลราคาไม่ถูกต้อง', message: 'กรุณาระบุราคาขายส่งที่ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)' });
+    if (errors.category) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาเลือกหมวดหมู่สินค้า' });
+      document.getElementById('product-category')?.focus();
       return;
     }
-    if (retailPrice !== '' && (isNaN(retailPrice) || Number(retailPrice) < 0)) {
-      setAlertPopup({ type: 'error', title: 'ข้อมูลราคาไม่ถูกต้อง', message: 'กรุณาระบุราคาขายปลีกที่ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)' });
+    if (errors.brand) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาเลือกแบรนด์สินค้า' });
+      document.getElementById('product-brand')?.focus();
       return;
     }
-    if (capFee !== '' && (isNaN(capFee) || Number(capFee) < 0)) {
-      setAlertPopup({ type: 'error', title: 'ราคาไม่ถูกต้อง', message: 'กรุณากรอกค่าฝาให้ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)' });
+    if (errors.size) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกขนาดสินค้า' });
+      document.getElementById('product-size')?.focus();
       return;
     }
-    if (editProduct && !editRemark.trim()) {
+    if (errors.weight) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกน้ำหนักสินค้า' });
+      document.getElementById('product-weight')?.focus();
+      return;
+    }
+    if (errors.fdaNumber) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกหมายเลข อย.' });
+      document.getElementById('product-fda-number')?.focus();
+      return;
+    }
+    if (errors.tisiNumber) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกหมายเลข มอก.' });
+      document.getElementById('product-tisi-number')?.focus();
+      return;
+    }
+    if (errors.packageLength) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความยาวพัสดุ (ซม.)' });
+      document.getElementById('product-package-length')?.focus();
+      return;
+    }
+    if (errors.packageWidth) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความกว้างพัสดุ (ซม.)' });
+      document.getElementById('product-package-width')?.focus();
+      return;
+    }
+    if (errors.packageHeight) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความสูงพัสดุ (ซม.)' });
+      document.getElementById('product-package-height')?.focus();
+      return;
+    }
+    if (errors.wholesalePrice) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกราคาขายส่งที่ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)' });
+      document.getElementById('product-wholesale-price')?.focus();
+      return;
+    }
+    if (errors.retailPrice) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกราคาขายปลีกที่ถูกต้อง (ต้องมากกว่า 0)' });
+      document.getElementById('product-retail-price')?.focus();
+      return;
+    }
+    if (errors.capFee) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกค่าฝาที่ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)' });
+      document.getElementById('product-cap-fee')?.focus();
+      return;
+    }
+    if (errors.description) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกรายละเอียดสินค้า' });
+      document.getElementById('product-description')?.focus();
+      return;
+    }
+    if (errors.highlights) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกจุดเด่นสินค้า' });
+      document.getElementById('product-highlights')?.focus();
+      return;
+    }
+    if (errors.howToUse) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกวิธีใช้' });
+      document.getElementById('product-how-to-use')?.focus();
+      return;
+    }
+    if (errors.image) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาใส่ภาพประกอบสินค้า' });
+      return;
+    }
+    if (errors.editRemark) {
       setAlertPopup({ type: 'error', title: 'ข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกหมายเหตุการแก้ไข' });
+      document.getElementById('product-edit-remark')?.focus();
       return;
     }
 
@@ -737,7 +1054,7 @@ export default function ProductManage({
             {/* Header */}
             <div className="px-6 py-4 border-b border-[#e8e8ed] flex items-center justify-between flex-shrink-0">
               <div>
-                <h3 className="text-sm font-extrabold uppercase tracking-wide">นำเข้าสินค้าจาก Excel / Google Sheets</h3>
+                <h3 className="text-sm font-extrabold uppercase tracking-wide">นำเข้าสินค้าจาก Excel</h3>
                 <p className="text-[10px] text-zinc-550 mt-0.5">ระบบจะสแกนและวิเคราะห์คอลัมน์ข้อมูลสินค้าเพื่อนำเข้าให้โดยอัตโนมัติ</p>
               </div>
               <button
@@ -754,15 +1071,15 @@ export default function ProductManage({
               <div className="space-y-4">
                 {/* Instructions */}
                 <div className="p-3.5 bg-zinc-50 border border-zinc-200/80 rounded-2xl space-y-1.5">
-                  <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider block">💡 วิธีนำเข้าข้อมูลจาก Google Sheets / Excel:</span>
+                  <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider block">💡 วิธีนำเข้าข้อมูลจาก Excel:</span>
                   <ol className="text-[10px] text-zinc-500 list-decimal list-inside space-y-1">
-                    <li>อัปโหลดไฟล์ Excel (.xlsx) ที่ต้องการนำเข้าด้านล่างนี้</li>
+                    <li>เลือกไฟล์ Excel (.xlsx) ที่ต้องการนำเข้าด้านล่างนี้</li>
                     <li>ระบบจะวิเคราะห์หัวตารางและจับคู่คอลัมน์ให้อัตโนมัติตามโครงสร้างแบบฟอร์มสินค้า</li>
                     <li>ตรวจสอบความถูกต้องในตารางตัวอย่างด้านล่างก่อนยืนยันนำเข้า</li>
                   </ol>
                 </div>
 
-                {/* File Upload */}
+                {/* File Upload Input */}
                 <div className="space-y-2">
                   <span className="text-[10px] font-bold text-[#555557] uppercase tracking-wider block">เลือกไฟล์ Excel (.xlsx)</span>
                   <input
@@ -807,7 +1124,7 @@ export default function ProductManage({
                     <p className="text-[9px] text-zinc-500 leading-relaxed">
                       ระบบจะวิเคราะห์หัวตารางใน Excel แถวแรกที่มีข้อมูลเพื่อจับคู่โดยอัตโนมัติให้ตรงกับแบบฟอร์มเพิ่มข้อมูลสินค้าในระบบ PIM
                     </p>
-                    
+
                     <div className="space-y-4 text-xs">
                       {/* กลุ่ม 1: ข้อมูลสินค้าหลัก */}
                       <div className="bg-zinc-50/50 p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
@@ -853,10 +1170,25 @@ export default function ProductManage({
 
                 {/* Preview Grid */}
                 {parsedProducts.length > 0 && (
-                  <div className="space-y-2 border-t border-zinc-150 pt-3.5">
+                  <div className="space-y-2.5 border-t border-zinc-150 pt-3.5">
                     <span className="text-[10px] font-bold text-[#555557] uppercase tracking-wider block">
                       3. ตัวอย่างข้อมูลสินค้าที่อ่านได้ ({parsedProducts.length} รายการ)
                     </span>
+                    {(!columnMapping.code || !columnMapping.name) && (
+                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl flex items-start gap-2.5 text-[11px] leading-relaxed">
+                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-bold">หมายเหตุการนำเข้า: </span>
+                          {!columnMapping.code && !columnMapping.name ? (
+                            <span>ไม่ได้ระบุคอลัมน์รหัสสินค้าและชื่อสินค้า ระบบจะสแกนคอลัมน์อื่นและสุ่มสร้างรหัส (เช่น SKU-2) และชื่อเริ่มต้นสำหรับสินค้าในแถวนั้นๆ ให้โดยอัตโนมัติ</span>
+                          ) : !columnMapping.code ? (
+                            <span>ไม่ได้ระบุคอลัมน์รหัสสินค้า (SKU) ระบบจะสุ่มสร้างรหัสสินค้าให้อัตโนมัติ (เช่น SKU-2)</span>
+                          ) : (
+                            <span>ไม่ได้ระบุคอลัมน์ชื่อสินค้า ระบบจะตั้งชื่อสินค้าอัตโนมัติ (เช่น สินค้าไม่มีชื่อแถวที่ 2)</span>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <div className="border border-[#d2d2d7]/50 rounded-xl overflow-hidden max-h-[250px] overflow-y-auto">
                       <table className="w-full text-left border-collapse text-[11px]">
                         <thead>
@@ -900,7 +1232,7 @@ export default function ProductManage({
                 onClick={() => {
                   onImportProducts(parsedProducts, `ไฟล์ Excel (${selectedSheetName})`);
                   closeImportModal();
-                  
+
                   // Alert success
                   setAlertPopup({
                     type: 'success-import',
@@ -957,8 +1289,183 @@ export default function ProductManage({
         document.body
       )}
 
+      {/* Export Preview Modal */}
+      {showExportPreviewModal && createPortal(
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs animate-fade-in no-print">
+          <div onClick={() => setShowExportPreviewModal(false)} className="absolute inset-0" />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-5xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-scale-in text-[#1d1d1f] shadow-2xl">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#e8e8ed] flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="text-sm font-extrabold uppercase tracking-wide flex items-center gap-2">
+                  <FileSpreadsheet className="w-4 h-4 text-[#0071e3]" />
+                  ตัวอย่างข้อมูลสำหรับนำออกแผ่นงาน (Export Preview)
+                </h3>
+                <p className="text-[10px] text-zinc-550 mt-0.5">ตรวจสอบโครงสร้างแถวและคอลัมน์ที่จะถูกเขียนลงไฟล์จริงตามที่ระบบตลาดต้องการ</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowExportPreviewModal(false)}
+                className="p-1 rounded-lg text-zinc-400 hover:bg-zinc-100 hover:text-black transition-all cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
 
+            {/* Platform selector / Tab Bar */}
+            <div className="px-6 pt-3 border-b border-[#e8e8ed] flex flex-col gap-2.5 flex-shrink-0 bg-zinc-50/50">
+              <div className="flex gap-2 text-xs font-bold">
+                <button
+                  type="button"
+                  onClick={() => setPreviewPlatform('shopee')}
+                  className={`px-4 py-2 rounded-full border transition-all cursor-pointer ${previewPlatform === 'shopee'
+                      ? 'bg-[#ff5722] border-[#ff5722] text-white shadow-xs'
+                      : 'bg-white border-[#d2d2d7] text-zinc-600 hover:bg-zinc-100'
+                    }`}
+                >
+                  Shopee Format
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPlatform('lazada')}
+                  className={`px-4 py-2 rounded-full border transition-all cursor-pointer ${previewPlatform === 'lazada'
+                      ? 'bg-[#000080] border-[#000080] text-white shadow-xs'
+                      : 'bg-white border-[#d2d2d7] text-zinc-600 hover:bg-zinc-100'
+                    }`}
+                >
+                  Lazada Format
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPreviewPlatform('tiktok')}
+                  className={`px-4 py-2 rounded-full border transition-all cursor-pointer ${previewPlatform === 'tiktok'
+                      ? 'bg-zinc-800 border-zinc-800 text-white shadow-xs'
+                      : 'bg-white border-[#d2d2d7] text-zinc-600 hover:bg-zinc-100'
+                    }`}
+                >
+                  TikTok Shop Format
+                </button>
+              </div>
 
+              {/* Sub-selector for Lazada category sheets */}
+              {previewPlatform === 'lazada' && (
+                <div className="flex flex-wrap gap-1.5 pb-2 text-[10px] font-bold text-zinc-550 border-t border-zinc-200/50 pt-2 animate-fade-in">
+                  {lazadaCategorySheets.map(sheetName => {
+                    const count = filteredProducts.filter(p => resolveLazadaSheet(p) === sheetName).length;
+                    return (
+                      <button
+                        key={sheetName}
+                        type="button"
+                        onClick={() => setPreviewLazadaCategory(sheetName)}
+                        className={`px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${previewLazadaCategory === sheetName
+                            ? 'bg-[#0071e3]/10 border-[#0071e3] text-[#0071e3]'
+                            : 'bg-white border-zinc-200 text-zinc-600 hover:bg-zinc-50'
+                          }`}
+                      >
+                        {sheetName} ({count})
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Table Area */}
+            <div className="flex-1 overflow-auto p-6 bg-zinc-50/50">
+              <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden max-h-[45vh]">
+                <table className="w-full border-collapse text-left text-xs table-fixed min-w-[1200px]">
+                  <thead>
+                    <tr className="bg-[#f5f5f7] text-zinc-700 font-bold border-b border-zinc-200">
+                      <th className="p-3 w-12 text-center border-r border-zinc-200/50 bg-[#e8e8ed]">#</th>
+                      {(() => {
+                        const cols = previewPlatform === 'shopee'
+                          ? shopeeCols
+                          : previewPlatform === 'tiktok'
+                            ? tiktokCols
+                            : (LAZADA_PREVIEW_COLS[previewLazadaCategory] || []);
+                        return cols.map((col, idx) => (
+                          <th key={idx} className="p-3 border-r border-zinc-200/50 truncate font-extrabold text-[11px] uppercase tracking-wider animate-fade-in">
+                            {col.label}
+                          </th>
+                        ));
+                      })()}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-150">
+                    {(() => {
+                      const displayProducts = previewPlatform === 'shopee'
+                        ? filteredProducts
+                        : previewPlatform === 'tiktok'
+                          ? filteredProducts
+                          : filteredProducts.filter(p => resolveLazadaSheet(p) === previewLazadaCategory);
+
+                      const cols = previewPlatform === 'shopee'
+                        ? shopeeCols
+                        : previewPlatform === 'tiktok'
+                          ? tiktokCols
+                          : (LAZADA_PREVIEW_COLS[previewLazadaCategory] || []);
+
+                      if (displayProducts.length === 0) {
+                        return (
+                          <tr>
+                            <td colSpan={cols.length + 1} className="p-8 text-center text-zinc-400 font-semibold italic">
+                              ไม่มีสินค้าที่เข้าเงื่อนไขสำหรับจัดเก็บในหมวดหมู่นี้
+                            </td>
+                          </tr>
+                        );
+                      }
+
+                      return displayProducts.map((p, idx) => (
+                        <tr key={p.id || idx} className="hover:bg-zinc-50 text-[11px] leading-relaxed text-zinc-650 animate-fade-in">
+                          <td className="p-3 text-center font-mono border-r border-zinc-200/50 font-bold text-zinc-400 bg-zinc-50/50">{idx + 1}</td>
+                          {cols.map((col, cIdx) => (
+                            <td key={cIdx} className="p-3 border-r border-zinc-200/50 truncate max-w-[250px]" title={String(col.value(p) || '')}>
+                              {String(col.value(p) || '')}
+                            </td>
+                          ))}
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
+              <div className="mt-3 text-[10px] text-zinc-400 font-medium leading-relaxed">
+                * ข้อมูลที่แสดงข้างต้นเป็นเพียง <strong>"ตัวอย่างตารางก่อนนำออกจริง"</strong> (Excel Preview) เพื่ออำนวยความสะดวกในการจัดหมวดหมู่และคอลัมน์โดยไม่จำเป็นต้องดาวน์โหลดไฟล์ลงคอมพิวเตอร์ก่อนตรวจสอบทุกครั้ง
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-[#e8e8ed] flex gap-3 flex-shrink-0 bg-white">
+              <button
+                type="button"
+                onClick={() => setShowExportPreviewModal(false)}
+                className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7] text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                ปิดหน้าต่าง
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (previewPlatform === 'shopee') exportShopee(filteredProducts);
+                  else if (previewPlatform === 'lazada') exportLazada(filteredProducts);
+                  else exportTikTok(filteredProducts);
+                  setShowExportPreviewModal(false);
+                }}
+                className={`flex-1 py-2.5 text-white text-xs font-bold rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 ${previewPlatform === 'shopee'
+                    ? 'bg-[#ff5722] hover:bg-[#ff6838]'
+                    : previewPlatform === 'lazada'
+                      ? 'bg-[#000080] hover:bg-[#00009c]'
+                      : 'bg-zinc-800 hover:bg-black'
+                  }`}
+              >
+                <Download className="w-4 h-4" />
+                ดาวน์โหลดไฟล์ {previewPlatform === 'shopee' ? 'Shopee' : previewPlatform === 'lazada' ? 'Lazada' : 'TikTok Shop'} จริง (.xlsx)
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print">
@@ -1006,47 +1513,67 @@ export default function ProductManage({
             </button>
             {showExportDropdown && (
               <>
-                <div 
-                  className="fixed inset-0 z-10" 
-                  onClick={() => setShowExportDropdown(false)} 
+                <div
+                  className="fixed inset-0 z-10"
+                  onClick={() => setShowExportDropdown(false)}
                 />
-                <div className="absolute right-0 mt-1.5 w-48 bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xl z-20 overflow-hidden py-1.5 animate-scale-in text-[#1d1d1f]">
+                <div className="absolute right-0 mt-1.5 w-52 bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xl z-20 overflow-hidden py-2 animate-scale-in text-[#1d1d1f]">
+                  <span className="text-[9px] font-bold text-[#8e8e93] px-4 py-1 block uppercase tracking-wider">ดาวน์แพลตฟอร์ม </span>
                   <button
                     type="button"
                     onClick={() => {
                       exportShopee(filteredProducts);
+                      if (addActivityLog) {
+                        addActivityLog(`นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                      }
                       setShowExportDropdown(false);
                     }}
-                    className="w-full text-left px-4 py-2.5 text-xs font-bold text-zinc-700 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
                   >
-                    <span className="w-2 h-2 rounded-full bg-[#ff5722]" />
-                    Shopee
+                    Shopee Excel
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       exportLazada(filteredProducts);
+                      if (addActivityLog) {
+                        addActivityLog(`นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                      }
                       setShowExportDropdown(false);
                     }}
-                    className="w-full text-left px-4 py-2.5 text-xs font-bold text-zinc-700 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
                   >
-                    <span className="w-2 h-2 rounded-full bg-[#000080]" />
-                    Lazada
+                    Lazada Excel
                   </button>
                   <button
                     type="button"
                     onClick={() => {
                       exportTikTok(filteredProducts);
+                      if (addActivityLog) {
+                        addActivityLog(`นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                      }
                       setShowExportDropdown(false);
                     }}
-                    className="w-full text-left px-4 py-2.5 text-xs font-bold text-zinc-700 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
                   >
-                    <span className="w-2 h-2 rounded-full bg-zinc-800" />
-                    TikTok Shop
+                    TikTok Shop Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportToExcel(filteredProducts);
+                      if (addActivityLog) {
+                        addActivityLog(`นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                      }
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    ส่งออก Excel
                   </button>
                 </div>
               </>
-            )} 
+            )}
           </div>
 
           <button
@@ -1063,7 +1590,7 @@ export default function ProductManage({
         </div>
       </div>
 
-          {/* Filters Panel */}
+      {/* Filters Panel */}
       <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs space-y-4 no-print">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
           <div className="relative md:col-span-6">
@@ -1121,109 +1648,258 @@ export default function ProductManage({
         </div>
       </div>
 
-      {/* Table Container */}
+      {/* Table/Grid Container */}
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#e8e8ed]">
+        <div className="px-5 py-4 border-b border-[#e8e8ed] flex items-center justify-between">
           <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase">รายชื่อสินค้าทั้งหมด</h4>
+
+          {/* View Mode Switcher */}
+          <div className="flex bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/40 text-zinc-550 items-center no-print">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-md flex items-center gap-1 text-[11px] font-bold transition-all cursor-pointer ${viewMode === 'table'
+                  ? 'bg-white text-black shadow-xs font-extrabold'
+                  : 'hover:text-black'
+                }`}
+              title="แสดงแบบตาราง"
+            >
+              <List className="w-3.5 h-3.5" />
+              <span>ตาราง</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('grid')}
+              className={`p-1.5 rounded-md flex items-center gap-1 text-[11px] font-bold transition-all cursor-pointer ${viewMode === 'grid'
+                  ? 'bg-white text-black shadow-xs font-extrabold'
+                  : 'hover:text-black'
+                }`}
+              title="แสดงแบบแคตตาล็อก"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>แคตตาล็อก</span>
+            </button>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
-            <thead>
-              <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7]/50 uppercase tracking-wider text-xs">
-                <th className="p-3 w-16">รูปภาพ</th>
-                <th className="p-3">รหัสสินค้า</th>
-                <th className="p-3">รหัสบาร์โค้ด</th>
-                <th className="p-3">ชื่อสินค้า</th>
-                <th className="p-3">แบรนด์</th>
-                <th className="p-3">หมวดหมู่</th>
-                <th className="p-3 text-right">ราคาส่ง</th>
-                <th className="p-3 text-right">ราคาปลีก</th>
-                <th className="p-3 text-center">สถานะ</th>
-                <th className="p-3 text-center w-36 no-print">การจัดการ</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f5f5f7]">
-              {filteredProducts.length === 0 ? (
-                <tr>
-                  <td colSpan="10" className="p-16 text-center">
-                    <div className="space-y-3">
-                      <FileSpreadsheet className="w-12 h-12 text-[#555557] mx-auto" />
-                      <h3 className="font-semibold text-[#1d1d1f] text-sm uppercase tracking-wider">ไม่พบผลการค้นหา</h3>
-                      <p className="text-[#555557] text-xs max-w-sm mx-auto mt-1">
-                        ไม่พบสินค้าที่ตรงตามเงื่อนไขที่เลือก กรุณาลองปรับเปลี่ยนตัวเลือกตัวกรองใหม่อีกครั้ง
-                      </p>
-                    </div>
-                  </td>
+        {viewMode === 'table' ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs table-fixed min-w-[960px]">
+              <thead>
+                <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7]/50 uppercase tracking-wider text-[11px]">
+                  <th className="px-2 py-2.5 w-12 text-center">ลำดับ</th>
+                  <th className="px-2 py-2.5 w-12 text-center">รูปภาพ</th>
+                  <th className="px-2 py-2.5 w-20">รหัสสินค้า</th>
+                  <th className="px-2 py-2.5 w-28">รหัสบาร์โค้ด</th>
+                  <th className="px-2 py-2.5">ชื่อสินค้า</th>
+                  <th className="px-2 py-2.5 w-24">แบรนด์</th>
+                  <th className="px-2 py-2.5 w-24">หมวดหมู่</th>
+                  <th className="px-2 py-2.5 text-right w-20">ราคาส่ง</th>
+                  <th className="px-2 py-2.5 text-right w-20">ราคาปลีก</th>
+                  <th className="px-2 py-2.5 text-center w-20">สถานะ</th>
+                  <th className="px-2 py-2.5 text-center w-24 no-print">การจัดการ</th>
                 </tr>
-              ) : (
-                filteredProducts.map(product => (
-                  <tr key={product.id} className="hover:bg-[#fafafa] transition-colors group text-[#1d1d1f]">
-                    <td className="p-3 w-16">
-                      <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#f5f5f7] border border-[#d2d2d7]/30 flex-shrink-0">
-                        <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
-                      </div>
-                    </td>
-                    <td className="p-3">
-                      <span className="font-mono text-xs text-zinc-700 whitespace-nowrap">{product.code}</span>
-                    </td>
-                    <td className="p-3">
-                      <span className="font-mono text-xs text-zinc-700 whitespace-nowrap">{product.barcode || '-'}</span>
-                    </td>
-                    <td className="p-3 min-w-[160px]">
-                      <span className="font-semibold text-black">{product.name}</span>
-                    </td>
-                    <td className="p-3 whitespace-nowrap text-zinc-700">{product.brand}</td>
-                    <td className="p-3 whitespace-nowrap text-zinc-600 text-xs">{product.category}</td>
-                    <td className="p-3 text-right whitespace-nowrap font-bold text-zinc-900">{(product.wholesalePrice || 0).toLocaleString()} ฿</td>
-                    <td className="p-3 text-right whitespace-nowrap font-extrabold text-black">{(product.retailPrice || 0).toLocaleString()} ฿</td>
-                    <td className="p-3 text-center whitespace-nowrap">
-                      <span className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${
-                        product.status === 'Active'
-                          ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
-                          : 'bg-zinc-100 text-zinc-500 border-zinc-200'
-                      }`}>
-                        {product.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                      </span>
-                    </td>
-                    <td className="p-3 text-center whitespace-nowrap no-print">
-                      <div className="flex justify-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => setDrawerProduct(product)}
-                          className="p-1.5 text-zinc-650 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
-                          title="ดูรายละเอียดสินค้า"
-                        >
-                          <Info className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onEditProduct(product);
-                            setShowForm(true);
-                          }}
-                          className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                          title="แก้ไขข้อมูลสินค้า"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        {currentUser.role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={() => setProductToDelete(product)}
-                            className="p-1.5 text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                            title="ลบสินค้า"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        )}
+              </thead>
+              <tbody className="divide-y divide-[#f5f5f7]">
+                {filteredProducts.length === 0 ? (
+                  <tr>
+                    <td colSpan="11" className="p-16 text-center">
+                      <div className="space-y-3">
+                        <FileSpreadsheet className="w-12 h-12 text-[#555557] mx-auto" />
+                        <h3 className="font-semibold text-[#1d1d1f] text-xs uppercase tracking-wider">ไม่พบผลการค้นหา</h3>
+                        <p className="text-[#555557] text-[11px] max-w-sm mx-auto mt-1">
+                          ไม่พบสินค้าที่ตรงตามเงื่อนไขที่เลือก กรุณาลองปรับเปลี่ยนตัวเลือกตัวกรองใหม่อีกครั้ง
+                        </p>
                       </div>
                     </td>
                   </tr>
-                ))
-              )}</tbody>
-          </table>
-        </div>
+                ) : (
+                  filteredProducts.map((product, idx) => (
+                    <tr key={product.id} className="hover:bg-[#fafafa] transition-colors group text-[#1d1d1f]">
+                      <td className="px-2 py-2 w-12 text-center font-mono text-[11px] text-zinc-500">
+                        {idx + 1}
+                      </td>
+                      <td className="px-2 py-2 w-12">
+                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#f5f5f7] border border-[#d2d2d7]/30 flex-shrink-0 mx-auto">
+                          <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        </div>
+                      </td>
+                      <td className="px-2 py-2">
+                        <span className="font-mono text-[11px] text-zinc-700 whitespace-nowrap">{product.code}</span>
+                      </td>
+                      <td className="px-2 py-2">
+                        <span className="font-mono text-[11px] text-zinc-700 whitespace-nowrap">{product.barcode || '-'}</span>
+                      </td>
+                      <td className="px-2 py-2 min-w-[140px]">
+                        <span className="font-semibold text-black leading-tight block line-clamp-2">{product.name}</span>
+                      </td>
+                      <td className="px-2 py-2">
+                        <span className="text-zinc-700 truncate block max-w-[90px]" title={product.brand}>{product.brand || '-'}</span>
+                      </td>
+                      <td className="px-2 py-2">
+                        <span className="text-zinc-600 truncate block max-w-[90px]" title={product.category}>{product.category}</span>
+                      </td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap font-medium text-zinc-900">{(product.wholesalePrice || 0).toLocaleString()} ฿</td>
+                      <td className="px-2 py-2 text-right whitespace-nowrap font-bold text-black">{(product.retailPrice || 0).toLocaleString()} ฿</td>
+                      <td className="px-2 py-2 text-center">
+                        <span className={`px-2 py-0.5 text-[9px] font-bold rounded-full border ${product.status === 'Active'
+                            ? 'bg-emerald-50 text-emerald-600 border-emerald-100'
+                            : 'bg-zinc-100 text-zinc-500 border-zinc-200'
+                          }`}>
+                          {product.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                        </span>
+                      </td>
+                      <td className="px-2 py-2 text-center whitespace-nowrap no-print">
+                        <div className="flex justify-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => setDrawerProduct(product)}
+                            className="p-1 text-zinc-650 hover:bg-zinc-100 rounded-md transition-colors cursor-pointer"
+                            title="ดูรายละเอียดสินค้า"
+                          >
+                            <Info className="w-3.5 h-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onEditProduct(product);
+                              setShowForm(true);
+                            }}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                            title="แก้ไขข้อมูลสินค้า"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          {currentUser.role === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => setProductToDelete(product)}
+                              className="p-1 text-red-650 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                              title="ลบสินค้า"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-5 bg-zinc-50/30">
+            {filteredProducts.length === 0 ? (
+              <div className="p-16 text-center bg-white rounded-xl border border-zinc-200/50">
+                <div className="space-y-3">
+                  <FileSpreadsheet className="w-12 h-12 text-[#555557] mx-auto" />
+                  <h3 className="font-semibold text-[#1d1d1f] text-xs uppercase tracking-wider">ไม่พบผลการค้นหา</h3>
+                  <p className="text-[#555557] text-[11px] max-w-sm mx-auto mt-1">
+                    ไม่พบสินค้าที่ตรงตามเงื่อนไขที่เลือก กรุณาลองปรับเปลี่ยนตัวเลือกตัวกรองใหม่อีกครั้ง
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5 animate-fade-in">
+                {filteredProducts.map((product) => (
+                  <div
+                    key={product.id}
+                    className="bg-white rounded-2xl border border-zinc-200/65 flex flex-col justify-between p-3 transition-all duration-300 group relative select-none hover:border-zinc-350 hover:shadow-xs"
+                  >
+                    {/* Inner image container (Padded Apple style) */}
+                    <div className="aspect-square w-full bg-[#f5f5f7] rounded-xl relative overflow-hidden flex items-center justify-center group/img">
+                      {product.image ? (
+                        <img
+                          src={product.image}
+                          alt={product.name}
+                          className="w-[82%] h-[82%] object-contain group-hover/img:scale-105 transition-transform duration-500"
+                        />
+                      ) : (
+                        <ImageIcon className="w-9 h-9 text-zinc-300" />
+                      )}
+
+                      {/* Apple-style hover actions overlay */}
+                      <div className="absolute inset-0 bg-[#1d1d1f]/5 border border-black/5 opacity-0 group-hover/img:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDrawerProduct(product)}
+                          className="px-4 py-1.5 bg-white text-[10.5px] font-bold text-black rounded-full shadow-xs hover:bg-[#f5f5f7] active:scale-95 transition-all cursor-pointer"
+                        >
+                          ดูรายละเอียด
+                        </button>
+
+                        <div className="flex gap-1.5 mt-0.5 no-print">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onEditProduct(product);
+                              setShowForm(true);
+                            }}
+                            className="w-7 h-7 bg-white text-zinc-700 hover:text-[#0071e3] rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
+                            title="แก้ไขสินค้า"
+                          >
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                          {currentUser?.role === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => setProductToDelete(product)}
+                              className="w-7 h-7 bg-white text-zinc-700 hover:text-rose-600 rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
+                              title="ลบสินค้า"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Metadata and Info (No footer layout, pure minimal) */}
+                    <div className="pt-3 px-1 flex-1 flex flex-col justify-between">
+                      <div className="space-y-1">
+                        {/* Tags / Brand / Category */}
+                        <div className="flex flex-wrap gap-1 text-[9px] font-extrabold uppercase tracking-wider text-zinc-400">
+                          {product.brand && (
+                            <span className="text-purple-650">{product.brand}</span>
+                          )}
+                          {product.brand && <span>·</span>}
+                          <span className="text-zinc-550">{product.category?.split(' - ')[0] || product.category}</span>
+                        </div>
+
+                        {/* Title */}
+                        <h4 className="font-bold text-[12px] text-[#1d1d1f] leading-snug group-hover:text-[#0071e3] transition-colors line-clamp-2 h-8.5">
+                          {product.name}
+                        </h4>
+                      </div>
+
+                      {/* Code, Status and Prices */}
+                      <div className="mt-3.5 pt-2 border-t border-zinc-100/70 space-y-2">
+                        {/* Code & Status */}
+                        <div className="flex items-center justify-between text-[9px] font-mono text-zinc-400">
+                          <span>SKU: {product.code}</span>
+                          {product.status !== 'Active' && (
+                            <span className="text-rose-500 font-sans font-bold">ปิดใช้งาน</span>
+                          )}
+                        </div>
+
+                        {/* Prices */}
+                        <div className="flex items-baseline justify-between select-none">
+                          <span className="text-[10px] text-zinc-400 font-medium">
+                            ส่ง: <span className="font-bold text-zinc-700 font-mono">{(product.wholesalePrice || 0).toLocaleString()} ฿</span>
+                          </span>
+                          <span className="text-xs font-bold text-zinc-400">
+                            ปลีก: <span className="text-sm font-black text-black font-mono">{(product.retailPrice || 0).toLocaleString()} ฿</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
       {/* Delete Single Product Confirmation Modal */}
       {productToDelete && createPortal(
@@ -1267,7 +1943,7 @@ export default function ProductManage({
       {/* Product Form Modal (Beautiful Pop-up Modal) */}
       {showForm && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 no-print animate-fade-in">
-          <div 
+          <div
             onClick={() => {
               if (editProduct) {
                 onCancelEdit();
@@ -1275,8 +1951,8 @@ export default function ProductManage({
                 resetForm();
                 setShowForm(false);
               }
-            }} 
-            className="absolute inset-0 bg-black/20 backdrop-blur-md transition-opacity animate-fade-in" 
+            }}
+            className="absolute inset-0 bg-black/20 backdrop-blur-md transition-opacity animate-fade-in"
           />
 
           <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/40 shadow-2xl max-w-4xl w-full max-h-[90vh] md:max-h-[85vh] flex flex-col z-10 animate-scale-in overflow-hidden">
@@ -1322,20 +1998,40 @@ export default function ProductManage({
                           <div className="min-w-0">
                             <label className="form-label min-h-[28px] flex items-end pb-1">รหัสสินค้า<span className="text-red-500">*</span></label>
                             <input
+                              id="product-code"
                               type="text"
                               value={code}
-                              onChange={(e) => setCode(e.target.value)}
-                              className="form-input min-w-0 bg-[#f5f5f7] font-mono focus:bg-white"
+                              onChange={(e) => {
+                                setCode(e.target.value);
+                                if (e.target.value.trim()) {
+                                  setFormErrors(prev => ({ ...prev, code: false }));
+                                }
+                              }}
+                              className={`form-input min-w-0 bg-[#f5f5f7] font-mono focus:bg-white ${formErrors.code ? 'error' : ''
+                                }`}
                             />
+                            {formErrors.code && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกรหัสสินค้า</span>
+                            )}
                           </div>
                           <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">รหัสบาร์โค้ด</label>
+                            <label className="form-label min-h-[28px] flex items-end pb-1">รหัสบาร์โค้ด<span className="text-red-500">*</span></label>
                             <input
+                              id="product-barcode"
                               type="text"
                               value={barcode}
-                              onChange={(e) => setBarcode(e.target.value)}
-                              className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
+                              onChange={(e) => {
+                                setBarcode(e.target.value);
+                                if (e.target.value.trim()) {
+                                  setFormErrors(prev => ({ ...prev, barcode: false }));
+                                }
+                              }}
+                              className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white ${formErrors.barcode ? 'error' : ''
+                                }`}
                             />
+                            {formErrors.barcode && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกรหัสบาร์โค้ด</span>
+                            )}
                           </div>
                         </div>
 
@@ -1343,21 +2039,33 @@ export default function ProductManage({
                         <div className="min-w-0">
                           <label className="form-label min-h-[28px] flex items-end pb-1">ชื่อสินค้าผลิตภัณฑ์<span className="text-red-500">*</span></label>
                           <input
+                            id="product-name"
                             type="text"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
+                            onChange={(e) => {
+                              setName(e.target.value);
+                              if (e.target.value.trim()) {
+                                setFormErrors(prev => ({ ...prev, name: false }));
+                              }
+                            }}
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white ${formErrors.name ? 'error' : ''
+                              }`}
                           />
+                          {formErrors.name && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกชื่อสินค้าผลิตภัณฑ์</span>
+                          )}
                         </div>
 
-                        {/* แถว 3: เลือกหมวดหมู่ แบรนด์ และแพลตฟอร์ม */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        {/* แถว 3: เลือกหมวดหมู่ และ แบรนด์ */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">หมวดหมู่สินค้า</label>
+                            <label className="form-label min-h-[28px] flex items-end pb-1">หมวดหมู่สินค้า<span className="text-red-500">*</span></label>
                             <select
+                              id="product-category"
                               value={category}
                               onChange={handleCategorySelectChange}
-                              className="form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white"
+                              className={`form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white ${formErrors.category ? 'error' : ''
+                                }`}
                             >
                               <option value="">-- ไม่ระบุ --</option>
                               {currentUser?.role !== 'user' && (
@@ -1370,13 +2078,18 @@ export default function ProductManage({
                                 <option value={category}>{category} (ใหม่)</option>
                               )}
                             </select>
+                            {formErrors.category && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณาเลือกหมวดหมู่สินค้า</span>
+                            )}
                           </div>
                           <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">แบรนด์สินค้า</label>
+                            <label className="form-label min-h-[28px] flex items-end pb-1">แบรนด์สินค้า<span className="text-red-500">*</span></label>
                             <select
+                              id="product-brand"
                               value={brand}
                               onChange={handleBrandSelectChange}
-                              className="form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white"
+                              className={`form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white ${formErrors.brand ? 'error' : ''
+                                }`}
                             >
                               <option value="">-- ไม่ระบุ --</option>
                               {currentUser?.role !== 'user' && (
@@ -1389,140 +2102,161 @@ export default function ProductManage({
                                 <option value={brand}>{brand} (ใหม่)</option>
                               )}
                             </select>
-                          </div>
-                          <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">แพลตฟอร์มขายสินค้า</label>
-                            <select
-                              value={platform}
-                              onChange={(e) => setPlatform(e.target.value)}
-                              className="form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white font-semibold"
-                            >
-                              <option value="">ทั่วไป (PIM)</option>
-                              <option value="shopee">Shopee</option>
-                              <option value="lazada">Lazada</option>
-                              <option value="tiktok">TikTok Shop</option>
-                            </select>
+                            {formErrors.brand && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณาเลือกแบรนด์สินค้า</span>
+                            )}
                           </div>
                         </div>
 
                         {/* แถว 4: ขนาด และน้ำหนัก */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">ขนาด</label>
+                            <label className="form-label min-h-[28px] flex items-end pb-1">ขนาด<span className="text-red-500">*</span></label>
                             <input
+                              id="product-size"
                               type="text"
                               value={size}
-                              onChange={(e) => setSize(e.target.value)}
-                              className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
+                              onChange={(e) => {
+                                setSize(e.target.value);
+                                if (e.target.value.trim()) {
+                                  setFormErrors(prev => ({ ...prev, size: false }));
+                                }
+                              }}
+                              className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white ${formErrors.size ? 'error' : ''
+                                }`}
                             />
+                            {formErrors.size && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกขนาดสินค้า</span>
+                            )}
                           </div>
                           <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">น้ำหนัก</label>
+                            <label className="form-label min-h-[28px] flex items-end pb-1">น้ำหนัก<span className="text-red-500">*</span></label>
                             <input
+                              id="product-weight"
                               type="text"
                               value={weight}
-                              onChange={(e) => setWeight(e.target.value)}
-                              className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
+                              onChange={(e) => {
+                                setWeight(e.target.value);
+                                if (e.target.value.trim()) {
+                                  setFormErrors(prev => ({ ...prev, weight: false }));
+                                }
+                              }}
+                              className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white ${formErrors.weight ? 'error' : ''
+                                }`}
                             />
+                            {formErrors.weight && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกน้ำหนักสินค้า</span>
+                            )}
                           </div>
                         </div>
 
                         {/* แถว 5: หมายเลข อย. และ มอก. */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">หมายเลข อย.</label>
+                            <label className="form-label min-h-[28px] flex items-end pb-1">หมายเลข อย.<span className="text-red-500">*</span></label>
                             <input
+                              id="product-fda-number"
                               type="text"
                               value={fdaNumber}
-                              onChange={(e) => setFdaNumber(e.target.value)}
+                              onChange={(e) => {
+                                setFdaNumber(e.target.value);
+                                if (e.target.value.trim()) {
+                                  setFormErrors(prev => ({ ...prev, fdaNumber: false }));
+                                }
+                              }}
                               placeholder="เช่น 10-1-6100012345"
-                              className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
+                              className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white ${formErrors.fdaNumber ? 'error' : ''
+                                }`}
                             />
+                            {formErrors.fdaNumber && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกหมายเลข อย.</span>
+                            )}
                           </div>
                           <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">มอก.</label>
+                            <label className="form-label min-h-[28px] flex items-end pb-1">มอก.<span className="text-red-500">*</span></label>
                             <input
+                              id="product-tisi-number"
                               type="text"
                               value={tisiNumber}
-                              onChange={(e) => setTisiNumber(e.target.value)}
+                              onChange={(e) => {
+                                setTisiNumber(e.target.value);
+                                if (e.target.value.trim()) {
+                                  setFormErrors(prev => ({ ...prev, tisiNumber: false }));
+                                }
+                              }}
                               placeholder="เช่น มอก. 1985-2549"
-                              className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
+                              className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white ${formErrors.tisiNumber ? 'error' : ''
+                                }`}
                             />
-                          </div>
-                        </div>
-                        {/* ข้อมูลขนาดพัสดุสำหรับ Export */}
-                        <div className="border-t border-[#f5f5f7] pt-3.5 mt-3.5">
-                          <h3 className="text-xs font-extrabold text-[#1d1d1f] uppercase tracking-wider mb-2.5">ขนาดพัสดุสำหรับจัดส่ง (ยาว x กว้าง x สูง ซม.)</h3>
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            <div className="min-w-0">
-                              <label className="form-label min-h-[28px] flex items-end pb-1">ความยาวพัสดุ (ซม.)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={packageLength}
-                                onChange={(e) => setPackageLength(e.target.value)}
-                                className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <label className="form-label min-h-[28px] flex items-end pb-1">ความกว้างพัสดุ (ซม.)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={packageWidth}
-                                onChange={(e) => setPackageWidth(e.target.value)}
-                                className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
-                              />
-                            </div>
-                            <div className="min-w-0">
-                              <label className="form-label min-h-[28px] flex items-end pb-1">ความสูงพัสดุ (ซม.)</label>
-                              <input
-                                type="number"
-                                min="0"
-                                step="any"
-                                value={packageHeight}
-                                onChange={(e) => setPackageHeight(e.target.value)}
-                                className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
-                              />
-                            </div>
+                            {formErrors.tisiNumber && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกหมายเลข มอก.</span>
+                            )}
                           </div>
                         </div>
                       </div>
                     </div>
                     <div className="border-b border-[#f5f5f7] pb-3.5">
-                      <h3 className="text-xs font-extrabold text-[#1d1d1f] uppercase tracking-wider mb-2.5">ข้อมูลราคาและคลังสินค้า</h3>
+                      <h3 className="text-xs font-extrabold text-[#1d1d1f] uppercase tracking-wider mb-2.5">ข้อมูลราคาผลิตภัณฑ์</h3>
                       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
                         <div className="min-w-0">
-                          <label className="form-label min-h-[44px] flex items-end pb-1">ราคาขายส่ง</label>
+                          <label className="form-label min-h-[44px] flex items-end pb-1">ราคาขายส่ง<span className="text-red-500">*</span></label>
                           <input
+                            id="product-wholesale-price"
                             type="number"
                             min="0"
                             value={wholesalePrice}
-                            onChange={(e) => setWholesalePrice(e.target.value)}
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white"
+                            onChange={(e) => {
+                              setWholesalePrice(e.target.value);
+                              if (e.target.value.trim() && !isNaN(e.target.value) && Number(e.target.value) >= 0) {
+                                setFormErrors(prev => ({ ...prev, wholesalePrice: false }));
+                              }
+                            }}
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black ${formErrors.wholesalePrice ? 'error' : ''
+                              }`}
                           />
+                          {formErrors.wholesalePrice && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกราคาขายส่ง</span>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <label className="form-label min-h-[44px] flex items-end pb-1">ราคาขายปลีก</label>
+                          <label className="form-label min-h-[44px] flex items-end pb-1">ราคาขายปลีก<span className="text-red-500">*</span></label>
                           <input
+                            id="product-retail-price"
                             type="number"
                             min="0"
                             value={retailPrice}
-                            onChange={(e) => setRetailPrice(e.target.value)}
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black"
+                            onChange={(e) => {
+                              setRetailPrice(e.target.value);
+                              if (e.target.value.trim() && Number(e.target.value) > 0) {
+                                setFormErrors(prev => ({ ...prev, retailPrice: false }));
+                              }
+                            }}
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black ${formErrors.retailPrice ? 'error' : ''
+                              }`}
                           />
+                          {formErrors.retailPrice && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกราคาขายปลีก</span>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <label className="form-label min-h-[44px] flex items-end pb-1">ค่าฝา</label>
+                          <label className="form-label min-h-[44px] flex items-end pb-1">ค่าฝา<span className="text-red-500">*</span></label>
                           <input
+                            id="product-cap-fee"
                             type="number"
                             min="0"
                             value={capFee}
-                            onChange={(e) => setCapFee(e.target.value)}
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black"
+                            onChange={(e) => {
+                              setCapFee(e.target.value);
+                              if (e.target.value.trim() && !isNaN(e.target.value) && Number(e.target.value) >= 0) {
+                                setFormErrors(prev => ({ ...prev, capFee: false }));
+                              }
+                            }}
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black ${formErrors.capFee ? 'error' : ''
+                              }`}
                           />
+                          {formErrors.capFee && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกค่าฝา</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <label className="form-label min-h-[44px] flex items-end pb-1">สถานะระบบ</label>
@@ -1530,22 +2264,20 @@ export default function ProductManage({
                             <button
                               type="button"
                               onClick={() => setStatus('Active')}
-                              className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer h-full ${
-                                status === 'Active' 
-                                  ? 'bg-[#10b981] text-white shadow-xs' 
+                              className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer h-full ${status === 'Active'
+                                  ? 'bg-[#10b981] text-white shadow-xs'
                                   : 'text-zinc-650 hover:text-[#10b981]'
-                              }`}
+                                }`}
                             >
                               เปิด
                             </button>
                             <button
                               type="button"
                               onClick={() => setStatus('Inactive')}
-                              className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer h-full ${
-                                status === 'Inactive' 
-                                  ? 'bg-[#71717a] text-white shadow-xs' 
+                              className={`py-1 text-xs font-bold rounded-lg transition-all cursor-pointer h-full ${status === 'Inactive'
+                                  ? 'bg-[#71717a] text-white shadow-xs'
                                   : 'text-zinc-650 hover:text-[#71717a]'
-                              }`}
+                                }`}
                             >
                               ปิด
                             </button>
@@ -1557,31 +2289,61 @@ export default function ProductManage({
                       <h3 className="text-xs font-extrabold text-[#1d1d1f] uppercase tracking-wider mb-2.5">ข้อมูลประกอบการขายและการตลาด</h3>
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                         <div className="min-w-0">
-                          <label className="form-label min-h-[28px] flex items-end pb-1">รายละเอียดสินค้า</label>
+                          <label className="form-label min-h-[28px] flex items-end pb-1">รายละเอียดสินค้า<span className="text-red-500">*</span></label>
                           <textarea
+                            id="product-description"
                             rows="2"
                             value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white resize-none"
+                            onChange={(e) => {
+                              setDescription(e.target.value);
+                              if (e.target.value.trim()) {
+                                setFormErrors(prev => ({ ...prev, description: false }));
+                              }
+                            }}
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white resize-none ${formErrors.description ? 'error' : ''
+                              }`}
                           />
+                          {formErrors.description && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกรายละเอียดสินค้า</span>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <label className="form-label min-h-[28px] flex items-end pb-1">จุดเด่นสินค้า</label>
+                          <label className="form-label min-h-[28px] flex items-end pb-1">จุดเด่นสินค้า<span className="text-red-500">*</span></label>
                           <textarea
+                            id="product-highlights"
                             rows="2"
                             value={highlights}
-                            onChange={(e) => setHighlights(e.target.value)}
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white resize-none"
+                            onChange={(e) => {
+                              setHighlights(e.target.value);
+                              if (e.target.value.trim()) {
+                                setFormErrors(prev => ({ ...prev, highlights: false }));
+                              }
+                            }}
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white resize-none ${formErrors.highlights ? 'error' : ''
+                              }`}
                           />
+                          {formErrors.highlights && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกจุดเด่นสินค้า</span>
+                          )}
                         </div>
                         <div className="min-w-0">
-                          <label className="form-label min-h-[28px] flex items-end pb-1">วิธีใช้</label>
+                          <label className="form-label min-h-[28px] flex items-end pb-1">วิธีใช้<span className="text-red-500">*</span></label>
                           <textarea
+                            id="product-how-to-use"
                             rows="2"
                             value={howToUse}
-                            onChange={(e) => setHowToUse(e.target.value)}
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white resize-none"
+                            onChange={(e) => {
+                              setHowToUse(e.target.value);
+                              if (e.target.value.trim()) {
+                                setFormErrors(prev => ({ ...prev, howToUse: false }));
+                              }
+                            }}
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white resize-none ${formErrors.howToUse ? 'error' : ''
+                              }`}
                           />
+                          {formErrors.howToUse && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกวิธีใช้</span>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1591,15 +2353,28 @@ export default function ProductManage({
                 <div className="space-y-4 min-w-0">
                   <div className="bg-white p-4.5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs space-y-3.5">
                     <div>
-                      <h3 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wide">ใส่ภาพประกอบสินค้า</h3>
+                      <h3 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wide">ใส่ภาพประกอบสินค้า<span className="text-red-500">*</span></h3>
                     </div>
-                    <div className="relative aspect-video rounded-xl bg-[#f5f5f7] border-2 border-dashed border-[#d2d2d7] flex flex-col items-center justify-center overflow-hidden group">
+                    <div
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      className={`relative aspect-video rounded-xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden group transition-all ${isDragging
+                          ? 'border-[#0071e3] bg-[#0071e3]/5 shadow-inner'
+                          : formErrors.image
+                            ? 'border-red-500 bg-red-50/10'
+                            : 'border-[#d2d2d7] bg-[#f5f5f7]'
+                        }`}
+                    >
                       {image ? (
                         <>
                           <img src={image} alt="Preview" className="w-full h-full object-cover" />
                           <button
                             type="button"
-                            onClick={() => setImage('')}
+                            onClick={() => {
+                              setImage('');
+                              setFormErrors(prev => ({ ...prev, image: true }));
+                            }}
                             className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black text-white rounded-full transition-colors cursor-pointer"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -1614,11 +2389,11 @@ export default function ProductManage({
                             ลากรูปภาพมาวางที่นี่ หรือ
                             <label className="text-[#0071e3] hover:underline cursor-pointer ml-1">
                               <span>เรียกดูไฟล์</span>
-                              <input 
-                                type="file" 
-                                accept="image/*" 
-                                onChange={handleImageUpload} 
-                                className="hidden" 
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={handleImageUpload}
+                                className="hidden"
                               />
                             </label>
                           </div>
@@ -1626,27 +2401,11 @@ export default function ProductManage({
                         </div>
                       )}
                     </div>
+                    {formErrors.image && (
+                      <span className="text-[11px] text-red-500 font-semibold mt-1 block text-center">กรุณาเลือกหรืออัปโหลดรูปภาพสินค้า</span>
+                    )}
 
-                    {/* Quick Presets Picker */}
-                    <div className="space-y-2.5 pt-2 border-t border-[#f5f5f7]">
-                      <span className="text-xs font-bold text-[#555557] block uppercase">เลือกรูปตัวอย่างด่วน:</span>
-                      <div className="grid grid-cols-3 gap-2">
-                        {PRESET_IMAGES.map((preset) => (
-                          <button
-                            key={preset.url}
-                            type="button"
-                            onClick={() => setImage(preset.url)}
-                            className={`
-                              relative aspect-square rounded-lg overflow-hidden border bg-zinc-50 transition-all cursor-pointer
-                              ${image === preset.url ? 'border-2 border-[#0071e3] ring-2 ring-[#0071e3]/10' : 'border-[#d2d2d7]'}
-                            `}
-                            title={preset.label}
-                          >
-                            <img src={preset.url} alt={preset.label} className="w-full h-full object-cover" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+
                   </div>
 
                   {/* Edit Remark — required when editing */}
@@ -1657,12 +2416,24 @@ export default function ProductManage({
                         <span className="normal-case font-normal text-amber-600 ml-1">(บังคับกรอก)</span>
                       </label>
                       <textarea
+                        id="product-edit-remark"
                         rows="3"
                         value={editRemark}
-                        onChange={(e) => setEditRemark(e.target.value)}
+                        onChange={(e) => {
+                          setEditRemark(e.target.value);
+                          if (e.target.value.trim()) {
+                            setFormErrors(prev => ({ ...prev, editRemark: false }));
+                          }
+                        }}
                         placeholder="ระบุเหตุผลที่แก้ไขข้อมูลสินค้านี้..."
-                        className="w-full px-3 py-2.5 bg-white border border-amber-300 rounded-xl text-sm text-[#1d1d1f] focus:outline-none focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all resize-none placeholder-amber-400"
+                        className={`w-full px-3 py-2.5 bg-white border rounded-xl text-sm text-[#1d1d1f] focus:outline-none focus:ring-2 transition-all resize-none placeholder-amber-400 ${formErrors.editRemark
+                            ? 'border-red-500 focus:border-red-500 focus:ring-red-100'
+                            : 'border-amber-300 focus:border-amber-500 focus:ring-amber-200'
+                          }`}
                       />
+                      {formErrors.editRemark && (
+                        <span className="text-[11px] text-red-650 font-semibold mt-1 block">กรุณากรอกหมายเหตุการแก้ไข</span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1704,13 +2475,13 @@ export default function ProductManage({
       {alertPopup && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 no-print animate-fade-in">
           {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/25 backdrop-blur-xs" 
+          <div
+            className="absolute inset-0 bg-black/25 backdrop-blur-xs"
             onClick={() => {
               if (alertPopup.type === 'error') setAlertPopup(null);
-            }} 
+            }}
           />
-          
+
           {/* Modal Container */}
           <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-2xl z-10 animate-scale-in text-[#1d1d1f] text-center space-y-4">
             {alertPopup.type.startsWith('success') ? (
@@ -1738,11 +2509,10 @@ export default function ProductManage({
                   }
                   setAlertPopup(null);
                 }}
-                className={`w-full py-2.5 rounded-full text-xs font-semibold text-white transition-colors cursor-pointer ${
-                  alertPopup.type.startsWith('success')
+                className={`w-full py-2.5 rounded-full text-xs font-semibold text-white transition-colors cursor-pointer ${alertPopup.type.startsWith('success')
                     ? 'bg-emerald-600 hover:bg-emerald-700 shadow-xs'
                     : 'bg-rose-600 hover:bg-rose-700 shadow-xs'
-                }`}
+                  }`}
               >
                 ตกลง
               </button>
@@ -1755,7 +2525,7 @@ export default function ProductManage({
       {/* Product Detail Centered Pop-up Modal */}
       {drawerProduct && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-6 no-print animate-fade-in">
-          <div 
+          <div
             onClick={() => setDrawerProduct(null)}
             className="absolute inset-0 bg-black/20 backdrop-blur-md transition-opacity"
           />
@@ -1767,7 +2537,7 @@ export default function ProductManage({
                 <span className="text-xs font-mono text-[#555557] tracking-wider font-semibold uppercase">{drawerProduct.code}</span>
                 <h3 className="font-bold text-[#1d1d1f] text-sm mt-0.5 uppercase tracking-wide">รายละเอียดของสินค้า</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setDrawerProduct(null)}
                 className="p-2 text-zinc-400 hover:text-black rounded-lg hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >
@@ -1779,8 +2549,8 @@ export default function ProductManage({
             <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-5 text-xs text-[#1d1d1f]">
               {/* Product Photo */}
               <div className="aspect-video w-full rounded-xl overflow-hidden border border-[#d2d2d7]/40 bg-[#f5f5f7] flex-shrink-0">
-                <img 
-                  src={drawerProduct.image} 
+                <img
+                  src={drawerProduct.image}
                   alt={drawerProduct.name}
                   className="w-full h-full object-cover"
                 />
@@ -1820,14 +2590,6 @@ export default function ProductManage({
                   <span className="text-zinc-800 font-bold">มอก.</span>
                   <span className="font-extrabold text-black">{drawerProduct.tisiNumber || '-'}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-zinc-800 font-bold">ขนาดพัสดุ (ย x ก x ส)</span>
-                  <span className="font-extrabold text-black">
-                    {drawerProduct.packageLength && drawerProduct.packageWidth && drawerProduct.packageHeight
-                      ? `${drawerProduct.packageLength} x ${drawerProduct.packageWidth} x ${drawerProduct.packageHeight} ซม.`
-                      : '-'}
-                  </span>
-                </div>
               </div>
 
               {/* Pricing & Stock Details */}
@@ -1846,11 +2608,10 @@ export default function ProductManage({
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-800 font-bold">สถานะระบบ</span>
-                  <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full border ${
-                    drawerProduct.status === 'Active' 
-                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300' 
+                  <span className={`px-2.5 py-0.5 text-[10px] font-extrabold rounded-full border ${drawerProduct.status === 'Active'
+                      ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
                       : 'bg-zinc-200 text-zinc-800 border-zinc-400'
-                  }`}>{drawerProduct.status === 'Active' ? 'เปิดใช้งาน (Active)' : 'ปิดใช้งาน (Inactive)'}</span>
+                    }`}>{drawerProduct.status === 'Active' ? 'เปิดใช้งาน (Active)' : 'ปิดใช้งาน (Inactive)'}</span>
                 </div>
               </div>
 
@@ -1895,11 +2656,10 @@ export default function ProductManage({
             <div className="p-4 border-t border-[#e8e8ed] bg-[#f5f5f7] flex gap-2 flex-shrink-0">
               <button
                 onClick={() => handleCopyMarketingContent(drawerProduct)}
-                className={`w-full py-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                  copiedId === drawerProduct.id 
-                    ? 'bg-black text-white border-black shadow-xs' 
+                className={`w-full py-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${copiedId === drawerProduct.id
+                    ? 'bg-black text-white border-black shadow-xs'
                     : 'bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border-[#d2d2d7]'
-                }`}
+                  }`}
               >
                 {copiedId === drawerProduct.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 <span>{copiedId === drawerProduct.id ? 'คัดลอกข้อมูลแล้ว!' : 'คัดลอกสำหรับงานขาย'}</span>
@@ -1914,11 +2674,11 @@ export default function ProductManage({
       {quickAddModal.isOpen && createPortal(
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 no-print animate-fade-in">
           {/* Backdrop */}
-          <div 
-            className="absolute inset-0 bg-black/25 backdrop-blur-xs" 
-            onClick={() => setQuickAddModal({ isOpen: false, type: 'brand', value: '' })} 
+          <div
+            className="absolute inset-0 bg-black/25 backdrop-blur-xs"
+            onClick={() => setQuickAddModal({ isOpen: false, type: 'brand', value: '' })}
           />
-          
+
           {/* Modal Container */}
           <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-2xl z-10 animate-scale-in text-[#1d1d1f] space-y-4">
             <div className="space-y-1.5 text-center">
@@ -1926,8 +2686,8 @@ export default function ProductManage({
                 {quickAddModal.type === 'brand' ? 'ระบุแบรนด์สินค้าใหม่' : 'ระบุหมวดหมู่สินค้าใหม่'}
               </h3>
               <p className="text-xs text-[#555557] leading-relaxed">
-                {quickAddModal.type === 'brand' 
-                  ? 'กรุณากรอกชื่อแบรนด์สินค้าใหม่เพื่อใช้ในฟอร์มนี้' 
+                {quickAddModal.type === 'brand'
+                  ? 'กรุณากรอกชื่อแบรนด์สินค้าใหม่เพื่อใช้ในฟอร์มนี้'
                   : 'กรุณากรอกชื่อหมวดหมู่สินค้าใหม่เพื่อใช้ในฟอร์มนี้'}
               </p>
             </div>
@@ -1954,11 +2714,13 @@ export default function ProductManage({
                         alert('แบรนด์นี้มีอยู่ในระบบแล้ว');
                       }
                       setBrand(trimmed);
+                      setFormErrors(prev => ({ ...prev, brand: false }));
                     } else {
                       if (categories.includes(trimmed)) {
                         alert('หมวดหมู่นี้มีอยู่ในระบบแล้ว');
                       }
                       setCategory(trimmed);
+                      setFormErrors(prev => ({ ...prev, category: false }));
                     }
                     setQuickAddModal({ isOpen: false, type: 'brand', value: '' });
                   } else if (e.key === 'Escape') {
@@ -1975,6 +2737,6 @@ export default function ProductManage({
         document.body
       )}
 
-  </div>
+    </div>
   );
 }

@@ -26,7 +26,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
   }, [isModalOpen, isEditModalOpen, brandToDelete, alertPopup]);
 
   const handleStartEdit = (brandName) => {
-    if (currentUser?.role === 'user') return;
+    if (currentUser?.role !== 'admin') return;
     setTargetEditBrand(brandName);
     setEditBrandName(brandName);
     setErrorMsg('');
@@ -64,7 +64,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
   };
 
   const handleDeleteClick = (brandName, productCount) => {
-    if (currentUser.role === 'manager' || currentUser.role === 'user') return;
+    if (currentUser.role !== 'admin') return;
     if (productCount > 0 && currentUser.role !== 'admin') {
       alert("ไม่สามารถลบแบรนด์ได้ เนื่องจากยังมีสินค้าที่ใช้แบรนด์นี้อยู่");
       return;
@@ -107,7 +107,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">จัดการข้อมูลแบรนด์สินค้า</h1>
         </div>
-        {currentUser?.role !== 'user' && (
+        {currentUser?.role === 'admin' && (
           <button
             type="button"
             onClick={() => {
@@ -136,7 +136,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                 <th className="p-4">แบรนด์</th>
                 <th className="p-4 text-center">จำนวนผลิตภัณฑ์ในระบบ</th>
                 <th className="p-4 text-right"></th>
-                {currentUser?.role !== 'user' && <th className="p-4 text-center w-28">การจัดการ</th>}
+                {currentUser?.role === 'admin' && <th className="p-4 text-center w-28">การจัดการ</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e8e8ed]">
@@ -154,7 +154,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                     </td>
                     <td className="p-4 text-right">
                     </td>
-                    {currentUser?.role !== 'user' && (
+                    {currentUser?.role === 'admin' && (
                       <td className="p-4 text-center">
                         <div className="flex justify-center gap-1.5">
                           <button
