@@ -1720,8 +1720,12 @@ export default function ProductManage({
                         {idx + 1}
                       </td>
                       <td className="px-2 py-2 w-12">
-                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#f5f5f7] border border-[#d2d2d7]/30 flex-shrink-0 mx-auto">
-                          <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#f5f5f7] border border-[#d2d2d7]/30 flex-shrink-0 mx-auto flex items-center justify-center">
+                          <img 
+                            src={(!product.image || product.image === '-') ? 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60' : product.image} 
+                            alt={product.name} 
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" 
+                          />
                         </div>
                       </td>
                       <td className="px-2 py-2">
@@ -1809,7 +1813,7 @@ export default function ProductManage({
                   >
                     {/* Inner image container (Padded Apple style) */}
                     <div className="aspect-square w-full bg-[#f5f5f7] rounded-xl relative overflow-hidden flex items-center justify-center group/img">
-                      {product.image ? (
+                      {product.image && product.image !== '-' ? (
                         <img
                           src={product.image}
                           alt={product.name}
@@ -2368,7 +2372,7 @@ export default function ProductManage({
                     >
                       {image ? (
                         <>
-                          <img src={image} alt="Preview" className="w-full h-full object-cover" />
+                          <img src={image} alt="Preview" className="max-w-full max-h-full object-contain" />
                           <button
                             type="button"
                             onClick={() => {
@@ -2548,12 +2552,16 @@ export default function ProductManage({
             {/* Scrollable details */}
             <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-5 text-xs text-[#1d1d1f]">
               {/* Product Photo */}
-              <div className="aspect-video w-full rounded-xl overflow-hidden border border-[#d2d2d7]/40 bg-[#f5f5f7] flex-shrink-0">
-                <img
-                  src={drawerProduct.image}
-                  alt={drawerProduct.name}
-                  className="w-full h-full object-cover"
-                />
+              <div className="aspect-video w-full rounded-xl overflow-hidden border border-[#d2d2d7]/40 bg-[#f5f5f7] flex-shrink-0 flex items-center justify-center">
+                {(!drawerProduct.image || drawerProduct.image === '-') ? (
+                  <ImageIcon className="w-12 h-12 text-zinc-300" />
+                ) : (
+                  <img
+                    src={drawerProduct.image}
+                    alt={drawerProduct.name}
+                    className="max-w-full max-h-full object-contain"
+                  />
+                )}
               </div>
 
               {/* General Metadata */}
