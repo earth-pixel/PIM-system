@@ -758,7 +758,7 @@ export default function DashboardLayout({
       <main className="flex-1 flex flex-col min-w-0">
         <div 
           key={activeTab}
-          className={`flex-1 flex flex-col w-full p-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4 lg:px-12 lg:pb-12 lg:pt-5 animate-page-transition ${
+          className={`flex-1 flex flex-col w-full min-w-0 p-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4 lg:px-12 lg:pb-12 lg:pt-5 animate-page-transition ${
             activeTab === 'dashboard' ? 'h-[calc(100vh-4rem)] overflow-hidden' : ''
           }`}
         >

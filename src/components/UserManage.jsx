@@ -183,7 +183,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   };
 
   return (
-    <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
+    <div className="space-y-6 animate-fade-in text-[#1d1d1f] w-full min-w-0">
 
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

@@ -1009,7 +1009,7 @@ export default function QuotationManage({
   // Early return for Create tab to provide dedicated full page layout
   if (tab === 'create') {
     return (
-      <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
+      <div className="space-y-6 animate-fade-in text-[#1d1d1f] w-full min-w-0">
         {/* Dedicated Header for Create/Edit */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#e2e8f0] pb-4 mb-4 gap-3">
           <div>
@@ -1038,7 +1038,7 @@ export default function QuotationManage({
 
   // Normal view layout with List and Preview tabs
   return (
-    <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
+    <div className="space-y-6 animate-fade-in text-[#1d1d1f] w-full min-w-0">
       {/* Delete Confirm Modal */}
       {deleteTarget && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in">

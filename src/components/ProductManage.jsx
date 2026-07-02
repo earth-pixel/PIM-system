@@ -1044,7 +1044,7 @@ export default function ProductManage({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full min-w-0">
 
       {/* Marketplace Import Modal */}
       {showImportModal && createPortal(
