@@ -509,6 +509,19 @@ app.post('/api/db/save', uploadLimiter, (req, res) => {
 
 
 
+// Serve static files from the React frontend build (Vite copies public folder contents to dist automatically)
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// Catch-all route to serve the React index.html for any frontend routing
+app.get('*', (req, res) => {
+  const indexPath = path.join(__dirname, 'dist', 'index.html');
+  if (fs.existsSync(indexPath)) {
+    res.sendFile(indexPath);
+  } else {
+    res.status(404).send('Frontend build not found. Please run "npm run build" first.');
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`PIM Export Server running on port ${PORT}`);
 });
