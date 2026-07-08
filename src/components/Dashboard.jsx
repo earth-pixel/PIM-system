@@ -13,7 +13,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
   // Dynamic Chart States
   const [chartType, setChartType] = useState('brand'); // 'brand' | 'category'
-  const [timeframe, setTimeframe] = useState('all');   // '7d' | '30d' | 'all'
+  const [timeframe, setTimeframe] = useState('30d');   // '7d' | '30d'
   const [chartDisplay, setChartDisplay] = useState('bar'); // 'bar' | 'line'
 
   // Helper to get formatted date string relative to today
@@ -72,9 +72,6 @@ export default function Dashboard({ products, brands, categories, quotations = [
   if (isCustomRange) {
     rangeStart = new Date(startDateStr + 'T00:00:00');
     rangeEnd = new Date(endDateStr + 'T23:59:59');
-  } else if (timeframe === 'all') {
-    rangeStart = new Date(0);
-    rangeEnd = new Date();
   } else {
     const days = timeframe === '7d' ? 7 : 30;
     rangeEnd = new Date(currentDate);
@@ -88,13 +85,11 @@ export default function Dashboard({ products, brands, categories, quotations = [
   const rangeStartLabel = rangeStart.toLocaleDateString(thLocale, dateOpts);
   const rangeEndLabel   = rangeEnd.toLocaleDateString(thLocale, dateOpts);
 
-  const filteredProducts = (timeframe === 'all' && !isCustomRange)
-    ? products
-    : products.filter(p => {
-        if (!p.updatedAt) return false;
-        const pDate = new Date(p.updatedAt.replace(/-/g, '/'));
-        return pDate >= rangeStart && pDate <= rangeEnd;
-      });
+  const filteredProducts = products.filter(p => {
+    if (!p.updatedAt) return false;
+    const pDate = new Date(p.updatedAt.replace(/-/g, '/'));
+    return pDate >= rangeStart && pDate <= rangeEnd;
+  });
 
   // Aggregate data depending on selected tab
   const aggregatedData = chartType === 'brand'
@@ -276,9 +271,9 @@ export default function Dashboard({ products, brands, categories, quotations = [
               ))}
             </div>
 
-            {/* Timeframe preset toggle (7 วัน / 30 วัน / ทั้งหมด) */}
+            {/* Timeframe preset toggle (7 วัน / 30 วัน) */}
             <div className="bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center">
-              {[['7d', '7 วัน'], ['30d', '30 วัน'], ['all', 'ทั้งหมด']].map(([val, label]) => (
+              {[['7d', '7 วัน'], ['30d', '30 วัน']].map(([val, label]) => (
                 <button
                   key={val}
                   type="button"
@@ -309,7 +304,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 }`}
               >
                 <CalendarDays className={`w-3.5 h-3.5 ${isCustomRange ? 'text-[#0071e3]' : 'text-[#8e8e93]'}`} />
-                <span>{isCustomRange || timeframe !== 'all' ? `${rangeStartLabel} – ${rangeEndLabel}` : 'ข้อมูลทั้งหมด'}</span>
+                <span>{rangeStartLabel} – {rangeEndLabel}</span>
                 <i className={`bi bi-chevron-down text-[8px] transition-transform duration-200 ${isDatePickerOpen ? 'rotate-180' : ''} ${isCustomRange ? 'text-[#0071e3]' : 'text-[#8e8e93]'}`}></i>
               </button>
 
