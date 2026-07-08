@@ -66,11 +66,11 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
   const vatRate = quotation.vatRate ?? 7;
 
   const co = {
-    name: companyInfo.name || 'บริษัท พันธ์วาดี จำกัด',
-    address: companyInfo.address || '19/9 ซอย ทวีวัฒนา-กาญจนาภิเษก 16 แขวงทวีวัฒนา เขตทวีวัฒนา กรุงเทพมหานคร 10170',
-    taxId: companyInfo.taxId || '0105560096348',
-    phone: companyInfo.phone || '086-523-1495',
-    mobile: companyInfo.mobile || '086-523-1495',
+    name: companyInfo.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
+    address: companyInfo.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
+    taxId: companyInfo.taxId || '0105546026064',
+    phone: companyInfo.phone || '02-4315111',
+    mobile: companyInfo.mobile || '02-0055666',
     email: companyInfo.email || '',
     website: companyInfo.website || 'https://www.phanvadee.com',
   };

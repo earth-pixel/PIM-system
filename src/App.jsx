@@ -17,7 +17,7 @@ const freshUsers = initializeDB();
 
 // Helper to migrate product brands and ensure updatedAt date is populated
 const migrateProducts = (parsedProducts) => {
-  const baseDate = new Date('2026-06-11T23:59:59');
+  const baseDate = new Date();
   let patched = false;
   const migrated = parsedProducts.map((p, i) => {
     let updatedProd = { ...p };
@@ -221,6 +221,11 @@ export default function App() {
     if (target) addActivityLog(`ลบใบเสนอราคา: ${target.quotationNumber}`, { type: 'ลบ', changes: [] });
   };
 
+  const handleClearAllQuotations = () => {
+    syncQuotations([]);
+    addActivityLog('ลบเอกสารใบเสนอราคาและใบเสนอสินค้าทั้งหมดออกจากระบบ (Clear all quotations from PIM)');
+  };
+
   // Listen for import complete events from ImportModal
   useEffect(() => {
     const handleImportComplete = (e) => {
@@ -368,7 +373,8 @@ export default function App() {
         const hasSameName = pName !== '' && newName !== '' && pName === newName;
         return hasSameCode || hasSameName;
       });
-      const currentFormattedDate = new Date().toISOString().slice(0, 16).replace('T', ' ');
+      const now = new Date();
+      const currentFormattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
       if (existingIdx !== -1) {
         const existing = updatedProducts[existingIdx];
@@ -618,7 +624,7 @@ export default function App() {
   const handleSaveProduct = (productData) => {
     let updated;
     const isEdit = products.some(p => p.id === productData.id);
-    const currentFormattedDate = new Date().toISOString().slice(0, 10); // "YYYY-MM-DD"
+    const currentFormattedDate = new Date().toLocaleDateString('sv-SE'); // "YYYY-MM-DD"
     const originalProduct = products.find(p => p.id === productData.id);
 
     const productWithMeta = {
@@ -952,6 +958,7 @@ export default function App() {
             onSaveQuotation={handleSaveQuotation}
             onDeleteQuotation={handleDeleteQuotation}
             addActivityLog={addActivityLog}
+            onClearAllQuotations={handleClearAllQuotations}
           />
         );
 
@@ -984,6 +991,7 @@ export default function App() {
       setActiveTab={handleTabChange}
       onSwitchRole={handleSwitchRole}
       activityLog={activityLog}
+      quotations={quotations}
     >
       {renderScreen()}
     </DashboardLayout>

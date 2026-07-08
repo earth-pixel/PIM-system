@@ -4,11 +4,26 @@
 @theme {
   --color-red-650: #d32f2f;
   --animate-shake: shake 0.3s ease-in-out;
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-scale-in: scale-in 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  --animate-pulse-ring: pulse-ring 2.2s ease-out infinite;
 
   @keyframes shake {
     0%, 100% { transform: translateX(0); }
     20%, 60% { transform: translateX(-6px); }
     40%, 80% { transform: translateX(6px); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+  @keyframes scale-in {
+    from { transform: scale(0.95); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+  @keyframes pulse-ring {
+    0% { transform: scale(0.55); opacity: 0.85; }
+    100% { transform: scale(1.6); opacity: 0; }
   }
 }
 
@@ -612,21 +627,29 @@ textarea {
     background-color: #0d0d0f !important;
   }
 
+  /* Brighter white text overrides for ultimate dark-mode contrast */
   .text-black,
   .text-\[\#1d1d1f\],
+  .text-zinc-700,
+  .text-zinc-750,
+  .text-zinc-800,
+  .text-zinc-850,
   .text-zinc-900,
   .text-zinc-950,
   h1, h2, h3, h4, h5, h6 {
-    color: #f5f5f7 !important;
+    color: #ffffff !important;
   }
 
+  /* Soft light-gray text overrides for clean secondary visual hierarchy */
   .text-\[\#555557\],
   .text-zinc-400,
   .text-zinc-450,
+  .text-zinc-500,
   .text-zinc-550,
   .text-zinc-600,
-  .text-zinc-650 {
-    color: #a1a1a6 !important;
+  .text-zinc-650,
+  .text-\[\#8e8e93\] {
+    color: #d4d4d8 !important;
   }
 
   /* Brighten KPI Category labels inside dark dashboard cards to white for high contrast */
@@ -639,38 +662,59 @@ textarea {
     color: #ffffff !important;
   }
 
-  .text-\[\#8e8e93\] {
-    color: #a1a1a6 !important;
-  }
-
+  /* Standardize borders to dark-mode gray */
   .border-\[\#d2d2d7\]\/50,
   .border-\[\#d2d2d7\],
   .border-\[\#e8e8ed\],
   .border-\[\#e8e8ed\]\/60,
-  .border-zinc-200,
-  .border-zinc-200\/60,
-  .border-zinc-200\/50,
+  .border-zinc-100,
   .border-zinc-150,
-  .border-zinc-100 {
+  .border-zinc-200,
+  .border-zinc-200\/50,
+  .border-zinc-200\/60,
+  .border-zinc-200\/65,
+  .border-zinc-200\/80,
+  .border-zinc-300,
+  .border-zinc-450,
+  .border-zinc-400 {
     border-color: #2c2c2e !important;
   }
 
+  /* Standardize table and layout grid separators */
   .divide-\[\#f5f5f7\] > *,
+  .divide-\[\#e8e8ed\] > *,
+  .divide-\[\#e2e8f0\] > *,
   .divide-zinc-150 > * {
     border-color: #2c2c2e !important;
   }
 
-  /* Hover background modifications */
+  /* Background structures & hovers in dark mode */
   .hover\:bg-\[\#f5f5f7\]:hover,
   .hover\:bg-zinc-50:hover,
   .hover\:bg-\[\#fafafa\]:hover,
   .hover\:bg-zinc-100:hover,
-  .hover\:bg-zinc-50\/70:hover {
+  .hover\:bg-zinc-50\/70:hover,
+  .hover\:bg-\[\#e8e8ed\]:hover {
     background-color: #2c2c2e !important;
   }
 
-  .bg-zinc-50 {
+  .bg-zinc-50,
+  .bg-zinc-100,
+  .bg-zinc-200,
+  .bg-\[\#e8e8ed\] {
     background-color: #2c2c2e !important;
+  }
+
+  .bg-zinc-300 {
+    background-color: #48484a !important;
+  }
+
+  .bg-zinc-50\/30 {
+    background-color: rgba(255, 255, 255, 0.02) !important;
+  }
+
+  .bg-zinc-50\/50 {
+    background-color: rgba(255, 255, 255, 0.04) !important;
   }
 
   /* Modals & Dropdowns */
@@ -693,6 +737,96 @@ textarea {
   select option {
     background-color: #2c2c2e !important;
     color: #ffffff !important;
+  }
+
+  /* Robust Disabled / Read-Only styles to prevent white-on-white text */
+  input:disabled,
+  input[readonly],
+  select:disabled,
+  select[readonly],
+  textarea:disabled,
+  textarea[readonly],
+  .cursor-not-allowed,
+  .cursor-not-allowed * {
+    background-color: #1c1c1e !important;
+    color: #86868b !important;
+    border-color: #2c2c2e !important;
+  }
+
+  .\!bg-zinc-300,
+  .\!text-zinc-655,
+  .\!text-zinc-650 {
+    background-color: #1c1c1e !important;
+    color: #86868b !important;
+  }
+
+  /* Interactive soft colored action badges and their hover states */
+  .bg-blue-50,
+  .bg-blue-50\/60 {
+    background-color: rgba(0, 113, 227, 0.15) !important;
+  }
+  .hover\:bg-blue-50:hover,
+  .group-hover\:bg-blue-100\/50:hover {
+    background-color: rgba(0, 113, 227, 0.25) !important;
+  }
+
+  .bg-red-50,
+  .bg-red-50\/60 {
+    background-color: rgba(225, 29, 72, 0.15) !important;
+  }
+  .hover\:bg-red-50:hover {
+    background-color: rgba(225, 29, 72, 0.25) !important;
+  }
+
+  .bg-rose-50,
+  .bg-rose-50\/60 {
+    background-color: rgba(244, 63, 94, 0.15) !important;
+  }
+  .hover\:bg-rose-50:hover,
+  .hover\:bg-rose-100:hover {
+    background-color: rgba(244, 63, 94, 0.25) !important;
+  }
+
+  .bg-amber-50,
+  .bg-amber-50\/60 {
+    background-color: rgba(217, 119, 6, 0.15) !important;
+  }
+  .hover\:bg-amber-50:hover,
+  .group-hover\:bg-amber-100\/50:hover {
+    background-color: rgba(217, 119, 6, 0.25) !important;
+  }
+
+  .bg-emerald-50,
+  .bg-emerald-50\/60 {
+    background-color: rgba(16, 185, 129, 0.15) !important;
+  }
+  .hover\:bg-emerald-50:hover,
+  .group-hover\:bg-emerald-100\/50:hover {
+    background-color: rgba(16, 185, 129, 0.25) !important;
+  }
+
+  .bg-purple-50,
+  .bg-purple-50\/60 {
+    background-color: rgba(139, 92, 246, 0.15) !important;
+  }
+  .hover\:bg-purple-50:hover,
+  .group-hover\:bg-purple-100\/50:hover {
+    background-color: rgba(139, 92, 246, 0.25) !important;
+  }
+
+  /* Bright interactive text colors for high readability */
+  .text-blue-600 {
+    color: #60a5fa !important;
+  }
+  .text-red-600,
+  .text-red-650 {
+    color: #f87171 !important;
+  }
+  .text-rose-600 {
+    color: #fb7185 !important;
+  }
+  .text-emerald-600 {
+    color: #34d399 !important;
   }
 
   header {

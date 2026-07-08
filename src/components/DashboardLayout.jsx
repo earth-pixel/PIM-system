@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 
 function getActionStyle(action) {
   if (action.includes('แก้ไข')) {
@@ -78,12 +78,19 @@ export default function DashboardLayout({
   children,
   onSwitchRole,
   activityLog = [],
+  quotations = [],
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isSandboxOpen, setIsSandboxOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isUsersDropdownOpen, setIsUsersDropdownOpen] = useState(false);
+  const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
+  const [isQuotationsDropdownOpen, setIsQuotationsDropdownOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const pendingQuotationsCount = useMemo(() => {
+    return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation').length;
+  }, [quotations]);
   
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [lastReadTime, setLastReadTime] = useState(() => {
@@ -100,9 +107,13 @@ export default function DashboardLayout({
 
   const profileRef = useRef(null);
   const usersDropdownRef = useRef(null);
+  const productsDropdownRef = useRef(null);
+  const quotationsDropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const prevLogLengthRef = useRef(activityLog.length);
   const dropdownTimeoutRef = useRef(null);
+  const productsDropdownTimeoutRef = useRef(null);
+  const quotationsDropdownTimeoutRef = useRef(null);
   const profileTimeoutRef = useRef(null);
 
   const handleMouseEnterUsers = () => {
@@ -116,6 +127,34 @@ export default function DashboardLayout({
   const handleMouseLeaveUsers = () => {
     dropdownTimeoutRef.current = setTimeout(() => {
       setIsUsersDropdownOpen(false);
+    }, 150); // 150ms close delay
+  };
+
+  const handleMouseEnterProducts = () => {
+    if (productsDropdownTimeoutRef.current) {
+      clearTimeout(productsDropdownTimeoutRef.current);
+      productsDropdownTimeoutRef.current = null;
+    }
+    setIsProductsDropdownOpen(true);
+  };
+
+  const handleMouseLeaveProducts = () => {
+    productsDropdownTimeoutRef.current = setTimeout(() => {
+      setIsProductsDropdownOpen(false);
+    }, 150); // 150ms close delay
+  };
+
+  const handleMouseEnterQuotations = () => {
+    if (quotationsDropdownTimeoutRef.current) {
+      clearTimeout(quotationsDropdownTimeoutRef.current);
+      quotationsDropdownTimeoutRef.current = null;
+    }
+    setIsQuotationsDropdownOpen(true);
+  };
+
+  const handleMouseLeaveQuotations = () => {
+    quotationsDropdownTimeoutRef.current = setTimeout(() => {
+      setIsQuotationsDropdownOpen(false);
     }, 150); // 150ms close delay
   };
 
@@ -138,6 +177,12 @@ export default function DashboardLayout({
       if (dropdownTimeoutRef.current) {
         clearTimeout(dropdownTimeoutRef.current);
       }
+      if (productsDropdownTimeoutRef.current) {
+        clearTimeout(productsDropdownTimeoutRef.current);
+      }
+      if (quotationsDropdownTimeoutRef.current) {
+        clearTimeout(quotationsDropdownTimeoutRef.current);
+      }
       if (profileTimeoutRef.current) {
         clearTimeout(profileTimeoutRef.current);
       }
@@ -152,6 +197,12 @@ export default function DashboardLayout({
       }
       if (usersDropdownRef.current && !usersDropdownRef.current.contains(event.target)) {
         setIsUsersDropdownOpen(false);
+      }
+      if (productsDropdownRef.current && !productsDropdownRef.current.contains(event.target)) {
+        setIsProductsDropdownOpen(false);
+      }
+      if (quotationsDropdownRef.current && !quotationsDropdownRef.current.contains(event.target)) {
+        setIsQuotationsDropdownOpen(false);
       }
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setIsNotificationsOpen(false);
@@ -180,6 +231,7 @@ export default function DashboardLayout({
     setActiveTab(key);
     setIsMobileMenuOpen(false);
     setIsUsersDropdownOpen(false);
+    setIsProductsDropdownOpen(false);
   };
 
   // Lock body and html scroll when mobile menu is open
@@ -227,6 +279,9 @@ export default function DashboardLayout({
   // Determine if activeTab belongs to users group
   const isUserGroupActive = activeTab === 'users' || activeTab === 'activity-log';
 
+  // Determine if activeTab belongs to products group
+  const isProductGroupActive = activeTab === 'manage-products' || activeTab === 'brands' || activeTab === 'categories';
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f5f5f7] font-sans text-[#1d1d1f]">
       
@@ -253,20 +308,81 @@ export default function DashboardLayout({
           <nav className="hidden lg:flex items-center gap-1">
             {menuItems.map((item) => {
               if (!hasAccess(item.minRole)) return null;
+
+              // Skip brands and categories at the top level
+              if (item.key === 'brands' || item.key === 'categories') return null;
+
+              if (item.key === 'manage-products') {
+                return (
+                  <div 
+                    key="products-dropdown"
+                    className="relative" 
+                    ref={productsDropdownRef}
+                    onMouseEnter={handleMouseEnterProducts}
+                    onMouseLeave={handleMouseLeaveProducts}
+                  >
+                    <button
+                      onClick={() => setIsProductsDropdownOpen(!isProductsDropdownOpen)}
+                      className={`
+                        px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1
+                        ${isProductGroupActive
+                          ? 'bg-[#0071e3]/10 text-[#0071e3]'
+                          : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100'
+                        }
+                      `}
+                    >
+                      <span>จัดการข้อมูลสินค้า</span>
+                      <i className={`bi bi-chevron-down text-[10px] transition-transform duration-200 ${isProductsDropdownOpen ? 'rotate-180' : ''}`}></i>
+                    </button>
+
+                    {isProductsDropdownOpen && (
+                      <div className="absolute top-full left-0 w-52 pt-1.5 z-30">
+                        <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-lg p-1.5 space-y-0.5 animate-scale-in">
+                          <button
+                            onClick={() => handleNavClick('manage-products')}
+                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'manage-products' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
+                          >
+                            <span>ข้อมูลสินค้า</span>
+                          </button>
+                          <button
+                            onClick={() => handleNavClick('brands')}
+                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'brands' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
+                          >
+                            <span>จัดการแบรนด์สินค้า</span>
+                          </button>
+                          <button
+                            onClick={() => handleNavClick('categories')}
+                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'categories' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
+                          >
+                            <span>จัดการหมวดหมู่สินค้า</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
               const isActive = activeTab === item.key;
               return (
                 <button
                   key={item.key}
                   onClick={() => handleNavClick(item.key)}
                   className={`
-                    px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap
+                    px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5
                     ${isActive
                       ? 'bg-[#0071e3]/10 text-[#0071e3]'
                       : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100'
                     }
                   `}
                 >
-                  {item.name}
+                  <span>{item.name}</span>
+                  {item.key === 'quotations' && currentUser?.role === 'admin' && pendingQuotationsCount > 0 && (
+                    <span className="flex h-2 w-2 relative shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -467,9 +583,11 @@ export default function DashboardLayout({
                                       {log.details.changes.map((ch, idx) => (
                                         <div key={idx} className="flex flex-col gap-0.5 py-1 px-2 bg-zinc-50 rounded-lg border border-zinc-150/50">
                                           <div className="font-bold text-zinc-700">{ch.field}</div>
-                                          <div className="flex items-center gap-1 text-[9.5px] truncate">
+                                          <div className="flex items-center gap-1 text-[9.5px] truncate text-zinc-500">
+                                            <span>ก่อน:</span>
                                             <span className="text-rose-500 bg-rose-50 px-1 py-0.25 rounded border border-rose-100/50 line-through truncate max-w-[100px]">{ch.before}</span>
                                             <i className="bi bi-arrow-right text-zinc-400 text-[8px]"></i>
+                                            <span>หลัง:</span>
                                             <span className="text-emerald-600 bg-emerald-50 px-1 py-0.25 rounded border border-emerald-100/50 font-bold truncate max-w-[100px]">{ch.after}</span>
                                           </div>
                                         </div>
@@ -655,21 +773,83 @@ export default function DashboardLayout({
               <span className="text-[10px] font-bold text-[#555557] tracking-wider uppercase block px-1.5 menu-title">เมนูการทำงาน</span>
               {menuItems.map((item) => {
                 if (!hasAccess(item.minRole)) return null;
+
+                // Skip rendering brands and categories at the top level
+                if (item.key === 'brands' || item.key === 'categories') return null;
+
+                if (item.key === 'manage-products') {
+                  return (
+                    <div key="products-group" className="space-y-1">
+                      {/* Manage Products button */}
+                      <button
+                        onClick={() => handleNavClick('manage-products')}
+                        className={`
+                          w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
+                          ${activeTab === 'manage-products'
+                            ? 'bg-[#0071e3]/10 text-[#0071e3]'
+                            : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'
+                          }
+                        `}
+                      >
+                        <i className="bi bi-pencil-square text-sm"></i>
+                        <span>จัดการสินค้า</span>
+                      </button>
+                      
+                      {/* Indented Brands button */}
+                      <button
+                        onClick={() => handleNavClick('brands')}
+                        className={`
+                          w-full flex items-center gap-3 pl-8 pr-4 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item
+                          ${activeTab === 'brands'
+                            ? 'bg-[#0071e3]/10 text-[#0071e3]'
+                            : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'
+                          }
+                        `}
+                      >
+                        <i className="bi bi-award-fill text-[11px]"></i>
+                        <span>จัดการแบรนด์</span>
+                      </button>
+                      
+                      {/* Indented Categories button */}
+                      <button
+                        onClick={() => handleNavClick('categories')}
+                        className={`
+                          w-full flex items-center gap-3 pl-8 pr-4 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item
+                          ${activeTab === 'categories'
+                            ? 'bg-[#0071e3]/10 text-[#0071e3]'
+                            : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'
+                          }
+                        `}
+                      >
+                        <i className="bi bi-folder-fill text-[11px]"></i>
+                        <span>จัดการหมวดหมู่สินค้า</span>
+                      </button>
+                    </div>
+                  );
+                }
+
                 const isActive = activeTab === item.key;
                 return (
                   <button
                     key={item.key}
                     onClick={() => handleNavClick(item.key)}
                     className={`
-                      w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
+                      w-full flex items-center justify-between px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
                       ${isActive
                         ? 'bg-[#0071e3]/10 text-[#0071e3]'
                         : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'
                       }
                     `}
                   >
-                    <i className={`${item.icon} text-sm`}></i>
-                    <span>{item.name}</span>
+                    <div className="flex items-center gap-3">
+                      <i className={`${item.icon} text-sm`}></i>
+                      <span>{item.name}</span>
+                    </div>
+                    {item.key === 'quotations' && currentUser?.role === 'admin' && pendingQuotationsCount > 0 && (
+                      <span className="px-2 py-0.5 text-[9px] font-extrabold bg-red-500 text-white rounded-full leading-none shadow-[0_1px_3px_rgba(239,68,68,0.4)] animate-pulse shrink-0">
+                        {pendingQuotationsCount}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -822,8 +1002,6 @@ export default function DashboardLayout({
           </div>
         </div>
       )}
-
-
     </div>
   );
 }

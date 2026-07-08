@@ -28,6 +28,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
       else if (selectedActionType === 'edit') matchesAction = log.action.includes('แก้ไข') || log.action.includes('เปลี่ยน');
       else if (selectedActionType === 'delete') matchesAction = log.action.includes('ลบ');
       else if (selectedActionType === 'clear') matchesAction = log.action.includes('ล้าง');
+      else if (selectedActionType === 'print') matchesAction = log.action.includes('พิมพ์') || log.action.includes('ดาวน์โหลด') || log.action.includes('นำออก');
     }
 
     let matchesDate = true;
@@ -97,6 +98,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
   };
 
   const getActionEmoji = (action) => {
+    if (action.includes('พิมพ์') || action.includes('ดาวน์โหลด') || action.includes('นำออก')) return '🖨️';
     if (action.includes('เพิ่ม')) return '📦';
     if (action.includes('แก้ไข') || action.includes('เปลี่ยน')) return '✏️';
     if (action.includes('ลบ')) return '🗑️';
@@ -242,6 +244,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
             <option value="add">เพิ่มข้อมูลใหม่</option>
             <option value="edit">แก้ไขข้อมูล</option>
             <option value="delete">ลบข้อมูล</option>
+            <option value="print">พิมพ์ / ส่งออก</option>
           </select>
         </div>
       </div>
@@ -475,11 +478,13 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                     {selectedLog.details.changes.map((ch, idx) => (
                       <div key={idx} className="p-3 bg-white rounded-2xl border border-[#d2d2d7]/50 space-y-1.5 shadow-2xs">
                         <div className="font-bold text-zinc-800 text-xs">{ch.field}</div>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap text-[10px] text-[#555557] font-semibold">
+                          <span>ก่อน:</span>
                           <span className="px-2 py-0.5 bg-red-50 text-red-650 rounded-lg border border-red-100/50 line-through break-all text-[11px] font-medium">
                             {ch.before}
                           </span>
                           <ArrowRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                          <span>หลัง:</span>
                           <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100/50 break-all text-[11px] font-bold">
                             {ch.after}
                           </span>

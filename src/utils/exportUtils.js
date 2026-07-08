@@ -39,7 +39,7 @@ function applyColumnWidths(ws, widths) {
 // ─────────────────────────────────────────────
 export async function exportShopee(products) {
   const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10);
+  const dateStr = now.toLocaleDateString('sv-SE');
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
   const timestamp = `${dateStr}_${timeStr}`;
   try {
@@ -67,7 +67,7 @@ export async function exportShopee(products) {
 // ─────────────────────────────────────────────
 export async function exportLazada(products) {
   const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10);
+  const dateStr = now.toLocaleDateString('sv-SE');
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
   const timestamp = `${dateStr}_${timeStr}`;
   try {
@@ -97,7 +97,7 @@ export async function exportLazada(products) {
 // ─────────────────────────────────────────────
 export async function exportTikTok(products) {
   const now = new Date();
-  const dateStr = now.toISOString().slice(0, 10);
+  const dateStr = now.toLocaleDateString('sv-SE');
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
   const timestamp = `${dateStr}_${timeStr}`;
   try {
@@ -145,6 +145,6 @@ export function exportToExcel(products) {
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'สินค้าในคลัง');
 
-  const timestamp = new Date().toISOString().slice(0, 10);
+  const timestamp = new Date().toLocaleDateString('sv-SE');
   downloadWorkbook(wb, `PIM_products_export_${timestamp}.xlsx`);
 }

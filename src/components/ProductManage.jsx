@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Image as ImageIcon,
@@ -1007,7 +1007,8 @@ export default function ProductManage({
       return;
     }
 
-    const currentFormattedDate = new Date().toISOString().slice(0, 16).replace('T', ' ');
+    const now = new Date();
+    const currentFormattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
     const newProductData = {
       id: editProduct ? editProduct.id : Date.now().toString(),
@@ -1260,7 +1261,6 @@ export default function ProductManage({
             </div>
             <div>
               <h2 className="font-bold text-sm uppercase tracking-wide">ยืนยันลบข้อมูลสินค้าทั้งหมด?</h2>
-              <p className="text-xs text-zinc-550 mt-1">คุณต้องการลบสินค้าทั้งหมดออกจากคลังสินค้าใช่หรือไม่? การกระทำนี้จะลบสินค้าทุกรายการในระบบ และไม่สามารถย้อนคืนได้!</p>
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
               <button
@@ -1683,7 +1683,24 @@ export default function ProductManage({
         </div>
 
         {viewMode === 'table' ? (
-          <div className="overflow-x-auto">
+          <div
+            className="overflow-x-auto cursor-grab active:cursor-grabbing select-none"
+            onMouseDown={(e) => {
+              const el = e.currentTarget;
+              el.dataset.dragging = 'true';
+              el.dataset.startX = e.pageX;
+              el.dataset.scrollLeft = el.scrollLeft;
+            }}
+            onMouseMove={(e) => {
+              const el = e.currentTarget;
+              if (el.dataset.dragging !== 'true') return;
+              e.preventDefault();
+              const walk = (e.pageX - Number(el.dataset.startX)) * 1.5;
+              el.scrollLeft = Number(el.dataset.scrollLeft) - walk;
+            }}
+            onMouseUp={(e) => { e.currentTarget.dataset.dragging = 'false'; }}
+            onMouseLeave={(e) => { e.currentTarget.dataset.dragging = 'false'; }}
+          >
             <table className="w-full text-left border-collapse text-xs table-fixed min-w-[960px]">
               <thead>
                 <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7]/50 uppercase tracking-wider text-[11px]">

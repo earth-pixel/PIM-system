@@ -154,7 +154,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
         password: password.trim(),
         name: name.trim(),
         role: allowedRole,
-        createdAt: new Date().toISOString().slice(0, 10),
+        createdAt: new Date().toLocaleDateString('sv-SE'),
       };
 
       setIsModalOpen(false);
@@ -390,7 +390,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                   ) : (
                     <div className="form-input flex items-center gap-1.5 text-zinc-800 pointer-events-none bg-[#f5f5f7] border-[#d2d2d7]">
                       <Shield className="w-4 h-4 text-zinc-600" />
-                      <span>{editingUser ? 'สิทธิ์เข้าใช้งาน: User' : 'สามารถเพิ่มสิทธิ์: User เท่านั้น'}</span>
+                      <span>{editingUser ? 'สิทธิ์เข้าใช้งาน: User' : 'เพิ่มสิทธิ์ User'}</span>
                     </div>
                   )}
                 </div>

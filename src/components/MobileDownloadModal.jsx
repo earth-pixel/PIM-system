@@ -23,17 +23,17 @@ export default function MobileDownloadModal({ isOpen, onClose }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in print:hidden">
       {/* Backdrop */}
       <div onClick={onClose} className="absolute inset-0 cursor-pointer" />
-      
+
       {/* Modal Card */}
       <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-2xl z-10 animate-scale-in text-[#1d1d1f] flex flex-col gap-5">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#e8e8ed] pb-3">
           <div className="flex items-center gap-2 text-amber-600 font-bold text-sm tracking-wide">
             <AlertCircle className="w-5 h-5 shrink-0" />
             <span>คำแนะนำการดาวน์โหลด</span>
           </div>
-          <button 
+          <button
             onClick={onClose}
             className="p-1 text-zinc-400 hover:text-black rounded-lg hover:bg-[#f5f5f7] transition-colors cursor-pointer"
           >
@@ -46,12 +46,12 @@ export default function MobileDownloadModal({ isOpen, onClose }) {
           <p className="font-semibold text-zinc-800 text-[13px]">
             ระบบตรวจพบว่าคุณใช้งานผ่านเบราว์เซอร์ในแอป (เช่น LINE หรือ Facebook) ซึ่งป้องกันการดาวน์โหลดไฟล์โดยตรง
           </p>
-          
+
           <div className="bg-[#f5f5f7] p-4 rounded-2xl border border-[#d2d2d7]/35 space-y-3">
             <p className="font-bold text-black border-b border-[#d2d2d7]/50 pb-1.5">
               กรุณาเปิดในเบราว์เซอร์ปกติของเครื่องเพื่อดาวน์โหลด:
             </p>
-            
+
             {isIOS ? (
               <div className="space-y-2">
                 <p className="flex items-start gap-2">
@@ -82,11 +82,10 @@ export default function MobileDownloadModal({ isOpen, onClose }) {
         <div className="flex flex-col gap-2 pt-2">
           <button
             onClick={handleCopyLink}
-            className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs border ${
-              copied 
+            className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs border ${copied
                 ? 'bg-emerald-550 border-emerald-600 text-white bg-emerald-600'
                 : 'bg-white border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7]'
-            }`}
+              }`}
           >
             {copied ? (
               <>
@@ -100,7 +99,7 @@ export default function MobileDownloadModal({ isOpen, onClose }) {
               </>
             )}
           </button>
-          
+
           <button
             onClick={onClose}
             className="w-full py-2.5 bg-[#1d1d1f] hover:bg-black text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"

@@ -1,6 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer } from 'lucide-react';
+import { X, Printer, Download } from 'lucide-react';
 
 // ─── Thai Number to Words ─────────────────────────────────────
 const ONES = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
@@ -151,6 +151,54 @@ const PRINT_CSS = `
       width: 7% !important;
       text-align: right !important;
     }
+
+    /* Proposal Table (7 Columns) overrides */
+    .print-page .proposal-table {
+      width: 100% !important;
+      table-layout: fixed !important;
+    }
+    .print-page .proposal-table th,
+    .print-page .proposal-table td {
+      padding: 6px 8px !important;
+      font-size: 11px !important;
+      word-break: break-word !important;
+      white-space: normal !important;
+    }
+    .print-page .proposal-table th:nth-child(1),
+    .print-page .proposal-table td:nth-child(1) {
+      width: 5% !important;
+      text-align: center !important;
+    }
+    .print-page .proposal-table th:nth-child(2),
+    .print-page .proposal-table td:nth-child(2) {
+      width: 12% !important;
+      text-align: center !important;
+    }
+    .print-page .proposal-table th:nth-child(3),
+    .print-page .proposal-table td:nth-child(3) {
+      width: 15% !important;
+      text-align: center !important;
+    }
+    .print-page .proposal-table th:nth-child(4),
+    .print-page .proposal-table td:nth-child(4) {
+      width: 15% !important;
+      text-align: center !important;
+    }
+    .print-page .proposal-table th:nth-child(5),
+    .print-page .proposal-table td:nth-child(5) {
+      width: 35% !important;
+      text-align: left !important;
+    }
+    .print-page .proposal-table th:nth-child(6),
+    .print-page .proposal-table td:nth-child(6) {
+      width: 10% !important;
+      text-align: center !important;
+    }
+    .print-page .proposal-table th:nth-child(7),
+    .print-page .proposal-table td:nth-child(7) {
+      width: 8% !important;
+      text-align: right !important;
+    }
   }
 `;
 
@@ -163,7 +211,70 @@ const getDocTitle = (printType) => {
 };
 
 // ─── Component ────────────────────────────────────────────────
-export default function QuotationPrint({ quotation, companyInfo = {}, onClose, printType = 'quotation', autoPrint = false }) {
+export default function QuotationPrint({ quotation, companyInfo = {}, onClose, printType = 'quotation', autoPrint = false, addActivityLog }) {
+  const [docFormat, setDocFormat] = useState(quotation.documentType || 'quotation'); // 'quotation' | 'product_proposal'
+
+  // Lookup database products from localStorage to fetch barcode and size details
+  const productsList = useMemo(() => {
+    try {
+      const saved = localStorage.getItem('pim_products');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  }, []);
+
+  const getProductDetails = (productCode) => {
+    const p = productsList.find(item => item.code === productCode);
+    return {
+      barcode: p?.barcode || '',
+      size: p?.size || ''
+    };
+  };
+
+  const cleanSalespersonName = (name) => {
+    if (!name) return '';
+    return name.replace(/\s*\((admin|manager|user)\)/i, '').trim();
+  };
+
+  const printAreaRef = useRef(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handlePrintClick = () => {
+    window.print();
+    if (addActivityLog) {
+      const docLabel = docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : 'ใบเสนอราคา';
+      addActivityLog(`พิมพ์ / บันทึก PDF (${docLabel}) เลขที่: ${quotation.referenceNumber || quotation.quotationNumber} ของลูกค้า ${customer.name || '-'}`);
+    }
+  };
+
+  const handleDownloadPDF = async () => {
+    const el = printAreaRef.current;
+    if (!el) return;
+    setIsDownloading(true);
+    try {
+      const html2pdf = (await import('html2pdf.js')).default;
+      const filename = `ใบเสนอราคา-${quotation.quotationNumber || quotation.referenceNumber || 'doc'}.pdf`;
+      await html2pdf()
+        .set({
+          margin: 0,
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: 'avoid-all' },
+        })
+        .from(el)
+        .save();
+      if (addActivityLog) {
+        addActivityLog(`ดาวน์โหลด PDF ใบเสนอราคา ${quotation.quotationNumber} สำเร็จ`);
+      }
+    } catch (err) {
+      console.error('PDF download failed:', err);
+    } finally {
+      setIsDownloading(false);
+    }
+  };
 
   // Auto print if requested (e.g. for email attachment flow)
   useEffect(() => {
@@ -179,7 +290,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key?.toLowerCase() === 'p') {
-        if (quotation && quotation.status !== 'approved') {
+          if (quotation && quotation.status !== 'approved' && quotation.documentType !== 'product_proposal') {
           e.preventDefault();
           e.stopPropagation();
         }
@@ -193,7 +304,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
   useEffect(() => {
     const originalTitle = document.title;
     if (quotation) {
-      const docType = getDocTitle(printType);
+      const docType = docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : getDocTitle(printType);
       const coName = companyInfo.name || 'บริษัท พันธ์วาดี จำกัด';
       const docNum = quotation.quotationNumber || quotation.id || '';
       document.title = `${docType} ${docNum} - ${coName}`;
@@ -201,11 +312,11 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
     return () => {
       document.title = originalTitle;
     };
-  }, [quotation, companyInfo, printType]);
+  }, [quotation, companyInfo, printType, docFormat]);
 
   if (!quotation) return null;
 
-  if (quotation.status !== 'approved') {
+  if (quotation.status !== 'approved' && quotation.documentType !== 'product_proposal') {
     return createPortal(
       <div 
         className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
@@ -245,11 +356,11 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
   const vatRate     = quotation.vatRate ?? 7;
 
   const co = {
-    name:    companyInfo.name    || 'บริษัท พันธ์วาดี จำกัด',
-    address: companyInfo.address || '19/9 ซอย ทวีวัฒนา-กาญจนาภิเษก 16 แขวงทวีวัฒนา เขตทวีวัฒนา กรุงเทพมหานคร 10170',
-    taxId:   companyInfo.taxId   || '0105560096348',
-    phone:   companyInfo.phone   || '02-500-0000',
-    mobile:  companyInfo.mobile  || '',
+    name:    companyInfo.name    || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
+    address: companyInfo.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
+    taxId:   companyInfo.taxId   || '0105546026064',
+    phone:   companyInfo.phone   || '02-4315111',
+    mobile:  companyInfo.mobile  || '02-0055666',
     email:   companyInfo.email   || '',
     website: companyInfo.website || 'www.phanvadee.com',
   };
@@ -301,8 +412,11 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
             <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>{quotation.quotationNumber} · {customer.name}</div>
           </div>
         </div>
+        
+
+
         <button
-          onClick={() => window.print()}
+          onClick={handlePrintClick}
           style={{
             background: '#0071e3', border: 'none', color: '#fff',
             fontWeight: 700, fontSize: 12.5, padding: '9px 20px',
@@ -335,6 +449,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
 
       {/* ── A4 Page ── */}
       <div
+        ref={printAreaRef}
         className="print-page"
         style={{
           width: '210mm',
@@ -382,7 +497,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
           {/* Right: Title & Doc Number */}
           <div style={{ textAlign: 'right' }}>
             <div style={{ fontSize: '28px', fontWeight: 900, color: ACCENT, lineHeight: 1 }}>
-              {getDocTitle(printType)}
+              {docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : getDocTitle(printType)}
             </div>
             <div style={{ fontSize: '18px', fontWeight: '800', color: ACCENT, marginTop: 4 }}>
               {quotation.referenceNumber || quotation.quotationNumber}
@@ -391,175 +506,249 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
         </div>
 
         {/* ── SECTION 2: CUSTOMER & METADATA GRID (2 Columns) ── */}
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, tableLayout: 'fixed' }}>
-          <tbody>
-            <tr>
-              {/* Left Column: Customer details */}
-              <td style={{ width: '50%', padding: '0 15px 0 0', verticalAlign: 'top', border: 'none' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>ชื่อลูกค้า</td>
-                      <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{customer.name || '-'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>บริษัท</td>
-                      <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{customer.companyName || '-'}</td>
-                    </tr>
-                    {customer.contactPerson && (
+        {docFormat === 'quotation' && (
+          <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, tableLayout: 'fixed' }}>
+            <tbody>
+              <tr>
+                {/* Left Column: Customer details */}
+                <td style={{ width: '50%', padding: '0 15px 0 0', verticalAlign: 'top', border: 'none' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <tbody>
                       <tr>
-                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ผู้ติดต่อ</td>
-                        <td style={{ padding: '3px 0', border: 'none' }}>{customer.contactPerson}</td>
+                        <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>ชื่อลูกค้า</td>
+                        <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{customer.name || '-'}</td>
                       </tr>
-                    )}
-                    <tr>
-                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', verticalAlign: 'top', border: 'none' }}>ที่อยู่</td>
-                      <td style={{ padding: '3px 0', border: 'none', lineHeight: 1.5 }}>{customer.address || '-'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เลขผู้เสียภาษี</td>
-                      <td style={{ padding: '3px 0', border: 'none' }}>{customer.taxId || '-'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>โทรศัพท์</td>
-                      <td style={{ padding: '3px 0', border: 'none' }}>{customer.phone || '-'}</td>
-                    </tr>
-                    {customer.email && (
                       <tr>
-                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>อีเมล</td>
-                        <td style={{ padding: '3px 0', border: 'none' }}>{customer.email}</td>
+                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>บริษัท</td>
+                        <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{customer.companyName || '-'}</td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </td>
+                      {customer.contactPerson && (
+                        <tr>
+                          <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ผู้ติดต่อ</td>
+                          <td style={{ padding: '3px 0', border: 'none' }}>{customer.contactPerson}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', verticalAlign: 'top', border: 'none' }}>ที่อยู่</td>
+                        <td style={{ padding: '3px 0', border: 'none', lineHeight: 1.5 }}>{customer.address || '-'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เลขผู้เสียภาษี</td>
+                        <td style={{ padding: '3px 0', border: 'none' }}>{customer.taxId || '-'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>โทรศัพท์</td>
+                        <td style={{ padding: '3px 0', border: 'none' }}>{customer.phone || '-'}</td>
+                      </tr>
+                      {customer.email && (
+                        <tr>
+                          <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>อีเมล</td>
+                          <td style={{ padding: '3px 0', border: 'none' }}>{customer.email}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </td>
 
-              {/* Right Column: Seller/Doc details */}
-              <td style={{ width: '50%', padding: '0 0 0 15px', verticalAlign: 'top', border: 'none', borderLeft: `1px solid ${BORDER}` }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ชื่อผู้ขาย</td>
-                      <td style={{ padding: '3px 0', border: 'none' }}>{quotation.salespersonName || '-'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เบอร์ติดต่อ</td>
-                      <td style={{ padding: '3px 0', border: 'none' }}>{quotation.salespersonPhone || '-'}</td>
-                    </tr>
-                    {quotation.projectName && (
+                {/* Right Column: Seller/Doc details */}
+                <td style={{ width: '50%', padding: '0 0 0 15px', verticalAlign: 'top', border: 'none', borderLeft: `1px solid ${BORDER}` }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
+                    <tbody>
                       <tr>
-                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ชื่อโปรเจกต์</td>
-                        <td style={{ padding: '3px 0', border: 'none' }}>{quotation.projectName}</td>
+                        <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ชื่อผู้ขาย</td>
+                        <td style={{ padding: '3px 0', border: 'none' }}>{quotation.salespersonName || '-'}</td>
                       </tr>
-                    )}
-                    <tr>
-                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เลขที่เอกสาร</td>
-                      <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{quotation.referenceNumber || quotation.quotationNumber || '-'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>วันที่ออกเอกสาร</td>
-                      <td style={{ padding: '3px 0', border: 'none' }}>{fmtDate(quotation.issuedDate)}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ใช้ได้ถึงวันที่</td>
-                      <td style={{ padding: '3px 0', border: 'none' }}>{fmtDate(quotation.validUntilDate)}</td>
-                    </tr>
-                    {quotation.paymentTerms && (
                       <tr>
-                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เงื่อนไขชำระเงิน</td>
-                        <td style={{ padding: '3px 0', border: 'none' }}>{quotation.paymentTerms}</td>
+                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เบอร์ติดต่อ</td>
+                        <td style={{ padding: '3px 0', border: 'none' }}>{quotation.salespersonPhone || '-'}</td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                      {quotation.projectName && (
+                        <tr>
+                          <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ชื่อโปรเจกต์</td>
+                          <td style={{ padding: '3px 0', border: 'none' }}>{quotation.projectName}</td>
+                        </tr>
+                      )}
+                      <tr>
+                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เลขที่เอกสาร</td>
+                        <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{quotation.referenceNumber || quotation.quotationNumber || '-'}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>วันที่ออกเอกสาร</td>
+                        <td style={{ padding: '3px 0', border: 'none' }}>{fmtDate(quotation.issuedDate)}</td>
+                      </tr>
+                      <tr>
+                        <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ใช้ได้ถึงวันที่</td>
+                        <td style={{ padding: '3px 0', border: 'none' }}>{fmtDate(quotation.validUntilDate)}</td>
+                      </tr>
+                      {quotation.paymentTerms && (
+                        <tr>
+                          <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เงื่อนไขชำระเงิน</td>
+                          <td style={{ padding: '3px 0', border: 'none' }}>{quotation.paymentTerms}</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        )}
 
         {/* ── SECTION 3: ITEMS TABLE ── */}
-        <table className="items-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, tableLayout: 'fixed' }}>
-          <thead>
-            <tr style={{ background: ACCENT, color: '#fff' }}>
-              <th style={{ width: '5%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
-              <th style={{ width: '8%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รูปภาพ</th>
-              <th style={{ width: '15%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>รหัสสินค้า</th>
-              <th style={{ width: '35%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>รายการสินค้า</th>
-              <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>จำนวน</th>
-              <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>หน่วย</th>
-              <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา/หน่วย</th>
-              <th style={{ width: '6%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ส่วนลด</th>
-              <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ยอดรวม</th>
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: GRAY, borderBottom: `1px solid ${BORDER}` }}>— ไม่มีรายการสินค้า —</td>
+        {docFormat === 'product_proposal' ? (
+          <table className="proposal-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ background: ACCENT, color: '#fff' }}>
+                <th style={{ width: '5%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
+                <th style={{ width: '12%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รหัสสินค้า (SKU)</th>
+                <th style={{ width: '15%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>บาร์โค้ด</th>
+                <th style={{ width: '15%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ภาพสินค้า</th>
+                <th style={{ width: '35%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>ชื่อสินค้า</th>
+                <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ขนาด / น้ำหนัก</th>
+                <th style={{ width: '8%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา</th>
               </tr>
-            ) : items.map((item, idx) => {
-              const discountDisplay = item.discount > 0
-                ? (item.discountType === 'percent' ? `${item.discount}%` : fmt(item.discount))
-                : '0';
-              return (
-                <tr key={item.id || idx} style={{ borderBottom: `1px solid ${BORDER}` }}>
-                  <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{idx + 1}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-                    {item.productImage ? (
-                      <img src={item.productImage} style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: `1px solid ${BORDER}` }} alt="" />
-                    ) : (
-                      <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
-                    )}
-                  </td>
-                  <td style={{ padding: '8px 10px', textAlign: 'left', color: DARK, fontSize: '10.5px', wordBreak: 'break-all' }}>
-                    {item.productCode || '—'}
-                  </td>
-                  <td style={{ padding: '8px 10px', textAlign: 'left' }}>
-                    <div style={{ fontWeight: 'bold', color: '#000' }}>{item.productName}</div>
-                    {item.description && (
-                      <div style={{ color: GRAY, fontSize: '10px', marginTop: 2, whiteSpace: 'pre-line' }}>{item.description}</div>
-                    )}
-                  </td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 'bold' }}>{item.quantity}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{item.unit || 'ชิ้น'}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'right' }}>{fmt(item.unitPrice)}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'right', color: item.discount > 0 ? '#ef4444' : GRAY }}>{discountDisplay}</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold' }}>{fmt(item.lineTotal)}</td>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: GRAY, borderBottom: `1px solid ${BORDER}` }}>— ไม่มีรายการสินค้า —</td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : items.map((item, idx) => {
+                const details = getProductDetails(item.productCode);
+                const itemBarcode = item.barcode || details.barcode;
+                const itemSize = item.size || details.size;
+                const itemWeight = item.weight || '';
+
+                const sizeAndWeight = [itemSize, itemWeight].filter(Boolean).join(' / ');
+                const qtyPart = item.quantity > 1 ? ` x${item.quantity}` : '';
+                const sizeDisplay = sizeAndWeight 
+                  ? `${sizeAndWeight}${qtyPart}`
+                  : (item.quantity > 1 ? `x${item.quantity}` : '—');
+                
+                return (
+                  <tr key={item.id || idx} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                    <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{idx + 1}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center', color: DARK, fontSize: '10.5px' }}>
+                      {item.productCode || '—'}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                      {itemBarcode ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+                          <img 
+                            src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(itemBarcode)}&height=10&includetext=false`} 
+                            style={{ height: '35px', maxWidth: '120px', objectFit: 'contain' }} 
+                            alt="" 
+                          />
+                          <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#555557' }}>{itemBarcode}</span>
+                        </div>
+                      ) : '—'}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                      {item.productImage ? (
+                        <img src={item.productImage} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: `1px solid ${BORDER}` }} alt="" />
+                      ) : (
+                        <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'left' }}>
+                      <div style={{ fontWeight: 'bold', color: '#000' }}>{item.productName}</div>
+                      {item.description && (
+                        <div style={{ color: GRAY, fontSize: '10px', marginTop: 2, whiteSpace: 'pre-line' }}>{item.description}</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '500', color: DARK }}>{sizeDisplay}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: DARK }}>฿{fmt(item.unitPrice)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        ) : (
+          <table className="items-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, tableLayout: 'fixed' }}>
+            <thead>
+              <tr style={{ background: ACCENT, color: '#fff' }}>
+                <th style={{ width: '5%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
+                <th style={{ width: '8%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รูปภาพ</th>
+                <th style={{ width: '15%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>รหัสสินค้า</th>
+                <th style={{ width: '35%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>รายการสินค้า</th>
+                <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>จำนวน</th>
+                <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>หน่วย</th>
+                <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา/หน่วย</th>
+                <th style={{ width: '6%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ส่วนลด</th>
+                <th style={{ width: '7%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ยอดรวม</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.length === 0 ? (
+                <tr>
+                  <td colSpan={9} style={{ padding: '40px', textAlign: 'center', color: GRAY, borderBottom: `1px solid ${BORDER}` }}>— ไม่มีรายการสินค้า —</td>
+                </tr>
+              ) : items.map((item, idx) => {
+                const discountDisplay = item.discount > 0
+                  ? (item.discountType === 'percent' ? `${item.discount}%` : fmt(item.discount))
+                  : '0';
+                return (
+                  <tr key={item.id || idx} style={{ borderBottom: `1px solid ${BORDER}` }}>
+                    <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{idx + 1}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+                      {item.productImage ? (
+                        <img src={item.productImage} style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: `1px solid ${BORDER}` }} alt="" />
+                      ) : (
+                        <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'left', color: DARK, fontSize: '10.5px', wordBreak: 'break-all' }}>
+                      {item.productCode || '—'}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'left' }}>
+                      <div style={{ fontWeight: 'bold', color: '#000' }}>{item.productName}</div>
+                      {item.description && (
+                        <div style={{ color: GRAY, fontSize: '10px', marginTop: 2, whiteSpace: 'pre-line' }}>{item.description}</div>
+                      )}
+                    </td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: 'bold' }}>{item.quantity}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{item.unit || 'ชิ้น'}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right' }}>{fmt(item.unitPrice)}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', color: item.discount > 0 ? '#ef4444' : GRAY }}>{discountDisplay}</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold' }}>{fmt(item.lineTotal)}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
 
         {/* ── SECTION 4: SUMMARY ── */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
-          <div style={{ width: '280px' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <tbody>
-                <tr>
-                  <td style={{ padding: '5px 0', color: GRAY, border: 'none' }}>ยอดรวมก่อนภาษี</td>
-                  <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: '600', border: 'none' }}>{fmt(subtotal)} บาท</td>
-                </tr>
-                <tr>
-                  <td style={{ padding: '5px 0', color: GRAY, border: 'none' }}>ภาษีมูลค่าเพิ่ม ({vatRate}%)</td>
-                  <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: '600', border: 'none' }}>{fmt(vatAmount)} บาท</td>
-                </tr>
-                <tr>
-                  <td colSpan={2} style={{ padding: '2px 0', border: 'none' }}>
-                    <div style={{ borderTop: `2px solid ${ACCENT}`, marginTop: 4 }} />
-                  </td>
-                </tr>
-                <tr style={{ background: '#f5f5f7' }}>
-                  <td style={{ padding: '8px 10px', fontWeight: 'bold', fontSize: '12px', color: DARK, borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0' }}>ยอดรวมสุทธิ</td>
-                  <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '900', color: ACCENT, borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0', fontSize: '13px' }}>{fmt(totalAmount)} บาท</td>
-                </tr>
-              </tbody>
-            </table>
+        {docFormat === 'quotation' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
+            <div style={{ width: '280px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '5px 0', color: GRAY, border: 'none' }}>ยอดรวมก่อนภาษี</td>
+                    <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: '600', border: 'none' }}>{fmt(subtotal)} บาท</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '5px 0', color: GRAY, border: 'none' }}>ภาษีมูลค่าเพิ่ม ({vatRate}%)</td>
+                    <td style={{ padding: '5px 0', textAlign: 'right', fontWeight: '600', border: 'none' }}>{fmt(vatAmount)} บาท</td>
+                  </tr>
+                  <tr>
+                    <td colSpan={2} style={{ padding: '2px 0', border: 'none' }}>
+                      <div style={{ borderTop: `2px solid ${ACCENT}`, marginTop: 4 }} />
+                    </td>
+                  </tr>
+                  <tr style={{ background: '#f5f5f7' }}>
+                    <td style={{ padding: '8px 10px', fontWeight: 'bold', fontSize: '12px', color: DARK, borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', borderLeft: '1px solid #e2e8f0' }}>ยอดรวมสุทธิ</td>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: '900', color: ACCENT, borderTop: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0', borderRight: '1px solid #e2e8f0', fontSize: '13px' }}>{fmt(totalAmount)} บาท</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── SECTION 5: NOTE ── */}
-        {quotation.note && (
+        {docFormat === 'quotation' && quotation.note && (
           <div style={{ marginBottom: 16, fontSize: '10px', lineHeight: 1.6, padding: '8px 12px', background: '#f5f5f7', border: `1px solid #e2e8f0`, borderRadius: 6 }}>
             <strong style={{ color: DARK }}>หมายเหตุ: </strong>
             <span style={{ color: GRAY, whiteSpace: 'pre-line' }}>{quotation.note}</span>
@@ -567,41 +756,80 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
         )}
 
         {/* Thai words spelling of the amount */}
-        <div style={{ fontSize: '10.5px', color: GRAY, marginBottom: 24 }}>
-          จำนวนเงินตัวอักษร: <span style={{ fontWeight: 'bold', color: DARK }}>( {numberToThaiWords(totalAmount)} )</span>
-        </div>
+        {docFormat === 'quotation' && (
+          <div style={{ fontSize: '10.5px', color: GRAY, marginBottom: 24 }}>
+            จำนวนเงินตัวอักษร: <span style={{ fontWeight: 'bold', color: DARK }}>( {numberToThaiWords(totalAmount)} )</span>
+          </div>
+        )}
 
         {/* ── SECTION 6: SIGNATURE BLOCKS ── */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: 24, fontSize: '10.5px' }}>
-          {/* Customer Signature Box */}
-          <div style={{ width: '230px', textAlign: 'center' }}>
-            <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
-            <div style={{ fontWeight: 'bold', fontSize: '11px', color: DARK }}>ผู้สั่งซื้อสินค้า</div>
-            <div style={{ fontSize: '10.5px', color: DARK, marginTop: 2 }}>
-              ({customer.name || '...................................................'})
+        {docFormat === 'quotation' && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: 'auto', paddingTop: 24, fontSize: '10.5px' }}>
+            {/* Customer Signature Box */}
+            <div style={{ width: '230px', textAlign: 'center' }}>
+              <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
+              <div style={{ fontWeight: 'bold', fontSize: '11px', color: DARK }}>ผู้สั่งซื้อสินค้า</div>
+              <div style={{ fontSize: '10.5px', color: DARK, marginTop: 2 }}>
+                ({customer.name || '...................................................'})
+              </div>
+              <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'center' }}>
+                วันที่ .....................................................................
+              </div>
             </div>
-            <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'center' }}>
-              วันที่ .....................................................................
-            </div>
-          </div>
 
-          {/* Middle: Page Indicator */}
-          <div style={{ textAlign: 'center', fontSize: '10px', color: GRAY, paddingBottom: 10 }}>
-            หน้า 1 / 1
-          </div>
+            {/* Middle: Page Indicator */}
+            <div style={{ textAlign: 'center', fontSize: '10px', color: GRAY, paddingBottom: 10 }}>
+              หน้า 1 / 1
+            </div>
 
-          {/* Authorized Signature Box */}
-          <div style={{ width: '230px', textAlign: 'center' }}>
-            <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
-            <div style={{ fontWeight: 'bold', fontSize: '11px', color: DARK, marginTop: 4 }}>ผู้อนุมัติ</div>
-            <div style={{ fontSize: '10.5px', color: DARK, marginTop: 2 }}>
-              ({quotation.salespersonName || '...................................................'})
-            </div>
-            <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'center' }}>
-              วันที่ {quotation.issuedDate ? fmtDate(quotation.issuedDate) : '.....................................................................'}
+            {/* Authorized Signature Box */}
+            <div style={{ width: '230px', textAlign: 'center' }}>
+              <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
+              <div style={{ fontWeight: 'bold', fontSize: '11px', color: DARK, marginTop: 4 }}>ผู้อนุมัติ</div>
+              <div style={{ fontSize: '10.5px', color: DARK, marginTop: 2 }}>
+                ({cleanSalespersonName(quotation.salespersonName) || '...................................................'})
+              </div>
+              <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'center' }}>
+                วันที่ {quotation.issuedDate ? fmtDate(quotation.issuedDate) : '.....................................................................'}
+              </div>
             </div>
           </div>
-        </div>
+        )}
+
+        {/* ── SECTION 6 FOR PRODUCT PROPOSAL: AUTHORIZED SIGNATURE & STAMP ── */}
+        {docFormat === 'product_proposal' && (
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'auto', paddingTop: 24, fontSize: '10.5px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+              {/* Company Seal/Stamp Placeholder */}
+              <div style={{
+                width: '65px',
+                height: '65px',
+                borderRadius: '50%',
+                border: '1.5px dashed #cbd5e1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                fontSize: '9px',
+                color: '#94a3b8',
+                fontWeight: 'bold',
+                lineHeight: 1.2,
+                userSelect: 'none'
+              }}>
+                ตราประทับ<br/>บริษัท
+              </div>
+
+              {/* Authorized Signature Box */}
+              <div style={{ width: '230px', textAlign: 'center' }}>
+                <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
+                <div style={{ fontWeight: 'bold', fontSize: '11px', color: DARK, marginTop: 4 }}>ผู้อนุมัติเสนอราคา</div>
+                <div style={{ fontSize: '10.5px', color: DARK, marginTop: 12, textAlign: 'center' }}>
+                  วันที่ .....................................................................
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>,

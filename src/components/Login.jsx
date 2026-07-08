@@ -174,6 +174,7 @@ export default function Login({ onLogin, users }) {
                     onKeyUp={checkCapsLock}
                     onFocus={checkCapsLock}
                     disabled={isLoading}
+                    autoComplete="off"
                     className="w-full pl-9.5 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
                   />
                 </div>
@@ -192,6 +193,7 @@ export default function Login({ onLogin, users }) {
                       onKeyUp={checkCapsLock}
                       onFocus={checkCapsLock}
                       disabled={isLoading}
+                      autoComplete="new-password"
                       className="w-full pl-9.5 pr-11 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
                     />
                     <button
