@@ -161,20 +161,15 @@ const handleExportExcel = async () => {
       ? 'เปิดใช้งาน'
       : 'ปิดใช้งาน',
     p.createdAt
-      ? new Date(p.createdAt).toLocaleString('th-TH')
+      ? new Date(p.createdAt.replace(' ', 'T')).toLocaleString('th-TH')
       : '',
     p.updatedAt
-      ? new Date(p.updatedAt).toLocaleString('th-TH')
+      ? new Date(p.updatedAt.replace(' ', 'T')).toLocaleString('th-TH')
       : ''
   ]);
 
   // ชื่อไฟล์
-  const filename =
-    `PIM_Report_Phanvadee_${
-      new Date()
-        .toISOString()
-        .split('T')[0]
-    }.xlsx`;
+  const filename = `PIM_Report_Phanvadee_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
   // ดาวน์โหลดไฟล์
   await downloadXLSX(
     headers,
