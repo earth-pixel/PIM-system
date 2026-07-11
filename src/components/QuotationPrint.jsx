@@ -884,11 +884,9 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                           ตราประทับ<br/>บริษัท
                         </div>
 
-                        {/* Authorized Signature Box */}
-                        <div style={{ width: '230px', textAlign: 'center' }}>
-                          <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
-                          <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK, marginTop: 4 }}>ผู้อนุมัติเสนอราคา</div>
-                          <div style={{ fontSize: '10px', color: DARK, marginTop: 12, textAlign: 'center' }}>
+                        {/* Date Box */}
+                        <div style={{ display: 'flex', alignItems: 'center', height: '65px' }}>
+                          <div style={{ fontSize: '10.5px', color: DARK, fontWeight: 'bold' }}>
                             วันที่ .....................................................................
                           </div>
                         </div>
