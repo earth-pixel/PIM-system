@@ -864,7 +864,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                   {/* ── SECTION 6 FOR PRODUCT PROPOSAL: AUTHORIZED SIGNATURE & STAMP ── */}
                   {docFormat === 'product_proposal' && (
                     <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, fontSize: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '230px' }}>
                         {/* Company Seal/Stamp Placeholder */}
                         <div style={{
                           width: '65px',
@@ -885,10 +885,8 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                         </div>
 
                         {/* Date Box */}
-                        <div style={{ display: 'flex', alignItems: 'center', height: '65px' }}>
-                          <div style={{ fontSize: '10.5px', color: DARK, fontWeight: 'bold' }}>
-                            วันที่ .....................................................................
-                          </div>
+                        <div style={{ fontSize: '10.5px', color: DARK, fontWeight: 'bold', width: '100%', textAlign: 'center', marginTop: 4 }}>
+                          วันที่ .....................................................................
                         </div>
                       </div>
                     </div>
