@@ -180,7 +180,7 @@ const PRINT_CSS = `
     }
     .print-page .proposal-table th:nth-child(3),
     .print-page .proposal-table td:nth-child(3) {
-      width: 20% !important;
+      width: 18% !important;
       text-align: center !important;
     }
     .print-page .proposal-table th:nth-child(4),
@@ -190,16 +190,21 @@ const PRINT_CSS = `
     }
     .print-page .proposal-table th:nth-child(5),
     .print-page .proposal-table td:nth-child(5) {
-      width: 37% !important;
+      width: 23% !important;
       text-align: left !important;
     }
     .print-page .proposal-table th:nth-child(6),
     .print-page .proposal-table td:nth-child(6) {
-      width: 10% !important;
+      width: 13% !important;
       text-align: center !important;
     }
     .print-page .proposal-table th:nth-child(7),
     .print-page .proposal-table td:nth-child(7) {
+      width: 13% !important;
+      text-align: center !important;
+    }
+    .print-page .proposal-table th:nth-child(8),
+    .print-page .proposal-table td:nth-child(8) {
       width: 8% !important;
       text-align: right !important;
     }
@@ -658,24 +663,24 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                 </table>
               )}
 
-              {/* ── SECTION 3: ITEMS TABLE ── */}
               {docFormat === 'product_proposal' ? (
                 <table className="proposal-table" style={{ width: '100%', borderCollapse: 'collapse', marginBottom: 20, tableLayout: 'fixed' }}>
                   <thead>
                     <tr style={{ background: ACCENT, color: '#fff' }}>
                       <th style={{ width: '5%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
                       <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รหัสสินค้า</th>
-                      <th style={{ width: '20%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>บาร์โค้ด</th>
+                      <th style={{ width: '18%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>บาร์โค้ด</th>
                       <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ภาพสินค้า</th>
-                      <th style={{ width: '37%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>ชื่อสินค้า</th>
-                      <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ขนาด / น้ำหนัก</th>
+                      <th style={{ width: '23%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>ชื่อสินค้า</th>
+                      <th style={{ width: '13%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ขนาด</th>
+                      <th style={{ width: '13%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>น้ำหนัก</th>
                       <th style={{ width: '8%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา</th>
                     </tr>
                   </thead>
                   <tbody>
                     {pageItems.length === 0 ? (
                       <tr>
-                        <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: GRAY, borderBottom: `1px solid ${BORDER}` }}>— ไม่มีรายการสินค้า —</td>
+                        <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: GRAY, borderBottom: `1px solid ${BORDER}` }}>— ไม่มีรายการสินค้า —</td>
                       </tr>
                     ) : pageItems.map((item, idx) => {
                       const globalIdx = items.findIndex(x => x.id === item.id);
@@ -684,11 +689,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                       const itemSize = item.size || details.size;
                       const itemWeight = item.weight || '';
 
-                      const sizeAndWeight = [itemSize, itemWeight].filter(Boolean).join(' / ');
                       const qtyPart = item.quantity > 1 ? ` x${item.quantity}` : '';
-                      const sizeDisplay = sizeAndWeight 
-                        ? `${sizeAndWeight}${qtyPart}`
-                        : (item.quantity > 1 ? `x${item.quantity}` : '—');
                       
                       return (
                         <tr key={item.id || idx} style={{ borderBottom: `1px solid ${BORDER}` }}>
@@ -710,18 +711,29 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                           </td>
                           <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                             {item.productImage ? (
-                              <img src={item.productImage} style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '8px', border: `1px solid ${BORDER}` }} alt="" />
+                              <div style={{
+                                width: '60px',
+                                height: '60px',
+                                borderRadius: '8px',
+                                border: `1px solid ${BORDER}`,
+                                backgroundImage: `url(${item.productImage})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                backgroundRepeat: 'no-repeat',
+                                margin: '0 auto'
+                              }} />
                             ) : (
                               <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
                             )}
                           </td>
                           <td style={{ padding: '8px 10px', textAlign: 'left' }}>
-                            <div style={{ fontWeight: 'bold', color: '#000' }}>{item.productName}</div>
+                            <div style={{ fontWeight: 'bold', color: '#000' }}>{item.productName}{qtyPart}</div>
                             {item.description && (
                               <div style={{ color: GRAY, fontSize: '10px', marginTop: 2, whiteSpace: 'pre-line' }}>{item.description}</div>
                             )}
                           </td>
-                          <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '500', color: DARK }}>{sizeDisplay}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '500', color: DARK }}>{itemSize || '—'}</td>
+                          <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '500', color: DARK }}>{itemWeight || '—'}</td>
                           <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: DARK }}>฿{fmt(item.unitPrice)}</td>
                         </tr>
                       );
@@ -758,7 +770,17 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                           <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{globalIdx + 1}</td>
                           <td style={{ padding: '8px 10px', textAlign: 'center' }}>
                             {item.productImage ? (
-                              <img src={item.productImage} style={{ width: '32px', height: '32px', objectFit: 'cover', borderRadius: '4px', border: `1px solid ${BORDER}` }} alt="" />
+                              <div style={{
+                                width: '32px',
+                                height: '32px',
+                                borderRadius: '4px',
+                                border: `1px solid ${BORDER}`,
+                                backgroundImage: `url(${item.productImage})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                backgroundRepeat: 'no-repeat',
+                                margin: '0 auto'
+                              }} />
                             ) : (
                               <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
                             )}
