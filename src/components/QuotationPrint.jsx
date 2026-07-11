@@ -1,6 +1,6 @@
-import { useEffect, useState, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Download } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 
 // ─── Thai Number to Words ─────────────────────────────────────
 const ONES = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
@@ -216,7 +216,7 @@ const getDocTitle = (printType) => {
 
 // ─── Component ────────────────────────────────────────────────
 export default function QuotationPrint({ quotation, companyInfo = {}, onClose, printType = 'quotation', autoPrint = false, addActivityLog }) {
-  const [docFormat, setDocFormat] = useState(quotation?.documentType || 'quotation'); // 'quotation' | 'product_proposal'
+  const docFormat = quotation?.documentType || 'quotation'; // 'quotation' | 'product_proposal'
 
   // Lookup database products from localStorage to fetch barcode and size details
   const productsList = useMemo(() => {
@@ -242,7 +242,6 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
   };
 
   const printAreaRef = useRef(null);
-  const [isDownloading, setIsDownloading] = useState(false);
 
   const handlePrintClick = () => {
     window.print();
@@ -252,33 +251,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
     }
   };
 
-  const handleDownloadPDF = async () => {
-    const el = printAreaRef.current;
-    if (!el) return;
-    setIsDownloading(true);
-    try {
-      const html2pdf = (await import('html2pdf.js')).default;
-      const filename = `ใบเสนอราคา-${quotation.quotationNumber || quotation.referenceNumber || 'doc'}.pdf`;
-      await html2pdf()
-        .set({
-          margin: 0,
-          filename,
-          image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, logging: false },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-          pagebreak: { mode: 'avoid-all' },
-        })
-        .from(el)
-        .save();
-      if (addActivityLog) {
-        addActivityLog(`ดาวน์โหลด PDF ใบเสนอราคา ${quotation.quotationNumber} สำเร็จ`);
-      }
-    } catch (err) {
-      console.error('PDF download failed:', err);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
+
 
   // Auto print if requested (e.g. for email attachment flow)
   useEffect(() => {

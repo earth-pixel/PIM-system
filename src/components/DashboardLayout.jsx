@@ -85,7 +85,6 @@ export default function DashboardLayout({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isUsersDropdownOpen, setIsUsersDropdownOpen] = useState(false);
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
-  const [isQuotationsDropdownOpen, setIsQuotationsDropdownOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const pendingQuotationsCount = useMemo(() => {
@@ -108,12 +107,10 @@ export default function DashboardLayout({
   const profileRef = useRef(null);
   const usersDropdownRef = useRef(null);
   const productsDropdownRef = useRef(null);
-  const quotationsDropdownRef = useRef(null);
   const notificationRef = useRef(null);
   const prevLogLengthRef = useRef(activityLog.length);
   const dropdownTimeoutRef = useRef(null);
   const productsDropdownTimeoutRef = useRef(null);
-  const quotationsDropdownTimeoutRef = useRef(null);
   const profileTimeoutRef = useRef(null);
 
   const handleMouseEnterUsers = () => {
@@ -144,19 +141,7 @@ export default function DashboardLayout({
     }, 150); // 150ms close delay
   };
 
-  const handleMouseEnterQuotations = () => {
-    if (quotationsDropdownTimeoutRef.current) {
-      clearTimeout(quotationsDropdownTimeoutRef.current);
-      quotationsDropdownTimeoutRef.current = null;
-    }
-    setIsQuotationsDropdownOpen(true);
-  };
 
-  const handleMouseLeaveQuotations = () => {
-    quotationsDropdownTimeoutRef.current = setTimeout(() => {
-      setIsQuotationsDropdownOpen(false);
-    }, 150); // 150ms close delay
-  };
 
   const handleMouseEnterProfile = () => {
     if (profileTimeoutRef.current) {
@@ -180,9 +165,7 @@ export default function DashboardLayout({
       if (productsDropdownTimeoutRef.current) {
         clearTimeout(productsDropdownTimeoutRef.current);
       }
-      if (quotationsDropdownTimeoutRef.current) {
-        clearTimeout(quotationsDropdownTimeoutRef.current);
-      }
+
       if (profileTimeoutRef.current) {
         clearTimeout(profileTimeoutRef.current);
       }
@@ -201,9 +184,7 @@ export default function DashboardLayout({
       if (productsDropdownRef.current && !productsDropdownRef.current.contains(event.target)) {
         setIsProductsDropdownOpen(false);
       }
-      if (quotationsDropdownRef.current && !quotationsDropdownRef.current.contains(event.target)) {
-        setIsQuotationsDropdownOpen(false);
-      }
+
       if (notificationRef.current && !notificationRef.current.contains(event.target)) {
         setIsNotificationsOpen(false);
       }

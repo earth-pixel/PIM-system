@@ -714,7 +714,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
     }
     // Pre-fill items from a product proposal conversion
     if (sourceProposal && sourceProposal.items && sourceProposal.items.length > 0) {
-      return sourceProposal.items.map((it, idx) => ({ ...it, id: it.id || generateItemId() }));
+      return sourceProposal.items.map(it => ({ ...it, id: it.id || generateItemId() }));
     }
     return [{ id: generateItemId(), productName: '', productCode: '', barcode: '', productImage: '', description: '', size: '', weight: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent', lineTotal: 0 }];
   });
@@ -1240,9 +1240,7 @@ const PreviewTab = ({
   onEdit,
   onDelete,
   onConvert,
-  currentUser,
-  addActivityLog,
-  onSaveQuotation
+  currentUser
 }) => {
   const [search, setSearch] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('All');
