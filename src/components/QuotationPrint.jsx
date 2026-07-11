@@ -886,7 +886,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
 
                         {/* Date Box */}
                         <div style={{ fontSize: '10.5px', color: DARK, fontWeight: 'bold', width: '100%', textAlign: 'center', marginTop: 4 }}>
-                          วันที่ .....................................................................
+                          วันที่ {quotation.issuedDate ? fmtDate(quotation.issuedDate) : '.....................................................................'}
                         </div>
                       </div>
                     </div>
