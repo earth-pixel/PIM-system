@@ -175,22 +175,22 @@ const PRINT_CSS = `
     }
     .print-page .proposal-table th:nth-child(2),
     .print-page .proposal-table td:nth-child(2) {
-      width: 12% !important;
+      width: 10% !important;
       text-align: center !important;
     }
     .print-page .proposal-table th:nth-child(3),
     .print-page .proposal-table td:nth-child(3) {
-      width: 15% !important;
+      width: 20% !important;
       text-align: center !important;
     }
     .print-page .proposal-table th:nth-child(4),
     .print-page .proposal-table td:nth-child(4) {
-      width: 15% !important;
+      width: 10% !important;
       text-align: center !important;
     }
     .print-page .proposal-table th:nth-child(5),
     .print-page .proposal-table td:nth-child(5) {
-      width: 35% !important;
+      width: 37% !important;
       text-align: left !important;
     }
     .print-page .proposal-table th:nth-child(6),
@@ -664,12 +664,11 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                   <thead>
                     <tr style={{ background: ACCENT, color: '#fff' }}>
                       <th style={{ width: '5%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
-                      <th style={{ width: '12%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รหัสสินค้า </th>
-                      <th style={{ width: '15%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>บาร์โค้ด</th>
-                      <th style={{ width: '15%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ภาพสินค้า</th>
-                      <th style={{ width: '35%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>ชื่อสินค้า</th>
+                      <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รหัสสินค้า</th>
+                      <th style={{ width: '20%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>บาร์โค้ด</th>
+                      <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ภาพสินค้า</th>
+                      <th style={{ width: '37%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>ชื่อสินค้า</th>
                       <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ขนาด / น้ำหนัก</th>
-                       <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>น้ำหนัก</th>
                       <th style={{ width: '8%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา</th>
                     </tr>
                   </thead>
@@ -702,7 +701,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
                                 <img 
                                   src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(itemBarcode)}&height=10&includetext=false`} 
-                                  style={{ height: '35px', maxWidth: '120px', objectFit: 'contain' }} 
+                                  style={{ height: '32px', maxWidth: '100%', objectFit: 'contain' }} 
                                   alt="" 
                                 />
                                 <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#555557' }}>{itemBarcode}</span>
