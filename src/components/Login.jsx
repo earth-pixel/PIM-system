@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Lock, User, AlertCircle, Eye, EyeOff, Terminal } from 'lucide-react';
+import { Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 export default function Login({ onLogin, users }) {
   const [username, setUsername] = useState('');
@@ -11,9 +11,7 @@ export default function Login({ onLogin, users }) {
   const [capsLockActive, setCapsLockActive] = useState(false);
   const passwordInputRef = useRef(null);
 
-  // Easter Egg to toggle Sandbox quick login (Developer Mode)
-  const [logoClickCount, setLogoClickCount] = useState(0);
-  const [showDevTools, setShowDevTools] = useState(false);
+
 
   // Mouse Parallax Position for floating circles
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -30,15 +28,7 @@ export default function Login({ onLogin, users }) {
     setMousePos({ x: 0, y: 0 });
   };
 
-  const handleLogoClick = () => {
-    const newCount = logoClickCount + 1;
-    setLogoClickCount(newCount);
 
-    if (newCount >= 5) {
-      setShowDevTools(prev => !prev);
-      setLogoClickCount(0);
-    }
-  };
 
   const checkCapsLock = (e) => {
     if (e.getModifierState) {
@@ -84,16 +74,7 @@ export default function Login({ onLogin, users }) {
     }
   }, [isShaking]);
 
-  const handleQuickLogin = (presetUsername) => {
-    setIsLoading(true);
-    setTimeout(() => {
-      const matchedUser = users.find(u => u.username === presetUsername);
-      setIsLoading(false);
-      if (matchedUser) {
-        onLogin(matchedUser);
-      }
-    }, 400);
-  };
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7] font-sans p-4 sm:p-6 overflow-hidden select-none relative">
@@ -117,23 +98,13 @@ export default function Login({ onLogin, users }) {
 
             {/* Logo and Titles */}
             <div className="space-y-4 text-center flex flex-col items-center">
-              <button
-                type="button"
-                onClick={handleLogoClick}
-                className="w-10 h-10 flex items-center justify-center text-zinc-900 hover:scale-105 active:scale-95 transition-all duration-200 cursor-pointer relative group focus:outline-hidden"
-                title="กด 5 ครั้งเพื่อเปิดโหมดผู้พัฒนา"
-              >
-                <svg viewBox="0 0 80 90" className="w-7 h-8 fill-current group-hover:rotate-6 transition-transform duration-300" xmlns="http://www.w3.org/2000/svg">
+              <div className="w-10 h-10 flex items-center justify-center text-zinc-900">
+                <svg viewBox="0 0 80 90" className="w-7 h-8 fill-current" xmlns="http://www.w3.org/2000/svg">
                   <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
                   <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
                   <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
                 </svg>
-                {logoClickCount > 0 && logoClickCount < 5 && (
-                  <span className="absolute -bottom-1 -right-1 bg-zinc-600 text-white text-[9px] w-4.5 h-4.5 rounded-full flex items-center justify-center font-bold border border-white shadow-xs">
-                    {logoClickCount}
-                  </span>
-                )}
-              </button>
+              </div>
 
               <div className="space-y-1">
                 <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
@@ -236,42 +207,7 @@ export default function Login({ onLogin, users }) {
               </button>
             </form>
 
-            {/* Smart Sandbox Developer Mode (Collapsible via Logo Clicks) */}
-            {showDevTools && (
-              <div className="pt-4 border-t border-zinc-150 space-y-3 animate-fade-in">
-                <div className="flex items-center justify-center gap-1.5 text-zinc-700">
-                  <Terminal className="w-3.5 h-3.5" />
-                  <span className="text-[10px] font-bold tracking-wider uppercase">Sandbox Developer Panel</span>
-                </div>
 
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => handleQuickLogin('admin')}
-                    disabled={isLoading}
-                    className="py-2 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border border-zinc-200 rounded-xl text-[10px] font-semibold transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    Admin
-                  </button>
-                  <button
-                    onClick={() => handleQuickLogin('manager')}
-                    disabled={isLoading}
-                    className="py-2 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border border-zinc-200 rounded-xl text-[10px] font-semibold transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    Manager
-                  </button>
-                  <button
-                    onClick={() => handleQuickLogin('user')}
-                    disabled={isLoading}
-                    className="py-2 bg-zinc-50 hover:bg-zinc-100 text-zinc-800 border border-zinc-200 rounded-xl text-[10px] font-semibold transition-all cursor-pointer disabled:opacity-50"
-                  >
-                    User
-                  </button>
-                </div>
-                <p className="text-[10px] text-zinc-400 text-center font-medium">
-                  รหัสผ่านคือ <code className="bg-zinc-100 px-1 py-0.5 rounded text-zinc-700 font-mono text-[9px]">password</code>
-                </p>
-              </div>
-            )}
 
           </div>
 

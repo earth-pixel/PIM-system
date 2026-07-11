@@ -20077,85 +20077,131 @@
       "createdAt": "2026-05-10"
     },
     {
-      "username": "user",
-      "password": "password",
-      "name": "สมชาย เรียนดี (User)",
-      "role": "user",
-      "createdAt": "2026-05-15"
-    },
-    {
       "username": "earth",
       "password": "1111",
       "name": "ธนาวัฒน์",
-      "role": "manager",
-      "createdAt": "2026-07-02"
-    },
-    {
-      "username": "earth_test",
-      "password": "1111",
-      "name": "Test User",
       "role": "user",
       "createdAt": "2026-07-02"
     }
   ],
   "quotations": [
     {
-      "id": "qt-1783391668833",
-      "quotationNumber": "QT-20260707-0001",
-      "documentType": "quotation",
+      "id": "qt-1783741065764",
+      "quotationNumber": "QT-20260711-0002",
+      "documentType": "product_proposal",
       "createdBy": "admin",
       "customer": {
-        "name": "สมชาย ใจดี",
-        "companyName": "บริษัท เอบีซี จำกัด",
-        "phone": "0812345678",
-        "taxId": "1234567890123",
-        "address": "123/45 ถนนสุขุมวิท แขวงคลองเตย เขตคลองเตย กรุงเทพมหานคร 10110"
+        "name": "",
+        "companyName": "",
+        "phone": "",
+        "taxId": "",
+        "address": ""
       },
-      "salespersonName": "สมศรี รักดี",
-      "salespersonPhone": "0898765432",
-      "projectName": "โครงการปรับปรุงระบบ PIM",
-      "issuedDate": "2026-07-07",
-      "validUntilDate": "2026-07-31",
-      "vatRate": 7,
+      "salespersonName": "สมศักดิ์ รักดี (Admin)",
+      "salespersonPhone": "",
+      "projectName": "",
+      "issuedDate": "2026-07-11",
+      "validUntilDate": "",
+      "vatRate": 0,
       "note": "",
-      "bankName": "ธนาคารกสิกรไทย",
-      "bankAccName": "บริษัท พันธ์วาดี จำกัด",
-      "bankAccNo": "123-4-56789-0",
-      "deliveryTerms": "จัดส่งภายใน 7-14 วันทำการนับจากวันที่สั่งซื้อ",
-      "warrantyTerms": "รับประกันความพึงพอใจและคุณภาพสินค้า 1 ปี",
       "items": [
         {
-          "id": 1783391541317,
-          "productName": "กู๊ด ออล เดย์",
-          "productCode": "GAD-001",
+          "id": 1783741060123,
+          "productName": "กู๊ด ออล เดย์ แบล็ค เคลย์",
+          "productCode": "GAD-003",
           "productImage": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60",
           "description": "",
           "unit": "ชิ้น",
           "quantity": 1,
-          "unitPrice": 390,
+          "unitPrice": 320,
           "discount": 0,
           "discountType": "percent",
-          "lineTotal": 390,
-          "barcode": "8858890715045",
+          "lineTotal": 320,
+          "barcode": "8858890715069",
           "size": "80 กรัม",
-          "weight": "139g"
+          "weight": "124g"
         }
       ],
-      "subtotal": 390,
-      "vatAmount": 27.3,
-      "totalAmount": 417.3,
+      "subtotal": 320,
+      "vatAmount": 0,
+      "totalAmount": 320,
+      "status": "approved"
+    },
+    {
+      "id": "qt-1783671823606",
+      "quotationNumber": "QT-20260710-0001",
+      "documentType": "quotation",
+      "createdBy": "admin",
+      "customer": {
+        "name": "Test Customer",
+        "companyName": "Test Company",
+        "phone": "0812345678",
+        "taxId": "1234567890123",
+        "address": "123 Test Road, Test City"
+      },
+      "salespersonName": "สมศักดิ์ รักดี (AdSomsak Rakdeemin)",
+      "salespersonPhone": "0865231495",
+      "projectName": "Test Project",
+      "issuedDate": "2026-07-10",
+      "validUntilDate": "60720-02-02",
+      "vatRate": 7,
+      "note": "",
+      "items": [
+        {
+          "id": 1783671730920,
+          "productName": "Test Product",
+          "productCode": "",
+          "barcode": "",
+          "productImage": "",
+          "description": "",
+          "size": "",
+          "weight": "",
+          "quantity": 11,
+          "unit": "ชิ้pcsน",
+          "unitPrice": 1000,
+          "discount": 0,
+          "discountType": "percent",
+          "lineTotal": 11000
+        }
+      ],
+      "subtotal": 11000,
+      "vatAmount": 770,
+      "totalAmount": 11770,
       "status": "approved",
       "approvedBy": "สมศักดิ์ รักดี (Admin)",
-      "approvedDate": "2026-07-07T02:35:16.458Z"
+      "approvedDate": "2026-07-10T08:24:23.536Z",
+      "sentEmails": [
+        {
+          "id": 1783671934930,
+          "date": "10/7/2569 15:25:34",
+          "recipient": "earth01062547@gmail.com",
+          "subject": "[ใบเสนอราคา] เลขที่ QT-20260710-0001 - โครงการ Test Project",
+          "status": "success"
+        },
+        {
+          "id": 1783672050627,
+          "date": "10/7/2569 15:27:30",
+          "recipient": "test@example.com",
+          "subject": "[ใบเสนอราคา] เลขที่ QT-20260710-0001 - โครงการ Test Project",
+          "status": "success"
+        },
+        {
+          "id": 1783738648425,
+          "date": "11/7/2569 09:57:28",
+          "recipient": "earth01062547@gmail.com",
+          "subject": "[ใบเสนอราคา] เลขที่ QT-20260710-0001 - โครงการ Test Project",
+          "status": "success"
+        }
+      ]
     }
   ],
   "activityLog": [
     {
-      "id": 1783480412836,
+      "id": 1783742281803,
       "userName": "สมศักดิ์ รักดี (Admin)",
       "userRole": "admin",
       "action": "ล้างประวัติการดำเนินงานทั้งหมดในระบบ",
-      "timestamp": "2026-07-08T03:13:32.836Z"
+      "timestamp": "2026-07-11T03:58:01.803Z"
     }
   ]
 }

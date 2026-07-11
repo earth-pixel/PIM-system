@@ -428,7 +428,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
             <div>
               <h3 className="font-bold text-sm uppercase tracking-wide">ยืนยันการลบผู้ใช้งาน?</h3>
               <p className="text-[#555557] text-xs mt-1.5 leading-relaxed">
-                คุณต้องการลบผู้ใช้ <strong className="text-black font-bold">"{confirmDeleteUser.name || confirmDeleteUser.username}"</strong> หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้
+                คุณต้องการลบผู้ใช้ <strong className="text-black font-bold">"{confirmDeleteUser.name || confirmDeleteUser.username}"</strong> หรือไม่? 
               </p>
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">

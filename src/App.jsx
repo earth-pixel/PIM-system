@@ -294,7 +294,7 @@ export default function App() {
       }
 
       if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
-        const tabs = ['dashboard', 'manage-products', 'quotations', 'brands', 'categories', 'reports'];
+        const tabs = ['dashboard', 'manage-products', 'brands', 'categories', 'quotations', 'reports'];
         if (currentUser.role === 'admin') {
           tabs.push('users');
           tabs.push('activity-log');

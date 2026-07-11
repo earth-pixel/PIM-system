@@ -199,6 +199,162 @@ function ProductPickerModal({ products, onSelect, onClose }) {
   );
 }
 
+// ── EmailSenderModal ───────────────────────────────────────
+function EmailSenderModal({ isOpen, onClose, quotation, onSentSuccess, addActivityLog, onSaveQuotation }) {
+  const [recipient, setRecipient] = useState(quotation.customer?.email || '');
+  const [subject, setSubject] = useState(`[ใบเสนอราคา] เลขที่ ${quotation.quotationNumber || quotation.referenceNumber} - โครงการ ${quotation.projectName || '-'}`);
+  const [body, setBody] = useState(`เรียนคุณ ${quotation.customer?.name || 'ลูกค้า'}${quotation.customer?.companyName ? ` (${quotation.customer.companyName})` : ''},\n\nเรื่อง: นำเสนอใบเสนอราคา เลขที่ ${quotation.quotationNumber || quotation.referenceNumber}\n\nทางเรามีความยินดีเป็นอย่างยิ่งที่ได้รับโอกาสในการนำเสนอราคาสำหรับโครงการ "${quotation.projectName || '-'}"\n\nรายละเอียดรายการสินค้า ยอดรวม และเงื่อนไขการค้าต่างๆ ปรากฏตามเอกสารใบเสนอราคาแนบ PDF ในอีเมลฉบับนี้\n\nหากท่านมีข้อสงสัยประการใด โปรดติดต่อกลับที่เบอร์โทร ${quotation.salespersonPhone || '-'} ได้ทันทีครับ\n\nขอแสดงความนับถืออย่างสูง,\n${quotation.salespersonName || 'ผู้ประสานงานขาย'}`);
+  const [isSending, setIsSending] = useState(false);
+  const [success, setSuccess] = useState(false);
+
+  if (!isOpen) return null;
+
+  const handleSend = () => {
+    if (!recipient.trim()) return;
+    setIsSending(true);
+
+    setTimeout(() => {
+      setIsSending(false);
+      setSuccess(true);
+
+      const newLog = {
+        id: Date.now(),
+        date: new Date().toLocaleString('th-TH'),
+        recipient: recipient.trim(),
+        subject: subject.trim(),
+        status: 'success'
+      };
+
+      const updatedQuotation = {
+        ...quotation,
+        sentEmails: [...(quotation.sentEmails || []), newLog]
+      };
+
+      onSaveQuotation(updatedQuotation);
+
+      if (addActivityLog) {
+        addActivityLog(`ส่งอีเมลใบเสนอราคาเลขที่ ${quotation.quotationNumber || quotation.referenceNumber} ไปยัง ${recipient.trim()} สำเร็จ`);
+      }
+
+      if (onSentSuccess) {
+        onSentSuccess(recipient.trim());
+      }
+
+      setTimeout(() => {
+        onClose();
+      }, 1500);
+
+    }, 1800);
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in" style={{ fontFamily: "'Sarabun', sans-serif" }}>
+      <div onClick={onClose} className="absolute inset-0 bg-black/20 backdrop-blur-xs" />
+      <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-lg w-full p-6 shadow-2xl z-10 animate-scale-in flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex justify-between items-center pb-3 border-b border-[#e2e8f0]">
+          <h3 className="text-sm font-extrabold text-[#1d1d1f] flex items-center gap-2">
+            <Mail className="w-4 h-4 text-blue-600" /> ส่งอีเมลใบเสนอราคาตรงจากระบบ
+          </h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 cursor-pointer">
+            <X className="w-4 h-4 text-slate-500" />
+          </button>
+        </div>
+
+        {success ? (
+          <div className="py-12 flex flex-col items-center justify-center space-y-4">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-505 border border-emerald-100 flex items-center justify-center animate-bounce">
+              <Check className="w-8 h-8 text-emerald-500" />
+            </div>
+            <div className="text-center">
+              <h4 className="font-bold text-sm text-[#1d1d1f]">ส่งอีเมลสำเร็จ!</h4>
+              <p className="text-xs text-[#555557] mt-1">ระบบได้ส่งใบเสนอราคาพร้อมเอกสารแนบ PDF ไปยัง {recipient} เรียบร้อยแล้ว</p>
+            </div>
+          </div>
+        ) : (
+          <div className="py-4 space-y-4 overflow-y-auto flex-1 text-xs text-left">
+            {/* Recipient */}
+            <div className="space-y-1">
+              <label className="font-bold text-zinc-650">ถึง (อีเมลลูกค้า):</label>
+              <input
+                type="email"
+                value={recipient}
+                onChange={e => setRecipient(e.target.value)}
+                placeholder="customer@company.com"
+                className="w-full px-3 py-2 border border-[#d2d2d7] rounded-xl focus:outline-none focus:border-[#0071e3]"
+              />
+            </div>
+
+            {/* Subject */}
+            <div className="space-y-1">
+              <label className="font-bold text-zinc-655">หัวข้ออีเมล:</label>
+              <input
+                type="text"
+                value={subject}
+                onChange={e => setSubject(e.target.value)}
+                placeholder="หัวข้ออีเมล"
+                className="w-full px-3 py-2 border border-[#d2d2d7] rounded-xl focus:outline-none focus:border-[#0071e3]"
+              />
+            </div>
+
+            {/* Attached File Indicator */}
+            <div className="p-3 bg-blue-50/50 border border-blue-200/50 rounded-xl flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="w-4 h-4 text-blue-600" />
+                <div>
+                  <p className="font-bold text-zinc-800 text-[11px]">ใบเสนอราคา-{quotation.quotationNumber || quotation.referenceNumber}.pdf</p>
+                  <p className="text-[10px] text-zinc-500 mt-0.5">ระบบจะแนบไฟล์ PDF นี้ไปโดยอัตโนมัติ</p>
+                </div>
+              </div>
+              <span className="text-[9px] font-bold text-blue-600 bg-blue-100/50 px-2.5 py-0.5 rounded-full border border-blue-200">
+                PDF
+              </span>
+            </div>
+
+            {/* Email Message */}
+            <div className="space-y-1">
+              <label className="font-bold text-zinc-655">ข้อความ:</label>
+              <textarea
+                value={body}
+                onChange={e => setBody(e.target.value)}
+                rows={8}
+                className="w-full px-3 py-2 border border-[#d2d2d7] rounded-xl focus:outline-none focus:border-[#0071e3] resize-none leading-relaxed"
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Footer */}
+        {!success && (
+          <div className="flex gap-2.5 pt-3 border-t border-[#e2e8f0] text-xs font-semibold">
+            <button onClick={onClose} disabled={isSending} className="flex-1 py-2.5 border border-[#d2d2d7] rounded-xl hover:bg-[#f5f5f7] cursor-pointer transition-colors disabled:opacity-50">ยกเลิก</button>
+            <button
+              onClick={handleSend}
+              disabled={isSending || !recipient.trim()}
+              className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-xl cursor-pointer transition-colors flex items-center justify-center gap-1.5 disabled:opacity-50"
+            >
+              {isSending ? (
+                <>
+                  <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span>กำลังส่ง...</span>
+                </>
+              ) : (
+                <>
+                  <Mail className="w-3.5 h-3.5" /> <span>ส่งอีเมลทันที</span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 const generateNewId = () => `qt-${Date.now()}`;
 const generateItemId = () => Date.now() + Math.floor(Math.random() * 1000);
 
@@ -500,7 +656,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
                   ) : (
                     <Badge status={q.status} />
                   )}
-                  {q.status !== 'approved' && (
+                  {(q.status !== 'approved' || q.documentType === 'product_proposal') && (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -1008,7 +1164,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
             {docFormat === 'product_proposal' ? (
               // Product proposal — single save button, no approval workflow
               <button
-                onClick={() => handleSave('sent')}
+                onClick={() => handleSave('approved')}
                 className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
               >
                 <Check className="w-3.5 h-3.5" /> บันทึกใบเสนอสินค้า
@@ -1084,7 +1240,9 @@ const PreviewTab = ({
   onEdit,
   onDelete,
   onConvert,
-  currentUser
+  currentUser,
+  addActivityLog,
+  onSaveQuotation
 }) => {
   const [search, setSearch] = useState('');
   const [docTypeFilter, setDocTypeFilter] = useState('All');
@@ -1165,7 +1323,13 @@ const PreviewTab = ({
                     <span className="font-mono text-xs font-bold text-[#0071e3]">
                       {q.quotationNumber || q.id}
                     </span>
-                    <Badge status={q.status} />
+                    {q.documentType === 'product_proposal' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-violet-50 text-violet-600 border-violet-200">
+                        ✓ พร้อมใช้งาน
+                      </span>
+                    ) : (
+                      <Badge status={q.status} />
+                    )}
                   </div>
                   <div className="text-xs font-bold text-[#1d1d1f] mt-1.5 truncate">
                     {q.customer?.name || 'ลูกค้าทั่วไป'}
@@ -1199,10 +1363,12 @@ const PreviewTab = ({
           const q = selectedQt;
           const index = selectedIndex;
           const canPrint = q.status === 'approved' || q.documentType === 'product_proposal';
-          const canEdit = q.status !== 'approved' && (
-            currentUser?.role === 'admin' ||
-            (currentUser?.role === 'manager' && q.status !== 'approved') ||
-            (currentUser?.role === 'user' && (q.status === 'draft' || q.status === 'sent'))
+          const canEdit = q.documentType === 'product_proposal' || (
+            q.status !== 'approved' && (
+              currentUser?.role === 'admin' ||
+              (currentUser?.role === 'manager' && q.status !== 'approved') ||
+              (currentUser?.role === 'user' && (q.status === 'draft' || q.status === 'sent'))
+            )
           );
           return (
             <div className="space-y-4 animate-fade-in text-[#1d1d1f]">
@@ -1211,7 +1377,13 @@ const PreviewTab = ({
                 <div>
                   <div className="text-sm font-bold text-[#1d1d1f] flex items-center gap-2 flex-wrap">
                     <span className="font-mono text-[#0071e3] text-base">{q.quotationNumber || q.id}</span>
-                    <Badge status={q.status} />
+                    {q.documentType === 'product_proposal' ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-violet-50 text-violet-600 border-violet-200">
+                        ✓ พร้อมใช้งาน
+                      </span>
+                    ) : (
+                      <Badge status={q.status} />
+                    )}
                   </div>
                   <div className="text-[11px] text-[#555557] mt-1 font-semibold">
                     {q.customer?.name} {q.customer?.companyName ? `· ${q.customer.companyName}` : ''}
@@ -1225,7 +1397,7 @@ const PreviewTab = ({
                 </div>
 
                 <div className="flex flex-wrap gap-2 items-center self-start md:self-auto">
-                  {currentUser?.role === 'admin' && (q.status === 'sent' || q.status === 'draft') && (
+                  {currentUser?.role === 'admin' && q.documentType !== 'product_proposal' && (q.status === 'sent' || q.status === 'draft') && (
                     <>
                       <button
                         onClick={() => onStatusChange(index, 'approved')}
@@ -1259,7 +1431,7 @@ const PreviewTab = ({
                       <Edit2 className="w-3.5 h-3.5" /> แก้ไข
                     </button>
                   )}
-                  {q.status !== 'approved' && (
+                  {(q.status !== 'approved' || q.documentType === 'product_proposal') && (
                     <button
                       onClick={() => onDelete(q)}
                       className="p-2 text-red-500 hover:bg-red-50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-red-200"
@@ -1275,7 +1447,8 @@ const PreviewTab = ({
                     return (
                       <a
                         href={`mailto:${email}?subject=${subject}&body=${body}`}
-                        className="px-3.5 py-2 text-xs font-bold bg-[#f0fdf4] hover:bg-[#dcfce7] text-[#166534] border border-[#dcfce7] rounded-xl cursor-pointer transition-colors flex items-center gap-1.5 no-underline"
+                        className="px-3.5 py-2 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl cursor-pointer transition-colors flex items-center gap-1.5 no-underline"
+                        title="เปิดโปรแกรมส่งอีเมลในเครื่องคอมพิวเตอร์ของคุณ"
                       >
                         <Mail className="w-3.5 h-3.5" /> ส่งอีเมล
                       </a>
@@ -1443,6 +1616,7 @@ const PreviewTab = ({
                     <strong>หมายเหตุ:</strong> {q.note}
                   </div>
                 )}
+
               </div>
             </div>
           );
@@ -1473,6 +1647,7 @@ export default function QuotationManage({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [confirmConfig, setConfirmConfig] = useState(null);
   const [isDownloadGuideOpen, setIsDownloadGuideOpen] = useState(false);
+  const [mailSenderQt, setMailSenderQt] = useState(null);
 
 
   const handleClearAll = () => {
@@ -1718,6 +1893,26 @@ export default function QuotationManage({
           onDelete={setDeleteTarget}
           onConvert={handleConvertToQuotation}
           currentUser={currentUser}
+          onSendMailDirect={(q) => setMailSenderQt(q)}
+          addActivityLog={addActivityLog}
+          onSaveQuotation={onSaveQuotation}
+        />
+      )}
+
+      {/* Email Sender Modal */}
+      {mailSenderQt && (
+        <EmailSenderModal
+          isOpen={!!mailSenderQt}
+          onClose={() => setMailSenderQt(null)}
+          quotation={mailSenderQt}
+          onSaveQuotation={onSaveQuotation}
+          addActivityLog={addActivityLog}
+          onSentSuccess={(recipient) => {
+            setToast({
+              title: "ส่งอีเมลสำเร็จ",
+              msg: `จัดส่งใบเสนอราคาไปยัง ${recipient} พร้อมไฟล์แนบ PDF เรียบร้อยแล้ว`
+            });
+          }}
         />
       )}
       {/* Toast Notification */}
