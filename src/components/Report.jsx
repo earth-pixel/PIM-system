@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, Download, Search } from 'lucide-react';
+import { Printer, Download, Search, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function Report({ products, brands, categories, addActivityLog }) {
@@ -7,6 +7,8 @@ export default function Report({ products, brands, categories, addActivityLog })
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
+
   const filteredProducts = products.filter(product => {
     const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
@@ -20,11 +22,24 @@ export default function Report({ products, brands, categories, addActivityLog })
 
   const activeCount = filteredProducts.filter(p => p.status === 'Active').length;
   const inactiveCount = filteredProducts.filter(p => p.status !== 'Active').length;
+
   const handlePrint = () => {
     window.print();
     if (addActivityLog) {
       const filterText = `แบรนด์: ${selectedBrand === 'All' ? 'ทั้งหมด' : selectedBrand}, หมวดหมู่: ${selectedCategory === 'All' ? 'ทั้งหมด' : selectedCategory}, สถานะ: ${selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`;
       addActivityLog(`พิมพ์รายงานข้อมูลสินค้า (จำนวน ${filteredProducts.length} รายการ, ตัวกรอง - ${filterText})`);
+    }
+  };
+
+  const formatDateSafely = (dateStr) => {
+    if (!dateStr) return '';
+    try {
+      const cleanStr = dateStr.includes(' ') ? dateStr.replace(' ', 'T') : dateStr;
+      const date = new Date(cleanStr);
+      if (isNaN(date.getTime())) return dateStr;
+      return date.toLocaleString('th-TH');
+    } catch {
+      return dateStr;
     }
   };
 
@@ -75,117 +90,94 @@ export default function Report({ products, brands, categories, addActivityLog })
     }, 10000);
   };
 
-  // ─────────────────────────────────────────────────────────────
-// ฟังก์ชันดาวน์โหลด Excel
-// ─────────────────────────────────────────────────────────────
-const downloadXLSX = async (headers, rows, filename) => {
-  try {
-    // รวม Header และข้อมูลทั้งหมด
-    const data = [headers, ...rows];
+  const downloadXLSX = async (headers, rows, filename) => {
+    try {
+      const data = [headers, ...rows];
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
 
-    // สร้าง Worksheet
-    const worksheet = XLSX.utils.aoa_to_sheet(data);
+      worksheet['!cols'] = [
+        { wch: 20 }, // SKU
+        { wch: 20 }, // Barcode
+        { wch: 40 }, // Product Name
+        { wch: 20 }, // Brand
+        { wch: 20 }, // Category
+        { wch: 18 }, // Wholesale Price
+        { wch: 18 }, // Retail Price
+        { wch: 15 }, // Cap Fee
+        { wch: 15 }, // Size
+        { wch: 15 }, // Weight
+        { wch: 20 }, // FDA
+        { wch: 20 }, // TISI
+        { wch: 15 }, // Status
+        { wch: 25 }, // Created At
+        { wch: 25 }  // Updated At
+      ];
 
-    // กำหนดความกว้างคอลัมน์
-    worksheet['!cols'] = [
-      { wch: 20 }, // SKU
-      { wch: 20 }, // Barcode
-      { wch: 40 }, // Product Name
-      { wch: 20 }, // Brand
-      { wch: 20 }, // Category
-      { wch: 18 }, // Wholesale Price
-      { wch: 18 }, // Retail Price
-      { wch: 15 }, // Cap Fee
-      { wch: 15 }, // Size
-      { wch: 15 }, // Weight
-      { wch: 20 }, // FDA
-      { wch: 20 }, // TISI
-      { wch: 15 }, // Status
-      { wch: 25 }, // Created At
-      { wch: 25 }  // Updated At
-    ];
+      const workbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'รายงานสินค้า');
 
-    // สร้าง Workbook
-    const workbook = XLSX.utils.book_new();
+      const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+      await downloadViaRedirect(base64, filename);
 
-    // เพิ่ม Worksheet ลง Workbook
-    XLSX.utils.book_append_sheet(
-      workbook,
-      worksheet,
-      'รายงานสินค้า'
-    );
+    } catch (error) {
+      console.error('เกิดข้อผิดพลาดในการ Export Excel:', error);
+      alert('ไม่สามารถดาวน์โหลดรายงานได้');
+    }
+  };
 
-    // Generate base64 and export using the server download endpoint
-    const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
-    await downloadViaRedirect(base64, filename);
+  const handleExportExcel = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    try {
+      const headers = [
+        'รหัสสินค้า (SKU)',
+        'รหัสบาร์โค้ด',
+        'ชื่อสินค้า',
+        'แบรนด์',
+        'หมวดหมู่สินค้า',
+        'ราคาขายส่ง (บาท)',
+        'ราคาขายปลีก (บาท)',
+        'ค่าฝา (บาท)',
+        'ขนาด',
+        'น้ำหนัก',
+        'หมายเลข อย.',
+        'หมายเลข มอก.',
+        'สถานะ',
+        'วันที่เพิ่มข้อมูล',
+        'วันที่แก้ไขข้อมูลล่าสุด'
+      ];
 
-  } catch (error) {
-    console.error('เกิดข้อผิดพลาดในการ Export Excel:', error);
-    alert('ไม่สามารถดาวน์โหลดรายงานได้');
-  }
-};
+      const rows = filteredProducts.map(p => [
+        p.code || '',
+        p.barcode || '',
+        p.name || '',
+        p.brand || '',
+        p.category || '',
+        Number(p.wholesalePrice || 0),
+        Number(p.retailPrice || 0),
+        Number(p.capFee || 0),
+        p.size || '',
+        p.weight || '',
+        p.fdaNumber || '',
+        p.tisiNumber || '',
+        p.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
+        formatDateSafely(p.createdAt),
+        formatDateSafely(p.updatedAt)
+      ]);
 
-
-// ─────────────────────────────────────────────────────────────
-// Export รายงานสินค้า
-// ─────────────────────────────────────────────────────────────
-const handleExportExcel = async () => {
-
-  const headers = [
-    'รหัสสินค้า (SKU)',
-    'รหัสบาร์โค้ด',
-    'ชื่อสินค้า',
-    'แบรนด์',
-    'หมวดหมู่สินค้า',
-    'ราคาขายส่ง (บาท)',
-    'ราคาขายปลีก (บาท)',
-    'ค่าฝา (บาท)',
-    'ขนาด',
-    'น้ำหนัก',
-    'หมายเลข อย.',
-    'หมายเลข มอก.',
-    'สถานะ',
-    'วันที่เพิ่มข้อมูล',
-    'วันที่แก้ไขข้อมูลล่าสุด'
-  ];
-
-  const rows = filteredProducts.map(p => [
-    p.code || '',
-    p.barcode || '',
-    p.name || '',
-    p.brand || '',
-    p.category || '',
-    Number(p.wholesalePrice || 0),
-    Number(p.retailPrice || 0),
-    Number(p.capFee || 0),
-    p.size || '',
-    p.weight || '',
-    p.fdaNumber || '',
-    p.tisiNumber || '',
-    p.status === 'Active'
-      ? 'เปิดใช้งาน'
-      : 'ปิดใช้งาน',
-    p.createdAt
-      ? new Date(p.createdAt.replace(' ', 'T')).toLocaleString('th-TH')
-      : '',
-    p.updatedAt
-      ? new Date(p.updatedAt.replace(' ', 'T')).toLocaleString('th-TH')
-      : ''
-  ]);
-
-  // ชื่อไฟล์
-  const filename = `PIM_Report_Phanvadee_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
-  // ดาวน์โหลดไฟล์
-  await downloadXLSX(
-    headers,
-    rows,
-    filename
-  );
-  if (addActivityLog) {
-    const filterText = `แบรนด์: ${selectedBrand === 'All' ? 'ทั้งหมด' : selectedBrand}, หมวดหมู่: ${selectedCategory === 'All' ? 'ทั้งหมด' : selectedCategory}, สถานะ: ${selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`;
-    addActivityLog(`ดาวน์โหลดรายงานสินค้าเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ, ตัวกรอง - ${filterText})`);
-  }
-};
+      const filename = `PIM_Report_Phanvadee_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
+      await downloadXLSX(headers, rows, filename);
+      
+      if (addActivityLog) {
+        const filterText = `แบรนด์: ${selectedBrand === 'All' ? 'ทั้งหมด' : selectedBrand}, หมวดหมู่: ${selectedCategory === 'All' ? 'ทั้งหมด' : selectedCategory}, สถานะ: ${selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`;
+        addActivityLog(`ดาวน์โหลดรายงานสินค้าเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ, ตัวกรอง - ${filterText})`);
+      }
+    } catch (error) {
+      console.error('Error during excel export:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   return (
     <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
@@ -196,14 +188,28 @@ const handleExportExcel = async () => {
         </div>
 
         <div className="flex gap-2 items-center">
-          <button type="button"
+          <button
+            type="button"
+            disabled={isExporting}
             onClick={handleExportExcel}
-            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className={`px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer \${
+              isExporting ? 'opacity-80 cursor-wait' : ''
+            }`}
           >
-            <Download className="w-4 h-4" />
-            ดาวน์โหลดรายงาน
+            {isExporting ? (
+              <>
+                <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
+                <span>กำลังเตรียมไฟล์...</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-4 h-4" />
+                <span>ดาวน์โหลดรายงาน</span>
+              </>
+            )}
           </button>
-          <button type="button"
+          <button
+            type="button"
             onClick={handlePrint}
             className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
@@ -214,25 +220,35 @@ const handleExportExcel = async () => {
       </div>
 
       {/* Selector Filters (Hidden on Print) */}
-      <div className="no-print bg-white p-4.5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs flex flex-wrap gap-4 items-center">
-        <span className="text-sm font-bold text-zinc-650">ตัวกรองรายงาน:</span>
+      <div className="no-print bg-white p-4.5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-4 items-center">
+        <span className="text-sm font-bold text-zinc-650 lg:mr-2">ตัวกรองรายงาน:</span>
 
-        {/* Search Input */}
-        <div className="relative">
+        {/* Search Input with Clear Button */}
+        <div className="relative w-full lg:w-64">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
           <input
             type="text"
             placeholder="ค้นหาชื่อสินค้า / รหัสสินค้า..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 pr-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all w-64"
+            className="w-full pl-9 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
           />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-450 hover:text-zinc-700 cursor-pointer"
+              title="ล้างคำค้นหา"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
 
         <select
           value={selectedBrand}
           onChange={(e) => setSelectedBrand(e.target.value)}
-          className="px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
+          className="w-full lg:w-auto px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer font-medium"
         >
           <option value="All">ทุกแบรนด์สินค้า</option>
           {brands.map(b => (
@@ -243,7 +259,7 @@ const handleExportExcel = async () => {
         <select
           value={selectedCategory}
           onChange={(e) => setSelectedCategory(e.target.value)}
-          className="px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
+          className="w-full lg:w-auto px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer font-medium"
         >
           <option value="All">ทุกหมวดหมู่</option>
           {categories.map(c => (
@@ -254,14 +270,14 @@ const handleExportExcel = async () => {
         <select
           value={selectedStatus}
           onChange={(e) => setSelectedStatus(e.target.value)}
-          className="px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
+          className="w-full lg:w-auto px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer font-medium"
         >
           <option value="All">สถานะทั้งหมด</option>
           <option value="Active">เปิดใช้งาน (Active)</option>
           <option value="Inactive">ปิดใช้งาน (Inactive)</option>
         </select>
 
-        <span className="text-xs text-[#555557] font-medium ml-auto">
+        <span className="text-xs text-[#555557] font-medium lg:ml-auto w-full lg:w-auto text-right">
           ข้อมูล ณ วันที่: {new Date().toLocaleString('th-TH')}
         </span>
       </div>
@@ -271,7 +287,6 @@ const handleExportExcel = async () => {
         <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
           <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">จำนวนรายการสินค้าทั้งหมด</p>
           <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1">{filteredProducts.length.toLocaleString()} รายการ</h3>
-
         </div>
 
         <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
@@ -304,14 +319,14 @@ const handleExportExcel = async () => {
             <thead>
               <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7] uppercase tracking-wider text-xs">
                 <th className="p-4 w-14 text-center">ลำดับ</th>
-                <th className="p-4">รหัสสินค้า</th>
-                <th className="p-4">ชื่อสินค้า</th>
-                <th className="p-4">แบรนด์</th>
-                <th className="p-4">หมวดหมู่</th>
-                <th className="p-4 text-right">ราคาขายส่ง</th>
-                <th className="p-4 text-right">ราคาขายปลีก</th>
-                <th className="p-4 text-right">ค่าฝา</th>
-                <th className="p-4 text-center">สถานะ</th>
+                <th className="p-4 min-w-[120px]">รหัสสินค้า</th>
+                <th className="p-4 min-w-[200px]">ชื่อสินค้า</th>
+                <th className="p-4 min-w-[120px]">แบรนด์</th>
+                <th className="p-4 min-w-[120px]">หมวดหมู่</th>
+                <th className="p-4 text-right min-w-[100px]">ราคาขายส่ง</th>
+                <th className="p-4 text-right min-w-[100px]">ราคาขายปลีก</th>
+                <th className="p-4 text-right min-w-[80px]">ค่าฝา</th>
+                <th className="p-4 text-center min-w-[100px]">สถานะ</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#e8e8ed] text-zinc-750">

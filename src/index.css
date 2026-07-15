@@ -318,42 +318,42 @@ textarea {
   /* รหัสสินค้า */
   th:nth-child(2),
   td:nth-child(2) {
-    width: 10% !important;
+    width: 14% !important;
     text-align: left !important;
   }
 
   /* ชื่อสินค้า */
   th:nth-child(3),
   td:nth-child(3) {
-    width: 23% !important;
+    width: 30% !important;
     text-align: left !important;
   }
 
   /* แบรนด์ */
   th:nth-child(4),
   td:nth-child(4) {
-    width: 9% !important;
+    width: 12% !important;
     text-align: left !important;
   }
 
   /* หมวดหมู่ */
   th:nth-child(5),
   td:nth-child(5) {
-    width: 9% !important;
+    width: 12% !important;
     text-align: left !important;
   }
 
   /* ราคาขายส่ง */
   th:nth-child(6),
   td:nth-child(6) {
-    width: 7% !important;
+    width: 8% !important;
     text-align: right !important;
   }
 
   /* ราคาขายปลีก */
   th:nth-child(7),
   td:nth-child(7) {
-    width: 7% !important;
+    width: 8% !important;
     text-align: right !important;
   }
 
@@ -364,24 +364,10 @@ textarea {
     text-align: right !important;
   }
 
-  /* คลัง (ชิ้น) */
+  /* สถานะ */
   th:nth-child(9),
   td:nth-child(9) {
-    width: 6% !important;
-    text-align: center !important;
-  }
-
-  /* มูลค่ารวม (ปลีก) */
-  th:nth-child(10),
-  td:nth-child(10) {
-    width: 9% !important;
-    text-align: right !important;
-  }
-
-  /* สถานะ */
-  th:nth-child(11),
-  td:nth-child(11) {
-    width: 9% !important;
+    width: 5% !important;
     text-align: center !important;
   }
   
