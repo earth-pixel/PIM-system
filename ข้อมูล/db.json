@@ -20214,13 +20214,5 @@
       "approvedDate": "2026-07-15T07:37:37.351Z"
     }
   ],
-  "activityLog": [
-    {
-      "id": 1784102813602,
-      "userName": "สมศักดิ์ รักดี (Admin)",
-      "userRole": "admin",
-      "action": "ล้างประวัติการดำเนินงานทั้งหมดในระบบ",
-      "timestamp": "2026-07-15T08:06:53.602Z"
-    }
-  ]
+  "activityLog": []
 }
