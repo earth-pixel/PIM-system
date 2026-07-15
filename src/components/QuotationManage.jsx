@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Search, X, Plus, Trash2, Edit2, Check, AlertTriangle, AlertCircle,
@@ -211,7 +211,13 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
   const [docTypeFilter, setDocTypeFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
 
-  const [adminListMode, setAdminListMode] = useState('all');
+  const [adminListMode, setAdminListMode] = useState(() => {
+    return localStorage.getItem('pim_quotation_admin_list_mode') || 'all';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('pim_quotation_admin_list_mode', adminListMode);
+  }, [adminListMode]);
 
   const pendingCount = useMemo(() => {
     return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation').length;

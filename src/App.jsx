@@ -636,7 +636,7 @@ export default function App() {
   const handleLogin = (user) => {
     setCurrentUser(user);
     sessionStorage.setItem('pim_current_user', JSON.stringify(user));
-    setActiveTab('dashboard');
+    // Keep active tab as is to preserve current screen during switch roles or page load
   };
 
   const handleLogout = () => {
