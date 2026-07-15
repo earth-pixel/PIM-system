@@ -275,7 +275,8 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
   const handleExportExcel = async () => {
     try {
-      const headers = [
+      // ── 1. สำหรับชีตใบเสนอราคา (Quotations) ──
+      const quotationHeaders = [
         'เลขที่เอกสาร',
         'ประเภท',
         'ชื่อลูกค้า',
@@ -293,11 +294,9 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
       ];
 
       const quotationsOnly = filtered.filter(q => q.documentType !== 'product_proposal');
-      const proposalsOnly = filtered.filter(q => q.documentType === 'product_proposal');
-
-      const mapRow = (q) => [
+      const quotationRows = quotationsOnly.map(q => [
         q.referenceNumber || q.quotationNumber || q.id,
-        q.documentType === 'product_proposal' ? 'ใบเสนอสินค้า' : 'ใบเสนอราคา',
+        'ใบเสนอราคา',
         q.customer?.name || '-',
         q.customer?.companyName || '-',
         q.projectName || '-',
@@ -307,39 +306,61 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
         Number(q.subtotal || 0),
         Number(q.vatAmount || 0),
         Number(q.totalAmount || 0),
-        q.documentType === 'product_proposal'
-          ? 'พร้อมใช้งาน'
-          : (q.status === 'draft' ? 'ร่าง' : q.status === 'sent' ? 'รออนุมัติ' : q.status === 'approved' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'),
+        q.status === 'draft' ? 'ร่าง' : q.status === 'sent' ? 'รออนุมัติ' : q.status === 'approved' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ',
         q.approvedBy || '-',
         q.approvedDate ? new Date(q.approvedDate).toLocaleDateString('th-TH') : '-'
+      ]);
+
+      const wsQuotations = XLSX.utils.aoa_to_sheet([quotationHeaders, ...quotationRows]);
+      wsQuotations['!cols'] = [
+        { wch: 20 }, // เลขที่เอกสาร
+        { wch: 15 }, // ประเภท
+        { wch: 25 }, // ชื่อลูกค้า
+        { wch: 25 }, // บริษัท
+        { wch: 25 }, // โครงการ
+        { wch: 20 }, // ผู้ขาย
+        { wch: 15 }, // วันที่ออกเอกสาร
+        { wch: 15 }, // วันหมดอายุ
+        { wch: 20 }, // ยอดรวมก่อนภาษี
+        { wch: 18 }, // ภาษีมูลค่าเพิ่ม
+        { wch: 20 }, // ยอดรวมสุทธิ
+        { wch: 12 }, // สถานะ
+        { wch: 20 }, // ผู้อนุมัติ
+        { wch: 15 }  // วันที่อนุมัติ
       ];
 
-      const quotationRows = quotationsOnly.map(mapRow);
-      const proposalRows = proposalsOnly.map(mapRow);
-
-      const wsQuotations = XLSX.utils.aoa_to_sheet([headers, ...quotationRows]);
-      const wsProposals = XLSX.utils.aoa_to_sheet([headers, ...proposalRows]);
-
-      const colWidths = [
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 25 },
-        { wch: 25 },
-        { wch: 25 },
-        { wch: 20 },
-        { wch: 15 },
-        { wch: 15 },
-        { wch: 20 },
-        { wch: 18 },
-        { wch: 20 },
-        { wch: 12 },
-        { wch: 20 },
-        { wch: 15 }
+      // ── 2. สำหรับชีตใบเสนอสินค้า (Proposals) ──
+      // เอาคอลัมน์ที่ไม่เกี่ยวข้องออก (ชื่อลูกค้า, บริษัท, โครงการ, วันหมดอายุ, ภาษีต่างๆ, ผู้อนุมัติ)
+      const proposalHeaders = [
+        'เลขที่เอกสาร',
+        'ประเภท',
+        'ผู้ขาย',
+        'วันที่ออกเอกสาร',
+        'ยอดรวมสุทธิ (บาท)',
+        'สถานะ'
       ];
 
-      wsQuotations['!cols'] = colWidths;
-      wsProposals['!cols'] = colWidths;
+      const proposalsOnly = filtered.filter(q => q.documentType === 'product_proposal');
+      const proposalRows = proposalsOnly.map(q => [
+        q.referenceNumber || q.quotationNumber || q.id,
+        'ใบเสนอสินค้า',
+        q.salespersonName || '-',
+        q.issuedDate || '-',
+        Number(q.totalAmount || 0),
+        'พร้อมใช้งาน'
+      ]);
 
+      const wsProposals = XLSX.utils.aoa_to_sheet([proposalHeaders, ...proposalRows]);
+      wsProposals['!cols'] = [
+        { wch: 20 }, // เลขที่เอกสาร
+        { wch: 15 }, // ประเภท
+        { wch: 20 }, // ผู้ขาย
+        { wch: 15 }, // วันที่ออกเอกสาร
+        { wch: 20 }, // ยอดรวมสุทธิ
+        { wch: 15 }  // สถานะ
+      ];
+
+      // ── 3. สร้าง Workbook และส่งออกไฟล์ ──
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, wsQuotations, 'ใบเสนอราคา');
       XLSX.utils.book_append_sheet(workbook, wsProposals, 'ใบเสนอสินค้า');
