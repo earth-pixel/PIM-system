@@ -294,7 +294,10 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
         'วันที่อนุมัติ'
       ];
 
-      const rows = filtered.map(q => [
+      const quotationsOnly = filtered.filter(q => q.documentType !== 'product_proposal');
+      const proposalsOnly = filtered.filter(q => q.documentType === 'product_proposal');
+
+      const mapRow = (q) => [
         q.referenceNumber || q.quotationNumber || q.id,
         q.documentType === 'product_proposal' ? 'ใบเสนอสินค้า' : 'ใบเสนอราคา',
         q.customer?.name || '-',
@@ -311,12 +314,15 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
           : (q.status === 'draft' ? 'ร่าง' : q.status === 'sent' ? 'รออนุมัติ' : q.status === 'approved' ? 'อนุมัติแล้ว' : 'ไม่อนุมัติ'),
         q.approvedBy || '-',
         q.approvedDate ? new Date(q.approvedDate).toLocaleDateString('th-TH') : '-'
-      ]);
+      ];
 
-      const data = [headers, ...rows];
-      const worksheet = XLSX.utils.aoa_to_sheet(data);
+      const quotationRows = quotationsOnly.map(mapRow);
+      const proposalRows = proposalsOnly.map(mapRow);
 
-      worksheet['!cols'] = [
+      const wsQuotations = XLSX.utils.aoa_to_sheet([headers, ...quotationRows]);
+      const wsProposals = XLSX.utils.aoa_to_sheet([headers, ...proposalRows]);
+
+      const colWidths = [
         { wch: 20 },
         { wch: 15 },
         { wch: 25 },
@@ -333,8 +339,12 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
         { wch: 15 }
       ];
 
+      wsQuotations['!cols'] = colWidths;
+      wsProposals['!cols'] = colWidths;
+
       const workbook = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'รายงานใบเสนอราคา');
+      XLSX.utils.book_append_sheet(workbook, wsQuotations, 'ใบเสนอราคา');
+      XLSX.utils.book_append_sheet(workbook, wsProposals, 'ใบเสนอสินค้า');
 
       const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
       const filename = `Quotation_Report_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
@@ -358,7 +368,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
       URL.revokeObjectURL(url);
 
       if (addActivityLog) {
-        addActivityLog(`ดาวน์โหลดรายงาน Excel ของใบเสนอราคา (จำนวน ${filtered.length} รายการ)`);
+        addActivityLog(`ดาวน์โหลดรายงาน Excel ของเอกสาร (ใบเสนอราคา: ${quotationsOnly.length} รายการ, ใบเสนอสินค้า: ${proposalsOnly.length} รายการ)`);
       }
     } catch (error) {
       console.error('Export Excel Error:', error);
