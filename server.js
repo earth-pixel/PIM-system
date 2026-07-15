@@ -507,6 +507,28 @@ app.post('/api/db/save', uploadLimiter, (req, res) => {
   }
 });
 
+app.post('/api/db/activityLog/append', uploadLimiter, (req, res) => {
+  try {
+    const { entry } = req.body;
+    if (!entry || !entry.action) {
+      return res.status(400).send('Invalid log entry');
+    }
+
+    const db = readDB();
+    if (!Array.isArray(db.activityLog)) {
+      db.activityLog = [];
+    }
+
+    db.activityLog = [entry, ...db.activityLog].slice(0, 200);
+
+    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
+    res.json({ success: true, activityLog: db.activityLog });
+  } catch (err) {
+    console.error('Error appending activity log:', err);
+    res.status(500).send('Error saving database: ' + err.message);
+  }
+});
+
 
 
 // Serve static files from the React frontend build (Vite copies public folder contents to dist automatically)

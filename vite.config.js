@@ -145,6 +145,50 @@ export default defineConfig({
               return;
             }
 
+            // 2.5 POST /api/db/activityLog/append (Append a single log entry to JSON Database)
+            if (parsedUrl.pathname === '/api/db/activityLog/append' && req.method === 'POST') {
+              try {
+                let body = '';
+                req.on('data', chunk => {
+                  body += chunk.toString();
+                });
+                req.on('end', () => {
+                  try {
+                    const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
+                    const { entry } = JSON.parse(body);
+                    
+                    if (!entry || !entry.action) {
+                      res.statusCode = 400;
+                      res.end('Invalid log entry');
+                      return;
+                    }
+
+                    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+                    if (fs.existsSync(dbPath)) {
+                      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+                    }
+                    if (!Array.isArray(db.activityLog)) {
+                      db.activityLog = [];
+                    }
+                    
+                    // Prepend new entry
+                    db.activityLog = [entry, ...db.activityLog].slice(0, 200);
+
+                    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
+                    res.setHeader('Content-Type', 'application/json;charset=utf-8');
+                    res.end(JSON.stringify({ success: true, activityLog: db.activityLog }));
+                  } catch (e) {
+                    res.statusCode = 500;
+                    res.end('Error parsing/writing DB: ' + e.message);
+                  }
+                });
+              } catch (err) {
+                res.statusCode = 500;
+                res.end('Error: ' + err.message);
+              }
+              return;
+            }
+
             if (parsedUrl.pathname === '/api/store-download' && req.method === 'POST') {
               try {
                 // Rate Limiting

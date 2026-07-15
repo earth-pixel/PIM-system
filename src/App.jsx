@@ -196,6 +196,21 @@ export default function App() {
     loadDB();
   }, []);
 
+  // Sync activityLog across browser tabs in real-time
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'pim_activity_log' && e.newValue) {
+        try {
+          setActivityLog(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error("Failed to sync activity log from storage event:", err);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
   const syncQuotations = (newQuotations) => {
     setQuotations(newQuotations);
     localStorage.setItem('pim_quotations', JSON.stringify(newQuotations));
@@ -579,7 +594,7 @@ export default function App() {
   };
 
   // Activity Log Helper
-  const addActivityLog = useCallback((action, details = null) => {
+  const addActivityLog = useCallback(async (action, details = null) => {
     if (!currentUser) return;
     const entry = {
       id: Date.now(),
@@ -589,12 +604,31 @@ export default function App() {
       details,
       timestamp: new Date().toISOString(),
     };
+    
+    // Optimistically update local state & storage first
     setActivityLog(prev => {
-      const updated = [entry, ...prev].slice(0, 200); // keep latest 200
+      const updated = [entry, ...prev].slice(0, 200);
       localStorage.setItem('pim_activity_log', JSON.stringify(updated));
-      saveToServer('activityLog', updated);
       return updated;
     });
+
+    try {
+      const res = await fetch('/api/db/activityLog/append', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry })
+      });
+      if (res.ok) {
+        const result = await res.json();
+        if (result.success && Array.isArray(result.activityLog)) {
+          // Sync state and storage with server response
+          setActivityLog(result.activityLog);
+          localStorage.setItem('pim_activity_log', JSON.stringify(result.activityLog));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to append activity log to server:", err);
+    }
   }, [currentUser]);
 
 
