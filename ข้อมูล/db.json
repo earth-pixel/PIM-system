@@ -20084,6 +20084,48 @@
   ],
   "quotations": [
     {
+      "id": "qt-1784102240938",
+      "quotationNumber": "QT-20260715-0003",
+      "documentType": "product_proposal",
+      "createdBy": "manager",
+      "customer": {
+        "name": "",
+        "companyName": "",
+        "phone": "",
+        "taxId": "",
+        "address": ""
+      },
+      "salespersonName": "วรรณภา ใจดี (Manager)",
+      "salespersonPhone": "",
+      "projectName": "",
+      "issuedDate": "2026-07-15",
+      "validUntilDate": "",
+      "vatRate": 0,
+      "note": "",
+      "items": [
+        {
+          "id": 1784102236970,
+          "productName": "กู๊ด ออล เดย์ แบล็ค เคลย์",
+          "productCode": "GAD-003",
+          "productImage": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60",
+          "description": "",
+          "unit": "ชิ้น",
+          "quantity": 1,
+          "unitPrice": 320,
+          "discount": 0,
+          "discountType": "percent",
+          "lineTotal": 320,
+          "barcode": "8858890715069",
+          "size": "80 กรัม",
+          "weight": "124g"
+        }
+      ],
+      "subtotal": 320,
+      "vatAmount": 0,
+      "totalAmount": 320,
+      "status": "approved"
+    },
+    {
       "id": "qt-1784100741623",
       "quotationNumber": "QT-20260715-0002",
       "documentType": "quotation",
@@ -20173,6 +20215,31 @@
     }
   ],
   "activityLog": [
+    {
+      "id": 1784102240939,
+      "userName": "วรรณภา ใจดี (Manager)",
+      "userRole": "manager",
+      "action": "สร้างใบเสนอราคา: QT-20260715-0003 ลูกค้า -",
+      "details": {
+        "type": "ใบเสนอราคา",
+        "changes": [
+          {
+            "field": "มูลค่า",
+            "before": "-",
+            "after": "320 บาท"
+          }
+        ]
+      },
+      "timestamp": "2026-07-15T07:57:20.939Z"
+    },
+    {
+      "id": 1784102194294,
+      "userName": "สมศักดิ์ รักดี (Admin)",
+      "userRole": "admin",
+      "action": "ดาวน์โหลด PDF ใบเสนอราคา QT-20260715-0002 สำเร็จ",
+      "details": null,
+      "timestamp": "2026-07-15T07:56:34.294Z"
+    },
     {
       "id": 1784102075661,
       "userName": "สมศักดิ์ รักดี (Admin)",

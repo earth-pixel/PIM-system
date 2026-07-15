@@ -1647,15 +1647,6 @@ export default function QuotationManage({
           <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">{headerTitle}</h1>
         </div>
         <div className="flex flex-wrap gap-2.5 items-center self-start sm:self-auto">
-          {tab === 'list' && userFilteredQuotations.length > 0 && (
-            <button
-              onClick={handleClearAll}
-              className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-bold rounded-xl border border-red-200 transition-colors flex items-center gap-1.5 cursor-pointer"
-            >
-              <Trash2 className="w-4 h-4" />
-              ล้างข้อมูลทั้งหมด
-            </button>
-          )}
           <button
             onClick={handleCreate}
             className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
