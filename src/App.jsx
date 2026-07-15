@@ -620,6 +620,19 @@ export default function App() {
     }
   };
 
+  // Change password for the current logged-in user
+  const handleChangePassword = (newPassword) => {
+    if (!currentUser) return;
+    const updatedUsers = users.map(u =>
+      u.username === currentUser.username ? { ...u, password: newPassword } : u
+    );
+    syncUsers(updatedUsers);
+    // Update the session so currentUser reflects new password
+    const updatedCurrentUser = { ...currentUser, password: newPassword };
+    setCurrentUser(updatedCurrentUser);
+    sessionStorage.setItem('pim_current_user', JSON.stringify(updatedCurrentUser));
+  };
+
   // Product CRUD
   const handleSaveProduct = (productData) => {
     let updated;
@@ -987,6 +1000,7 @@ export default function App() {
     <DashboardLayout
       currentUser={currentUser}
       onLogout={handleLogout}
+      onChangePassword={handleChangePassword}
       activeTab={activeTab}
       setActiveTab={handleTabChange}
       onSwitchRole={handleSwitchRole}

@@ -888,9 +888,9 @@ export default function ProductManage({
       highlights: !highlights.trim(),
       howToUse: !howToUse.trim(),
       image: !image,
-      packageLength: !String(packageLength).trim(),
-      packageWidth: !String(packageWidth).trim(),
-      packageHeight: !String(packageHeight).trim(),
+      packageLength: false, // optional
+      packageWidth: false,  // optional
+      packageHeight: false, // optional
       editRemark: !!editProduct && !editRemark.trim(),
       barcode: !barcode.trim(),
       size: !size.trim(),
@@ -950,21 +950,6 @@ export default function ProductManage({
     if (errors.tisiNumber) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกหมายเลข มอก.' });
       document.getElementById('product-tisi-number')?.focus();
-      return;
-    }
-    if (errors.packageLength) {
-      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความยาวพัสดุ (ซม.)' });
-      document.getElementById('product-package-length')?.focus();
-      return;
-    }
-    if (errors.packageWidth) {
-      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความกว้างพัสดุ (ซม.)' });
-      document.getElementById('product-package-width')?.focus();
-      return;
-    }
-    if (errors.packageHeight) {
-      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความสูงพัสดุ (ซม.)' });
-      document.getElementById('product-package-height')?.focus();
       return;
     }
     if (errors.wholesalePrice) {
@@ -1263,13 +1248,13 @@ export default function ProductManage({
               <h2 className="font-bold text-sm uppercase tracking-wide">ยืนยันลบข้อมูลสินค้าทั้งหมด?</h2>
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
-              <button
+              <button type="button"
                 onClick={() => setShowClearAllConfirm(false)}
                 className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
-              <button
+              <button type="button"
                 onClick={() => {
                   onClearAllProducts();
                   setShowClearAllConfirm(false);
@@ -1915,6 +1900,38 @@ export default function ProductManage({
                         </div>
                       </div>
                     </div>
+
+                    {/* แถบเครื่องมือจัดการสินค้าบนหน้าจอมือถือ (เนื่องจากบนมือถือไม่มี hover) */}
+                    <div className="mt-2.5 pt-2.5 border-t border-zinc-100 flex gap-2 sm:hidden no-print">
+                      <button
+                        type="button"
+                        onClick={() => setDrawerProduct(product)}
+                        className="flex-1 py-1.5 bg-[#f5f5f7] text-[10.5px] font-bold text-zinc-700 rounded-lg hover:bg-zinc-200 active:scale-95 transition-all cursor-pointer text-center"
+                      >
+                        รายละเอียด
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onEditProduct(product);
+                          setShowForm(true);
+                        }}
+                        className="px-2.5 py-1.5 border border-zinc-200 text-zinc-650 hover:text-[#0071e3] rounded-lg flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                        title="แก้ไขสินค้า"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                      </button>
+                      {currentUser?.role === 'admin' && (
+                        <button
+                          type="button"
+                          onClick={() => setProductToDelete(product)}
+                          className="px-2.5 py-1.5 border border-zinc-200 text-zinc-650 hover:text-rose-600 rounded-lg flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                          title="ลบสินค้า"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1934,13 +1951,13 @@ export default function ProductManage({
               <h2 className="font-bold text-sm uppercase tracking-wide">ยืนยันลบรายการสินค้า?</h2>
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
-              <button
+              <button type="button"
                 onClick={() => setProductToDelete(null)}
                 className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
-              <button
+              <button type="button"
                 onClick={() => {
                   const deletedName = productToDelete.name;
                   onDeleteProduct(productToDelete.id);
@@ -2558,7 +2575,7 @@ export default function ProductManage({
                 <span className="text-xs font-mono text-[#555557] tracking-wider font-semibold uppercase">{drawerProduct.code}</span>
                 <h3 className="font-bold text-[#1d1d1f] text-sm mt-0.5 uppercase tracking-wide">รายละเอียดของสินค้า</h3>
               </div>
-              <button
+              <button type="button"
                 onClick={() => setDrawerProduct(null)}
                 className="p-2 text-zinc-400 hover:text-black rounded-lg hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >
@@ -2679,7 +2696,7 @@ export default function ProductManage({
 
             {/* Sticky Actions */}
             <div className="p-4 border-t border-[#e8e8ed] bg-[#f5f5f7] flex gap-2 flex-shrink-0">
-              <button
+              <button type="button"
                 onClick={() => handleCopyMarketingContent(drawerProduct)}
                 className={`w-full py-3 rounded-lg border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${copiedId === drawerProduct.id
                     ? 'bg-black text-white border-black shadow-xs'

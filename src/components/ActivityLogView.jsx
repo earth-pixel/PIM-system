@@ -146,7 +146,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto">
           {selectedLogIds.size > 0 && (
-            <button
+            <button type="button"
               onClick={handlePrintSelected}
               className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs animate-scale-in"
             >
@@ -154,7 +154,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
               พิมพ์รายการที่เลือก ({selectedLogIds.size})
             </button>
           )}
-          <button
+          <button type="button"
             onClick={handlePrint}
             className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
           >
@@ -162,7 +162,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
             พิมพ์ประวัติทั้งหมด (Print)
           </button>
           {currentUser.role === 'admin' && (
-            <button
+            <button type="button"
               onClick={() => setShowClearConfirm(true)}
               className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-650 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
             >
@@ -190,21 +190,27 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
         {/* Date Filter */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <span className="text-xs font-bold text-[#555557] uppercase tracking-wide whitespace-nowrap">วันที่:</span>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="px-2.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs sm:text-sm focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer"
-          />
+          <div className="flex items-center gap-1.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl px-2.5 py-1.5 focus-within:border-black focus-within:bg-white transition-all">
+            <span className="text-[10px] font-bold text-zinc-500 select-none">เริ่มต้น:</span>
+            <input
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-transparent border-none text-xs focus:outline-none cursor-pointer font-semibold p-0 text-[#1d1d1f] w-28 sm:w-auto"
+            />
+          </div>
           <span className="text-xs text-[#555557] font-semibold">-</span>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="px-2.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs sm:text-sm focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer"
-          />
+          <div className="flex items-center gap-1.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl px-2.5 py-1.5 focus-within:border-black focus-within:bg-white transition-all">
+            <span className="text-[10px] font-bold text-zinc-500 select-none">สิ้นสุด:</span>
+            <input
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-transparent border-none text-xs focus:outline-none cursor-pointer font-semibold p-0 text-[#1d1d1f] w-28 sm:w-auto"
+            />
+          </div>
           {(startDate || endDate) && (
-            <button
+            <button type="button"
               onClick={() => {
                 setStartDate('');
                 setEndDate('');
@@ -356,13 +362,13 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
               <h1 className="font-bold text-sm uppercase tracking-wide">ล้างประวัติการทำงานทั้งหมด?</h1>
             </div>
             <div className="flex gap-4 pt-4 text-xs font-semibold">
-              <button
+              <button type="button"
                 onClick={() => setShowClearConfirm(false)}
                 className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
-              <button
+              <button type="button"
                 onClick={() => {
                   onClearLogs();
                   setShowClearConfirm(false);
@@ -403,7 +409,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
               </p>
             </div>
             <div className="pt-2 text-xs font-semibold">
-              <button
+              <button type="button"
                 onClick={() => setAlertPopup(null)}
                 className={`w-full py-2.5 rounded-full text-white transition-colors cursor-pointer shadow-xs ${
                   alertPopup.type === 'success'
@@ -429,7 +435,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                 <Clock className="w-4 h-4 text-zinc-550" />
                 รายละเอียดการดำเนินงาน
               </h3>
-              <button 
+              <button type="button" 
                 onClick={() => setSelectedLog(null)}
                 className="p-1 text-zinc-400 hover:text-black rounded-lg hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >

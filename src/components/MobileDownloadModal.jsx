@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, AlertCircle, Copy, Check } from 'lucide-react';
 
@@ -33,7 +33,7 @@ export default function MobileDownloadModal({ isOpen, onClose }) {
             <AlertCircle className="w-5 h-5 shrink-0" />
             <span>คำแนะนำการดาวน์โหลด</span>
           </div>
-          <button
+          <button type="button"
             onClick={onClose}
             className="p-1 text-zinc-400 hover:text-black rounded-lg hover:bg-[#f5f5f7] transition-colors cursor-pointer"
           >
@@ -80,7 +80,7 @@ export default function MobileDownloadModal({ isOpen, onClose }) {
 
         {/* Copy Link Button & Close */}
         <div className="flex flex-col gap-2 pt-2">
-          <button
+          <button type="button"
             onClick={handleCopyLink}
             className={`w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs border ${copied
                 ? 'bg-emerald-550 border-emerald-600 text-white bg-emerald-600'
@@ -100,7 +100,7 @@ export default function MobileDownloadModal({ isOpen, onClose }) {
             )}
           </button>
 
-          <button
+          <button type="button"
             onClick={onClose}
             className="w-full py-2.5 bg-[#1d1d1f] hover:bg-black text-white text-xs font-semibold rounded-xl transition-colors cursor-pointer shadow-xs"
           >

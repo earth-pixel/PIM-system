@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { Package, Award, FolderKanban, CalendarDays, FileText, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
@@ -135,10 +135,10 @@ export default function Dashboard({ products, brands, categories, quotations = [
     : '';
 
   return (
-    <div className="flex-1 flex flex-col gap-3 lg:gap-4 animate-fade-in text-[#1d1d1f]">
+    <div className="flex-1 flex flex-col gap-4 sm:gap-6 lg:gap-8 animate-fade-in text-[#1d1d1f] pb-8 lg:pb-0">
 
       {/* ─── KPI Cards ───────────────────────────────────────── */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
 
         {/* Total Products — Blue accent */}
         <div
@@ -368,10 +368,10 @@ export default function Dashboard({ products, brands, categories, quotations = [
         </div>
 
         {/* Chart body */}
-        <div className="px-6 pb-12 pt-4 flex-1 flex flex-col min-h-0">
+        <div className="px-6 pb-12 pt-4 flex-1 flex flex-col min-h-0 overflow-x-auto scrollbar-thin">
 
           {/* ── Bar/Line chart wrapper ─────────────────────────── */}
-          <div className="relative flex-1 flex flex-col min-h-0">
+          <div className="relative flex-1 flex flex-col min-h-0 min-w-[640px] lg:min-w-0">
 
             {/* Y-axis guide lines (subtle) */}
             <div 
@@ -525,7 +525,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                       {chartDisplay === 'bar' && count > 0 && (
                         <div 
                           onClick={() => setSelectedDetailGroup({ type: chartType, name: fullName || name })}
-                          className="w-full max-w-[36px] h-full flex flex-col justify-end cursor-pointer pointer-events-auto relative z-10"
+                          className="w-[65%] sm:w-[50%] max-w-[36px] h-full flex flex-col justify-end cursor-pointer pointer-events-auto relative z-10"
                         >
                           <div
                             style={{
@@ -608,7 +608,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 </h3>
                 <p className="text-[10px] text-zinc-500 mt-0.5 font-semibold">พบทั้งหมด {filteredProducts.filter(p => selectedDetailGroup.type === 'brand' ? p.brand === selectedDetailGroup.name : p.category === selectedDetailGroup.name).length} รายการ</p>
               </div>
-              <button 
+              <button type="button" 
                 onClick={() => setSelectedDetailGroup(null)} 
                 className="text-zinc-400 hover:text-zinc-600 p-1.5 rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >
@@ -641,7 +641,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
             {/* Footer */}
             <div className="pt-4 border-t border-[#e8e8ed] shrink-0">
-              <button
+              <button type="button"
                 onClick={() => setSelectedDetailGroup(null)}
                 className="w-full py-2.5 bg-[#1d1d1f] hover:bg-black text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
               >

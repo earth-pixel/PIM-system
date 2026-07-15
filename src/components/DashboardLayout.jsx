@@ -73,6 +73,7 @@ function getRelativeTimeThai(timestamp) {
 export default function DashboardLayout({
   currentUser,
   onLogout,
+  onChangePassword,
   activeTab,
   setActiveTab,
   children,
@@ -86,6 +87,13 @@ export default function DashboardLayout({
   const [isUsersDropdownOpen, setIsUsersDropdownOpen] = useState(false);
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showChangePwd, setShowChangePwd] = useState(false);
+  const [changePwdForm, setChangePwdForm] = useState({ oldPwd: '', newPwd: '', confirmPwd: '' });
+  const [changePwdError, setChangePwdError] = useState('');
+  const [changePwdSuccess, setChangePwdSuccess] = useState(false);
+  const [showOldPwd, setShowOldPwd] = useState(false);
+  const [showNewPwd, setShowNewPwd] = useState(false);
+  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
   const pendingQuotationsCount = useMemo(() => {
     return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation').length;
@@ -302,7 +310,7 @@ export default function DashboardLayout({
                     onMouseEnter={handleMouseEnterProducts}
                     onMouseLeave={handleMouseLeaveProducts}
                   >
-                    <button
+                    <button type="button"
                       onClick={() => setIsProductsDropdownOpen(!isProductsDropdownOpen)}
                       className={`
                         px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1
@@ -319,19 +327,19 @@ export default function DashboardLayout({
                     {isProductsDropdownOpen && (
                       <div className="absolute top-full left-0 w-52 pt-1.5 z-30">
                         <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-lg p-1.5 space-y-0.5 animate-scale-in">
-                          <button
+                          <button type="button"
                             onClick={() => handleNavClick('manage-products')}
                             className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'manage-products' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
                           >
                             <span>ข้อมูลสินค้า</span>
                           </button>
-                          <button
+                          <button type="button"
                             onClick={() => handleNavClick('brands')}
                             className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'brands' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
                           >
                             <span>จัดการแบรนด์สินค้า</span>
                           </button>
-                          <button
+                          <button type="button"
                             onClick={() => handleNavClick('categories')}
                             className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'categories' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
                           >
@@ -346,7 +354,7 @@ export default function DashboardLayout({
 
               const isActive = activeTab === item.key;
               return (
-                <button
+                <button type="button"
                   key={item.key}
                   onClick={() => handleNavClick(item.key)}
                   className={`
@@ -377,7 +385,7 @@ export default function DashboardLayout({
                   onMouseEnter={handleMouseEnterUsers}
                   onMouseLeave={handleMouseLeaveUsers}
                 >
-                  <button
+                  <button type="button"
                     onClick={() => setIsUsersDropdownOpen(!isUsersDropdownOpen)}
                     className={`
                       px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1
@@ -394,7 +402,7 @@ export default function DashboardLayout({
                   {isUsersDropdownOpen && (
                     <div className="absolute top-full left-0 w-52 pt-1.5 z-30">
                       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-lg p-1.5 space-y-0.5 animate-scale-in">
-                        <button
+                        <button type="button"
                           onClick={() => handleNavClick('users')}
                           className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
                         >
@@ -402,7 +410,7 @@ export default function DashboardLayout({
                           <span>บัญชีผู้ใช้งาน</span>
                         </button>
 
-                        <button
+                        <button type="button"
                           onClick={() => handleNavClick('activity-log')}
                           className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
                         >
@@ -415,7 +423,7 @@ export default function DashboardLayout({
                   )}
                 </div>
               ) : (
-                <button
+                <button type="button"
                   onClick={() => handleNavClick('users')}
                   className={`
                     px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap
@@ -438,7 +446,7 @@ export default function DashboardLayout({
             {/* Bell Notification Dropdown (Admin only) */}
             {currentUser.role === 'admin' && (
               <div className="relative" ref={notificationRef}>
-                <button
+                <button type="button"
                   onClick={() => {
                     const nextVal = !isNotificationsOpen;
                     setIsNotificationsOpen(nextVal);
@@ -471,7 +479,7 @@ export default function DashboardLayout({
                           <span className="text-[9px] text-zinc-400 font-semibold mt-0.5 uppercase tracking-wide">ล่าสุดในระบบ PIM</span>
                         </div>
                         {unreadCount > 0 ? (
-                          <button
+                          <button type="button"
                             onClick={() => {
                               const now = Date.now();
                               setLastReadTime(now);
@@ -589,7 +597,7 @@ export default function DashboardLayout({
 
                       {/* Footer */}
                       <div className="border-t border-[#e8e8ed] pt-2.5">
-                        <button
+                        <button type="button"
                           onClick={() => {
                             setIsNotificationsOpen(false);
                             handleNavClick('activity-log');
@@ -686,7 +694,21 @@ export default function DashboardLayout({
 
                     <hr className="border-zinc-100" />
 
-                    <button
+                    <button type="button"
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        setChangePwdForm({ oldPwd: '', newPwd: '', confirmPwd: '' });
+                        setChangePwdError('');
+                        setChangePwdSuccess(false);
+                        setShowChangePwd(true);
+                      }}
+                      className="w-full py-2.5 rounded-xl text-xs font-semibold bg-zinc-50 hover:bg-zinc-100 text-zinc-700 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <i className="bi bi-key-fill"></i>
+                      <span>เปลี่ยนรหัสผ่าน</span>
+                    </button>
+
+                    <button type="button"
                       onClick={() => {
                         setIsProfileOpen(false);
                         setShowLogoutConfirm(true);
@@ -702,7 +724,7 @@ export default function DashboardLayout({
             </div>
 
             {/* Mobile Hamburger menu */}
-            <button
+            <button type="button"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               className="p-2 text-zinc-600 hover:text-black focus:outline-none lg:hidden cursor-pointer"
             >
@@ -726,7 +748,7 @@ export default function DashboardLayout({
             
             {/* Close Button Header */}
             <div className="flex items-center justify-end">
-              <button
+              <button type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
                 className="p-1 text-zinc-550 hover:text-black hover:bg-zinc-100 rounded-full cursor-pointer transition-colors"
                 aria-label="Close menu"
@@ -762,7 +784,7 @@ export default function DashboardLayout({
                   return (
                     <div key="products-group" className="space-y-1">
                       {/* Manage Products button */}
-                      <button
+                      <button type="button"
                         onClick={() => handleNavClick('manage-products')}
                         className={`
                           w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
@@ -777,7 +799,7 @@ export default function DashboardLayout({
                       </button>
                       
                       {/* Indented Brands button */}
-                      <button
+                      <button type="button"
                         onClick={() => handleNavClick('brands')}
                         className={`
                           w-full flex items-center gap-3 pl-8 pr-4 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item
@@ -792,7 +814,7 @@ export default function DashboardLayout({
                       </button>
                       
                       {/* Indented Categories button */}
-                      <button
+                      <button type="button"
                         onClick={() => handleNavClick('categories')}
                         className={`
                           w-full flex items-center gap-3 pl-8 pr-4 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item
@@ -811,7 +833,7 @@ export default function DashboardLayout({
 
                 const isActive = activeTab === item.key;
                 return (
-                  <button
+                  <button type="button"
                     key={item.key}
                     onClick={() => handleNavClick(item.key)}
                     className={`
@@ -838,7 +860,7 @@ export default function DashboardLayout({
               {/* Admin/Manager specific submenus */}
               {hasAccess('manager') && (
                 <>
-                  <button
+                  <button type="button"
                     onClick={() => handleNavClick('users')}
                     className={`
                       w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
@@ -851,7 +873,7 @@ export default function DashboardLayout({
 
                   {currentUser?.role === 'admin' && (
                     <>
-                      <button
+                      <button type="button"
                         onClick={() => handleNavClick('activity-log')}
                         className={`
                           w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
@@ -901,7 +923,7 @@ export default function DashboardLayout({
             <hr className="border-zinc-200/50 my-1" />
 
             {/* Logout button */}
-            <button
+            <button type="button"
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 setShowLogoutConfirm(true);
@@ -920,7 +942,7 @@ export default function DashboardLayout({
         <div 
           key={activeTab}
           className={`flex-1 flex flex-col w-full min-w-0 p-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4 lg:px-12 lg:pb-12 lg:pt-5 animate-page-transition ${
-            activeTab === 'dashboard' ? 'h-[calc(100vh-4rem)] overflow-hidden' : ''
+            activeTab === 'dashboard' ? 'lg:h-[calc(100vh-4rem)] lg:overflow-hidden' : ''
           }`}
         >
           {children}
@@ -954,6 +976,123 @@ export default function DashboardLayout({
         </footer>
       )}
 
+      {/* Change Password Modal */}
+      {showChangePwd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print animate-fade-in">
+          <div onClick={() => setShowChangePwd(false)} className="absolute inset-0 bg-black/25 backdrop-blur-xs" />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-xl space-y-4 z-10 animate-scale-in text-[#1d1d1f]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-zinc-100 flex items-center justify-center text-zinc-700">
+                <i className="bi bi-key-fill text-lg"></i>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm uppercase tracking-wide">เปลี่ยนรหัสผ่าน</h3>
+                <p className="text-[10px] text-[#555557] mt-0.5">@{currentUser?.username}</p>
+              </div>
+            </div>
+
+            {changePwdSuccess ? (
+              <div className="py-6 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mx-auto">
+                  <i className="bi bi-check-circle-fill text-2xl"></i>
+                </div>
+                <p className="text-sm font-bold text-emerald-700">เปลี่ยนรหัสผ่านสำเร็จ!</p>
+                <button type="button" onClick={() => setShowChangePwd(false)}
+                  className="w-full py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full text-xs font-semibold transition-colors cursor-pointer">
+                  ปิด
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {/* Old Password */}
+                <div>
+                  <label className="text-[10px] text-[#555557] font-semibold block mb-1">รหัสผ่านปัจจุบัน <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <input
+                      type={showOldPwd ? 'text' : 'password'}
+                      value={changePwdForm.oldPwd}
+                      onChange={e => setChangePwdForm(f => ({ ...f, oldPwd: e.target.value }))}
+                      placeholder="กรอกรหัสผ่านปัจจุบัน"
+                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3 py-2.5 pr-9 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
+                    />
+                    <button type="button" onClick={() => setShowOldPwd(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 cursor-pointer">
+                      <i className={`bi ${showOldPwd ? 'bi-eye-slash' : 'bi-eye'} text-sm`}></i>
+                    </button>
+                  </div>
+                </div>
+
+                {/* New Password */}
+                <div>
+                  <label className="text-[10px] text-[#555557] font-semibold block mb-1">รหัสผ่านใหม่ <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <input
+                      type={showNewPwd ? 'text' : 'password'}
+                      value={changePwdForm.newPwd}
+                      onChange={e => setChangePwdForm(f => ({ ...f, newPwd: e.target.value }))}
+                      placeholder="กรอกรหัสผ่านใหม่"
+                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3 py-2.5 pr-9 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
+                    />
+                    <button type="button" onClick={() => setShowNewPwd(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 cursor-pointer">
+                      <i className={`bi ${showNewPwd ? 'bi-eye-slash' : 'bi-eye'} text-sm`}></i>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm New Password */}
+                <div>
+                  <label className="text-[10px] text-[#555557] font-semibold block mb-1">ยืนยันรหัสผ่านใหม่ <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <input
+                      type={showConfirmPwd ? 'text' : 'password'}
+                      value={changePwdForm.confirmPwd}
+                      onChange={e => setChangePwdForm(f => ({ ...f, confirmPwd: e.target.value }))}
+                      placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
+                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3 py-2.5 pr-9 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
+                    />
+                    <button type="button" onClick={() => setShowConfirmPwd(v => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 cursor-pointer">
+                      <i className={`bi ${showConfirmPwd ? 'bi-eye-slash' : 'bi-eye'} text-sm`}></i>
+                    </button>
+                  </div>
+                </div>
+
+                {changePwdError && (
+                  <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 flex items-center gap-2">
+                    <i className="bi bi-exclamation-circle-fill"></i>
+                    {changePwdError}
+                  </div>
+                )}
+
+                <div className="flex gap-2.5 pt-1 text-xs font-semibold">
+                  <button type="button"
+                    onClick={() => setShowChangePwd(false)}
+                    className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer">
+                    ยกเลิก
+                  </button>
+                  <button type="button"
+                    onClick={() => {
+                      const { oldPwd, newPwd, confirmPwd } = changePwdForm;
+                      if (!oldPwd) { setChangePwdError('กรุณากรอกรหัสผ่านปัจจุบัน'); return; }
+                      if (oldPwd !== currentUser?.password) { setChangePwdError('รหัสผ่านปัจจุบันไม่ถูกต้อง'); return; }
+                      if (!newPwd || newPwd.length < 4) { setChangePwdError('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร'); return; }
+                      if (newPwd === oldPwd) { setChangePwdError('รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม'); return; }
+                      if (newPwd !== confirmPwd) { setChangePwdError('รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน'); return; }
+                      setChangePwdError('');
+                      if (onChangePassword) onChangePassword(newPwd);
+                      setChangePwdSuccess(true);
+                    }}
+                    className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full transition-colors cursor-pointer">
+                    บันทึก
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Logout Confirmation Modal */}
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print animate-fade-in">
@@ -967,13 +1106,13 @@ export default function DashboardLayout({
 
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
-              <button
+              <button type="button"
                 onClick={() => setShowLogoutConfirm(false)}
                 className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
-              <button
+              <button type="button"
                 onClick={onLogout}
                 className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors cursor-pointer"
               >

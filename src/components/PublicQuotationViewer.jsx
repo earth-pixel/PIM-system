@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+﻿import { useState, useMemo } from 'react';
 import { decodeQuotation } from '../utils/share';
 import { Printer, CheckCircle, AlertCircle, Globe, Building } from 'lucide-react';
 
@@ -129,7 +129,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
+          <button type="button"
             onClick={() => window.print()}
             className="px-4 py-2.5 border border-[#d2d2d7] hover:bg-[#f5f5f7] text-[#1d1d1f] text-xs font-bold rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
           >
@@ -138,7 +138,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
           </button>
           
           {!isAccepted ? (
-            <button
+            <button type="button"
               onClick={handleAccept}
               className="px-5 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
             >

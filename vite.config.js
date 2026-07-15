@@ -566,6 +566,9 @@ export default defineConfig({
     })()
   ],
   server: {
-    host: true
+    host: true,
+    watch: {
+      ignored: ['**/ข้อมูล/**']
+    }
   }
 })

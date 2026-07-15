@@ -1,16 +1,21 @@
 import { useState } from 'react';
-import { Printer, Download } from 'lucide-react';
+import { Printer, Download, Search } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function Report({ products, brands, categories, addActivityLog }) {
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
   const filteredProducts = products.filter(product => {
     const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
     const matchesStatus = selectedStatus === 'All' || product.status === selectedStatus;
-    return matchesBrand && matchesCategory && matchesStatus;
+    const q = searchQuery.trim().toLowerCase();
+    const matchesSearch = !q ||
+      (product.name || '').toLowerCase().includes(q) ||
+      (product.code || '').toLowerCase().includes(q);
+    return matchesBrand && matchesCategory && matchesStatus && matchesSearch;
   });
 
   const activeCount = filteredProducts.filter(p => p.status === 'Active').length;
@@ -191,14 +196,14 @@ const handleExportExcel = async () => {
         </div>
 
         <div className="flex gap-2 items-center">
-          <button
+          <button type="button"
             onClick={handleExportExcel}
             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
             <Download className="w-4 h-4" />
             ดาวน์โหลดรายงาน
           </button>
-          <button
+          <button type="button"
             onClick={handlePrint}
             className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
           >
@@ -211,7 +216,19 @@ const handleExportExcel = async () => {
       {/* Selector Filters (Hidden on Print) */}
       <div className="no-print bg-white p-4.5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs flex flex-wrap gap-4 items-center">
         <span className="text-sm font-bold text-zinc-650">ตัวกรองรายงาน:</span>
-        
+
+        {/* Search Input */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="ค้นหาชื่อสินค้า / รหัสสินค้า..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9 pr-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all w-64"
+          />
+        </div>
+
         <select
           value={selectedBrand}
           onChange={(e) => setSelectedBrand(e.target.value)}

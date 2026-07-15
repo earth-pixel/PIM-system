@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
 
@@ -331,13 +331,13 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
               )}
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
-              <button
+              <button type="button"
                 onClick={() => setBrandToDelete(null)}
                 className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer"
               >
                 ยกเลิก
               </button>
-              <button
+              <button type="button"
                 onClick={() => {
                   const deletedName = brandToDelete;
                   setBrandToDelete(null);
@@ -382,7 +382,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
               </p>
             </div>
             <div className="pt-2 text-xs font-semibold">
-              <button
+              <button type="button"
                 onClick={() => {
                   if (alertPopup.action) alertPopup.action();
                   setAlertPopup(null);

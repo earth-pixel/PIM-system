@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer } from 'lucide-react';
+import { X, Printer, Download } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
 // ─── Thai Number to Words ─────────────────────────────────────
 const ONES = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
@@ -82,6 +83,16 @@ const PRINT_CSS = `
       box-sizing: border-box !important;
     }
     .no-print { display: none !important; }
+    .print-pages-container {
+      transform: none !important;
+      width: 210mm !important;
+    }
+    .print-preview-wrapper {
+      display: block !important;
+      width: 210mm !important;
+      padding: 0 !important;
+      margin: 0 !important;
+    }
     .print-page {
       width: 210mm !important;
       height: 297mm !important;
@@ -220,8 +231,52 @@ const getDocTitle = (printType) => {
 };
 
 // ─── Component ────────────────────────────────────────────────
-export default function QuotationPrint({ quotation, companyInfo = {}, onClose, printType = 'quotation', autoPrint = false, addActivityLog }) {
+export default function QuotationPrint({
+  quotation,
+  companyInfo = {},
+  onClose,
+  printType = 'quotation',
+  autoPrint = false,
+  autoDownloadAndEmail = false,
+  addActivityLog
+}) {
   const docFormat = quotation?.documentType || 'quotation'; // 'quotation' | 'product_proposal'
+
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [mobileScale, setMobileScale] = useState(1);
+  const autoDownloadFiredRef = useRef(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [emailRedirectUrl, setEmailRedirectUrl] = useState('');
+
+  // Compute responsive scale so A4 page fits any screen width
+  useEffect(() => {
+    const handleResize = () => {
+      const vw = window.innerWidth;
+      // width of A4 in pixels is 793.7 (approx 794)
+      if (vw < 840) {
+        setMobileScale((vw - 32) / 794);
+      } else {
+        setMobileScale(1);
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Trigger mail redirection directly when requested
+  const handleOpenEmailApp = () => {
+    const a = document.createElement('a');
+    a.href = emailRedirectUrl;
+    a.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { if (document.body.contains(a)) document.body.removeChild(a); }, 200);
+    
+    // Close the print preview overlay
+    setShowSuccessModal(false);
+    if (onClose) onClose();
+  };
 
   // Lookup database products from localStorage to fetch barcode and size details
   const productsList = useMemo(() => {
@@ -248,15 +303,88 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
 
   const printAreaRef = useRef(null);
 
-  const handlePrintClick = () => {
-    window.print();
-    if (addActivityLog) {
+
+  const handleDownloadPDF = async () => {
+    if (/Line/i.test(navigator.userAgent)) {
+      const currentUrl = window.location.href;
+      const separator = currentUrl.includes('?') ? '&' : '?';
+      window.location.href = currentUrl + separator + 'openExternalBrowser=1';
+      return;
+    }
+
+    const el = printAreaRef.current;
+    if (!el || isDownloading) return;
+    setIsDownloading(true);
+    
+    // บังคับเปลี่ยนสไตล์ของ DOM จริงแบบ Synchronous เพื่อให้ขนาดเต็มแผ่น A4 100%
+    const originalTransform = el.style.transform;
+    el.style.transform = 'scale(1)';
+    
+    const pages = el.querySelectorAll('.print-page');
+    const originalMargins = [];
+    const originalShadows = [];
+    pages.forEach((page) => {
+      originalMargins.push(page.style.margin);
+      originalShadows.push(page.style.boxShadow);
+      page.style.margin = '0 auto';
+      page.style.boxShadow = 'none';
+    });
+
+    // หน่วงเวลาสั้นๆ (150ms) เพื่อให้บราวเซอร์วาด Spinner คลุมหน้าจอก่อนเริ่มดึงข้อมูล
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    try {
       const docLabel = docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : 'ใบเสนอราคา';
-      addActivityLog(`พิมพ์ / บันทึก PDF (${docLabel}) เลขที่: ${quotation.referenceNumber || quotation.quotationNumber} ของลูกค้า ${customer.name || '-'}`);
+      const filename = `${docLabel}-${quotation.quotationNumber || quotation.referenceNumber || 'doc'}.pdf`;
+      await html2pdf()
+        .set({
+          margin: 0,
+          filename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, logging: false, windowWidth: 794 },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+          pagebreak: { mode: 'avoid-all' },
+        })
+        .from(el)
+        .save();
+      if (addActivityLog) {
+        addActivityLog(`ดาวน์โหลด PDF ${docLabel} ${quotation.quotationNumber} สำเร็จ`);
+      }
+
+      if (autoDownloadAndEmail) {
+        // ดาวน์โหลด PDF เสร็จเรียบร้อยแล้ว -> คำนวณลิงก์ส่งอีเมลแล้วแสดงโมดอลแจ้งผลดาวน์โหลด
+        const email = quotation.customer?.email || '';
+        const cleanSalesName = cleanSalespersonName(quotation.salespersonName);
+        const subject = encodeURIComponent(`[${docLabel}] เลขที่ ${quotation.quotationNumber || quotation.id} - โครงการ ${quotation.projectName || '-'}`);
+        const body = encodeURIComponent(`เรียนคุณ ${quotation.customer?.name || 'ลูกค้า'}${quotation.customer?.companyName ? ` (${quotation.customer.companyName})` : ''},\n\nเรื่อง: นำเสนอ${docLabel} เลขที่ ${quotation.quotationNumber || quotation.id}\n\nทางเรามีความยินดีเป็นอย่างยิ่งที่ได้รับโอกาสในการนำเสนอราคาสำหรับโครงการ "${quotation.projectName || '-'}"\n\nรายละเอียดรายการสินค้า ยอดรวม และเงื่อนไขการค้าต่างๆ ปรากฏตามเอกสาร${docLabel}แนบ PDF ในอีเมลฉบับนี้\n\nหากท่านมีข้อสงสัยประการใด โปรดติดต่อกลับที่เบอร์โทร ${quotation.salespersonPhone || '-'} ได้ทันทีครับ\n\nขอแสดงความนับถืออย่างสูง,\n${cleanSalesName || 'ผู้ประสานงานขาย'}`);
+        
+        const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+        setEmailRedirectUrl(mailtoUrl);
+        setShowSuccessModal(true); // แสดงโมดอลให้ผู้ใช้งานทราบว่าดาวน์โหลดเรียบร้อยแล้ว
+      }
+    } catch (err) {
+      console.error('PDF download failed:', err);
+    } finally {
+      // คืนค่าสไตล์เดิมของหน้าจอ (Synchronous)
+      el.style.transform = originalTransform;
+      pages.forEach((page, idx) => {
+        page.style.margin = originalMargins[idx];
+        page.style.boxShadow = originalShadows[idx];
+      });
+      setIsDownloading(false);
     }
   };
 
-
+  // Auto download and email if requested — ใช้ ref ป้องกัน fire ซ้ำจาก re-render
+  useEffect(() => {
+    if (autoDownloadAndEmail && quotation && !autoDownloadFiredRef.current) {
+      autoDownloadFiredRef.current = true;
+      const timer = setTimeout(() => {
+        handleDownloadPDF();
+      }, 800);
+      return () => clearTimeout(timer);
+    }
+  });
 
   // Auto print if requested (e.g. for email attachment flow)
   useEffect(() => {
@@ -430,6 +558,45 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
     <div className="print-portal-wrapper" style={{ position: 'fixed', inset: 0, zIndex: 9999, background: '#64748b', overflow: 'auto' }}>
       <style>{PRINT_CSS}</style>
 
+      {/* Loading Overlay */}
+      {isDownloading && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgba(15, 23, 42, 0.75)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontFamily: "'Sarabun', sans-serif",
+            gap: 16
+          }}
+        >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              border: '4px solid rgba(255, 255, 255, 0.1)',
+              borderTop: '4px solid #0071e3',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
+            }}
+          />
+          <style>{`
+            @keyframes spin {
+              0% { transform: rotate(0deg); }
+              100% { transform: rotate(360deg); }
+            }
+          `}</style>
+          <div style={{ fontWeight: 700, fontSize: 16 }}>กำลังเตรียมไฟล์ PDF...</div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>กรุณารอสักครู่ ระบบกำลังจัดทำหน้าเอกสาร A4</div>
+        </div>
+      )}
+
       {/* ── Toolbar ── */}
       <div
         className="no-print"
@@ -461,47 +628,86 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
             <X size={18} />
           </button>
           <div style={{ lineHeight: 1.2 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '0.01em' }}>ตัวอย่าง{getDocTitle(printType)}</div>
+            <div style={{ fontWeight: 700, fontSize: 13, letterSpacing: '0.01em' }}>ตัวอย่าง{docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : getDocTitle(printType)}</div>
             <div style={{ fontSize: 10.5, color: '#94a3b8', marginTop: 2 }}>{quotation.quotationNumber} · {customer.name}</div>
           </div>
         </div>
         
 
 
-        <button
-          onClick={handlePrintClick}
-          style={{
-            background: '#0071e3', border: 'none', color: '#fff',
-            fontWeight: 700, fontSize: 12.5, padding: '9px 20px',
-            borderRadius: 10, cursor: 'pointer',
-            display: 'flex', alignItems: 'center', gap: 7,
-            boxShadow: '0 4px 12px rgba(0, 113, 227, 0.3)',
-            transition: 'background 0.2s, transform 0.2s, box-shadow 0.2s',
-          }}
-          onMouseOver={(e) => {
-            e.currentTarget.style.background = '#0077ed';
-            e.currentTarget.style.transform = 'translateY(-1px)';
-            e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 113, 227, 0.45)';
-          }}
-          onMouseOut={(e) => {
-            e.currentTarget.style.background = '#0071e3';
-            e.currentTarget.style.transform = 'translateY(0)';
-            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 113, 227, 0.3)';
-          }}
-          onMouseDown={(e) => {
-            e.currentTarget.style.transform = 'translateY(1px) scale(0.98)';
-          }}
-          onMouseUp={(e) => {
-            e.currentTarget.style.transform = 'translateY(-1px) scale(1)';
-          }}
-        >
-          <Printer size={15} />
-          พิมพ์ / บันทึก PDF
-        </button>
+        <div style={{ display: 'flex', gap: 10 }}>
+          <button
+            type="button"
+            onClick={() => {
+              window.print();
+              if (addActivityLog) {
+                const docLabel = docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : 'ใบเสนอราคา';
+                addActivityLog(`พิมพ์เอกสาร (${docLabel}) เลขที่: ${quotation.referenceNumber || quotation.quotationNumber} ของลูกค้า ${customer.name || '-'}`);
+              }
+            }}
+            style={{
+              background: 'rgba(255, 255, 255, 0.1)', border: '1px solid rgba(255, 255, 255, 0.15)', color: '#fff',
+              fontWeight: 700, fontSize: 12.5, padding: '9px 18px',
+              borderRadius: 10, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              transition: 'background 0.2s, transform 0.1s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.18)'}
+            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)'}
+            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.97)'}
+            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <Printer size={15} />
+            พิมพ์เอกสาร
+          </button>
+
+          <button
+            type="button"
+            onClick={handleDownloadPDF}
+            style={{
+              background: '#0071e3', border: 'none', color: '#fff',
+              fontWeight: 700, fontSize: 12.5, padding: '9px 18px',
+              borderRadius: 10, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: 6,
+              boxShadow: '0 4px 12px rgba(0, 113, 227, 0.3)',
+              transition: 'background 0.2s, transform 0.1s, box-shadow 0.2s',
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = '#0077ed';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(0, 113, 227, 0.45)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = '#0071e3';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 113, 227, 0.3)';
+            }}
+            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.97)'}
+            onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <Download size={15} />
+            ดาวน์โหลด PDF
+          </button>
+        </div>
       </div>
 
       {/* ── Printable Pages Container ── */}
-      <div ref={printAreaRef} className="print-pages-container" style={{ margin: '0 auto', width: '210mm' }}>
+      <div
+        className="print-preview-wrapper"
+        style={{
+          width: `${794 * mobileScale}px`,
+          margin: '24px auto',
+          overflow: 'visible'
+        }}
+      >
+        <div
+          ref={printAreaRef}
+          className="print-pages-container"
+          style={{
+            margin: '0',
+            width: '210mm',
+            transformOrigin: 'top left',
+            transform: `scale(${mobileScale})`
+          }}
+        >
         {paginatedPages.map((pageItems, pageIdx) => {
           const isFirstPage = pageIdx === 0;
           const isLastPage = pageIdx === paginatedPages.length - 1;
@@ -873,9 +1079,6 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                       <div style={{ width: '230px', textAlign: 'center' }}>
                         <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
                         <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK, marginTop: 4 }}>ผู้อนุมัติ</div>
-                        <div style={{ fontSize: '10px', color: DARK, marginTop: 2 }}>
-                          ({cleanSalespersonName(quotation.salespersonName) || '...................................................'})
-                        </div>
                         <div style={{ fontSize: '10px', color: DARK, marginTop: 12, textAlign: 'center' }}>
                           วันที่ {quotation.issuedDate ? fmtDate(quotation.issuedDate) : '.....................................................................'}
                         </div>
@@ -886,7 +1089,7 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                   {/* ── SECTION 6 FOR PRODUCT PROPOSAL: AUTHORIZED SIGNATURE & STAMP ── */}
                   {docFormat === 'product_proposal' && (
                     <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, fontSize: '10px' }}>
-                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10, width: '230px' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '230px', textAlign: 'center' }}>
                         {/* Company Seal/Stamp Placeholder */}
                         <div style={{
                           width: '65px',
@@ -901,13 +1104,18 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
                           color: '#94a3b8',
                           fontWeight: 'bold',
                           lineHeight: 1.2,
-                          userSelect: 'none'
+                          userSelect: 'none',
+                          marginBottom: 4
                         }}>
                           ตราประทับ<br/>บริษัท
                         </div>
 
+                        {/* Signature Line */}
+                        <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '20px' }} />
+                        <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK }}>ผู้อนุมัติ</div>
+
                         {/* Date Box */}
-                        <div style={{ fontSize: '10.5px', color: DARK, fontWeight: 'bold', width: '100%', textAlign: 'center', marginTop: 4 }}>
+                        <div style={{ fontSize: '10px', color: DARK, width: '100%', textAlign: 'center', marginTop: 12 }}>
                           วันที่ {quotation.issuedDate ? fmtDate(quotation.issuedDate) : '.....................................................................'}
                         </div>
                       </div>
@@ -938,6 +1146,44 @@ export default function QuotationPrint({ quotation, companyInfo = {}, onClose, p
           );
         })}
       </div>
+      </div>
+
+      {/* Download Success & Email Redirect Confirmation Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/45 backdrop-blur-xs animate-fade-in" style={{ fontFamily: "'Sarabun', sans-serif" }}>
+          <div className="bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-2xl animate-scale-in text-center flex flex-col items-center gap-4 text-[#1d1d1f]">
+            <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center animate-bounce">
+              <Download className="w-7 h-7" />
+            </div>
+            <div>
+              <h2 className="font-extrabold text-sm uppercase tracking-wide text-emerald-600">ดาวน์โหลด PDF สำเร็จแล้ว! 📥</h2>
+              <p className="text-xs text-[#555557] mt-2 font-semibold leading-relaxed">
+                ไฟล์เอกสารเซฟลงโทรศัพท์ของคุณเรียบร้อยแล้ว<br />
+                <span className="text-zinc-500 font-normal">กรุณารอจนกว่าการดาวน์โหลดในแถบแจ้งเตือนของเครื่องจะเสร็จสิ้น จากนั้นกดปุ่มสีน้ำเงินด้านล่างเพื่อเปิดแอปส่งอีเมล</span>
+              </p>
+            </div>
+            <div className="flex gap-2.5 w-full text-xs font-bold mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSuccessModal(false);
+                  if (onClose) onClose();
+                }}
+                className="flex-1 py-2.5 border border-[#d2d2d7] rounded-xl hover:bg-[#f5f5f7] cursor-pointer text-zinc-600 transition-colors"
+              >
+                ปิดหน้านี้
+              </button>
+              <button
+                type="button"
+                onClick={handleOpenEmailApp}
+                className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-xl cursor-pointer transition-colors shadow-xs"
+              >
+                เปิดแอปส่งอีเมล
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
