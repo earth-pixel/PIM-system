@@ -20216,6 +20216,14 @@
   ],
   "activityLog": [
     {
+      "id": 1784103198052,
+      "userName": "สมศักดิ์ รักดี (Admin)",
+      "userRole": "admin",
+      "action": "ดาวน์โหลดรายงาน Excel ของเอกสาร (ใบเสนอราคา: 2 รายการ, ใบเสนอสินค้า: 1 รายการ)",
+      "details": null,
+      "timestamp": "2026-07-15T08:13:18.052Z"
+    },
+    {
       "id": 1784103006808,
       "userName": "สมศักดิ์ รักดี (Admin)",
       "userRole": "admin",

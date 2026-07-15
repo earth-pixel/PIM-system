@@ -211,9 +211,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
   const [docTypeFilter, setDocTypeFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
 
-  const [adminListMode, setAdminListMode] = useState(() => {
-    return currentUser?.role === 'admin' ? 'pending' : 'all';
-  });
+  const [adminListMode, setAdminListMode] = useState('all');
 
   const pendingCount = useMemo(() => {
     return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation').length;
