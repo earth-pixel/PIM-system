@@ -16,6 +16,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
   const [isPrintingSelected, setIsPrintingSelected] = useState(false);
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [hoveredRow, setHoveredRow] = useState(null);
 
   const filteredLogs = activityLog.filter(log => {
     const matchesSearch = log.action.toLowerCase().includes(searchQuery.toLowerCase()) || 
@@ -142,31 +143,38 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
       {/* Page Header */}
       <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">ประวัติการดำเนินงาน</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">ACTIVITY LOG</span>
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">ประวัติการดำเนินงาน</h1>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
           {selectedLogIds.size > 0 && (
             <button type="button"
               onClick={handlePrintSelected}
-              className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs animate-scale-in"
+              className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer animate-scale-in"
             >
-              <Printer className="w-4 h-4" />
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <Printer className="w-3.5 h-3.5" />
               พิมพ์รายการที่เลือก ({selectedLogIds.size})
             </button>
           )}
           <button type="button"
             onClick={handlePrint}
-            className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+            className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
           >
-            <Printer className="w-4 h-4" />
+            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+            <Printer className="w-3.5 h-3.5" />
             พิมพ์ประวัติทั้งหมด (Print)
           </button>
           {currentUser.role === 'admin' && (
             <button type="button"
               onClick={() => setShowClearConfirm(true)}
-              className="px-4 py-2.5 bg-red-50 hover:bg-red-100 text-red-650 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="group relative overflow-hidden px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <Trash2 className="w-4 h-4 text-red-500" />
+              <span className="absolute inset-0 bg-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <Trash2 className="w-3.5 h-3.5 text-rose-500" />
               ล้างประวัติทั้งหมด
             </button>
           )}
@@ -174,39 +182,44 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
       </div>
 
       {/* Filters bar */}
-      <div className="no-print bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs flex flex-col md:flex-row md:items-center gap-4 flex-wrap animate-fade-in">
+      <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs flex flex-col md:flex-row md:items-center gap-4 flex-wrap animate-fade-in">
+        <div className="flex items-center gap-2 shrink-0">
+          <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
+          <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
+        </div>
+
         {/* Search */}
         <div className="relative flex-1 min-w-[200px]">
-          <Search className="w-4.5 h-4.5 text-[#555557] absolute left-3.5 top-3" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
           <input
             type="text"
             placeholder="ค้นหาชื่อผู้ดำเนินการ รายละเอียดกิจกรรม..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all placeholder-[#555557]"
+            className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 text-zinc-700"
           />
         </div>
 
         {/* Date Filter */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
-          <span className="text-xs font-bold text-[#555557] uppercase tracking-wide whitespace-nowrap">วันที่:</span>
-          <div className="flex items-center gap-1.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl px-2.5 py-1.5 focus-within:border-black focus-within:bg-white transition-all">
-            <span className="text-[10px] font-bold text-zinc-500 select-none">เริ่มต้น:</span>
+          <span className="text-[10px] font-black text-[#555557] uppercase tracking-wide whitespace-nowrap">วันที่:</span>
+          <div className="flex items-center gap-1.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-[#0071e3]/10 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
+            <span className="text-[9px] font-black text-zinc-500 select-none uppercase">เริ่มต้น</span>
             <input
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-transparent border-none text-xs focus:outline-none cursor-pointer font-semibold p-0 text-[#1d1d1f] w-28 sm:w-auto"
+              className="bg-transparent border-none text-xs focus:outline-none cursor-pointer font-bold p-0 text-[#1d1d1f] w-28 sm:w-auto"
             />
           </div>
           <span className="text-xs text-[#555557] font-semibold">-</span>
-          <div className="flex items-center gap-1.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl px-2.5 py-1.5 focus-within:border-black focus-within:bg-white transition-all">
-            <span className="text-[10px] font-bold text-zinc-500 select-none">สิ้นสุด:</span>
+          <div className="flex items-center gap-1.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-[#0071e3]/10 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
+            <span className="text-[9px] font-black text-zinc-500 select-none uppercase">สิ้นสุด</span>
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-transparent border-none text-xs focus:outline-none cursor-pointer font-semibold p-0 text-[#1d1d1f] w-28 sm:w-auto"
+              className="bg-transparent border-none text-xs focus:outline-none cursor-pointer font-bold p-0 text-[#1d1d1f] w-28 sm:w-auto"
             />
           </div>
           {(startDate || endDate) && (
@@ -215,7 +228,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                 setStartDate('');
                 setEndDate('');
               }}
-              className="px-2 py-1 text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer text-xs font-bold whitespace-nowrap"
+              className="px-2 py-1 text-red-650 hover:bg-red-50 rounded-lg transition-colors cursor-pointer text-[10px] font-bold whitespace-nowrap"
               title="ล้างตัวกรองวันที่"
             >
               ล้างวันที่
@@ -225,11 +238,11 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
 
         {/* User Role Filter */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-[#555557] uppercase tracking-wide whitespace-nowrap">บทบาท:</span>
+          <span className="text-[10px] font-black text-[#555557] uppercase tracking-wide whitespace-nowrap">บทบาท:</span>
           <select
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
-            className="px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white transition-all"
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium text-zinc-700"
           >
             <option value="All">ทั้งหมด</option>
             <option value="admin">Admin</option>
@@ -240,11 +253,11 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
 
         {/* Action Type Filter */}
         <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-[#555557] uppercase tracking-wide whitespace-nowrap">การกระทำ:</span>
+          <span className="text-[10px] font-black text-[#555557] uppercase tracking-wide whitespace-nowrap">การกระทำ:</span>
           <select
             value={selectedActionType}
             onChange={(e) => setSelectedActionType(e.target.value)}
-            className="px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm focus:outline-hidden focus:border-black focus:bg-white transition-all"
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium text-zinc-700"
           >
             <option value="All">การกระทำทั้งหมด</option>
             <option value="add">เพิ่มข้อมูลใหม่</option>
@@ -257,12 +270,16 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
 
       {/* Main List */}
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#e8e8ed] flex items-center justify-between flex-wrap gap-2">
-          <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase flex items-center gap-2">
-            <Clock className="w-4.5 h-4.5 text-[#555557]" />
-            กิจกรรมบันทึกล่าสุดในระบบ ({filteredLogs.length} รายการ)
-          </h4>
-
+        <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-3">
+            <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase flex items-center gap-1.5">
+              <Clock className="w-4 h-4 text-[#555557]" />
+              กิจกรรมบันทึกล่าสุดในระบบ
+            </h4>
+            <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+              {filteredLogs.length.toLocaleString()} รายการ
+            </span>
+          </div>
         </div>
 
         <div className="divide-y divide-[#e8e8ed] max-h-[60vh] overflow-y-auto">
@@ -282,7 +299,18 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
               const isSelected = selectedLogIds.has(log.id);
 
               return (
-                <div key={log.id} className={`p-4 hover:bg-[#f5f5f7]/30 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs log-row ${isSelected ? 'is-selected bg-blue-50/15' : ''}`}>
+                <div
+                  key={log.id}
+                  onMouseEnter={() => setHoveredRow(log.id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  className={`p-2 sm:p-3.5 transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs log-row ${
+                    hoveredRow === log.id
+                      ? 'bg-gradient-to-r from-[#0071e3]/4 via-[#0071e3]/3 to-transparent'
+                      : isSelected
+                        ? 'bg-blue-50/15'
+                        : 'bg-white'
+                  }`}
+                >
                   <div className="flex items-start gap-3 flex-1 min-w-0">
                     <input
                       type="checkbox"
@@ -294,11 +322,11 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                       {getActionEmoji(log.action)}
                     </span>
                     <div className="space-y-1 min-w-0 flex-1">
-                      <p className="font-semibold text-zinc-800 break-words leading-relaxed text-sm">
+                      <p className="font-semibold text-[#1d1d1f] break-words leading-relaxed text-sm">
                         {log.action}
                       </p>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-bold text-[#1d1d1f]">{log.userName}</span>
+                        <span className="font-black text-[#1d1d1f]">{log.userName}</span>
                         {getRoleBadge(log.userRole)}
                       </div>
 
@@ -337,7 +365,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                     <button
                       type="button"
                       onClick={() => setSelectedLog(log)}
-                      className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer no-print"
+                      className="p-1.5 text-[#0071e3] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer no-print"
                       title="ดูรายละเอียดการดำเนินงาน"
                     >
                       <Info className="w-4 h-4" />

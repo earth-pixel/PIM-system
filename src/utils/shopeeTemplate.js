@@ -269,7 +269,14 @@ export async function exportToShopeeMandatory(products = [], options = {}) {
 
       SHOPEE_MANDATORY_COLS_SPEC.forEach((col, colIdx) => {
         const cell = row.getCell(colIdx + 1);
-        const val = col.value(p);
+        let val = col.value(p);
+        if (col.code === 'ps_stock|0|1') {
+          if (options.stockMap && options.stockMap[p.id] !== undefined) {
+            val = Number(options.stockMap[p.id]) || 0;
+          } else if (options.stock !== undefined) {
+            val = Number(options.stock) || 0;
+          }
+        }
 
         // Only write the value if it's not empty/null — truly blank stays blank
         const isEmpty = val === '' || val === null || val === undefined;

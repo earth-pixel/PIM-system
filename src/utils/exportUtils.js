@@ -37,13 +37,13 @@ function applyColumnWidths(ws, widths) {
 // Logic: Parent SKU เป็นตัวผูกกลุ่ม + Variation Integration No. เหมือนกันทุก variant
 // แต่ละ variant → 1 แถว
 // ─────────────────────────────────────────────
-export async function exportShopee(products) {
+export async function exportShopee(products, options = {}) {
   const now = new Date();
   const dateStr = now.toLocaleDateString('sv-SE');
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
   const timestamp = `${dateStr}_${timeStr}`;
   try {
-    const buffer = await exportToShopeeMandatory(products);
+    const buffer = await exportToShopeeMandatory(products, options);
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -65,13 +65,13 @@ export async function exportShopee(products) {
 // Logic: Group No. ผูกกลุ่ม SKU → สินค้ากลุ่มเดียวกันมี Group No. เดียวกัน
 // แต่ละ variant → 1 แถว, แถวแรกของกลุ่มใส่ข้อมูลสินค้าหลักครบ
 // ─────────────────────────────────────────────
-export async function exportLazada(products) {
+export async function exportLazada(products, options = {}) {
   const now = new Date();
   const dateStr = now.toLocaleDateString('sv-SE');
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
   const timestamp = `${dateStr}_${timeStr}`;
   try {
-    const buffer = await exportToLazadaMandatory(products);
+    const buffer = await exportToLazadaMandatory(products, options);
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -95,13 +95,13 @@ export async function exportLazada(products) {
 // Option Name/Value แยกคอลัมน์ตาม tier
 // แต่ละ variant → 1 แถว
 // ─────────────────────────────────────────────
-export async function exportTikTok(products) {
+export async function exportTikTok(products, options = {}) {
   const now = new Date();
   const dateStr = now.toLocaleDateString('sv-SE');
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
   const timestamp = `${dateStr}_${timeStr}`;
   try {
-    const buffer = await exportToTiktokMandatory(products);
+    const buffer = await exportToTiktokMandatory(products, options);
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

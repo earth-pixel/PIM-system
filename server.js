@@ -1,8 +1,14 @@
-const express = require('express');
-const ExcelJS = require('exceljs');
-const { URL } = require('url');
-const fs = require('fs');
-const path = require('path');
+import express from 'express';
+import ExcelJS from 'exceljs';
+import { URL } from 'url';
+import fs from 'fs';
+import path from 'path';
+import https from 'https';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -25,7 +31,7 @@ function isSafeGoogleUrl(targetUrl) {
 // 2. Custom lightweight rate limiter middleware (no external dependencies)
 const rateLimiter = (limitWindowMs, maxRequests) => {
   const requestTracker = new Map();
-  
+
   // Auto cleanup old IP logs every 5 minutes to prevent memory leak
   setInterval(() => {
     const now = Date.now();
@@ -42,22 +48,22 @@ const rateLimiter = (limitWindowMs, maxRequests) => {
   return (req, res, next) => {
     const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
-    
+
     if (!requestTracker.has(clientIp)) {
       requestTracker.set(clientIp, []);
     }
-    
+
     const timestamps = requestTracker.get(clientIp).filter(time => now - time < limitWindowMs);
     timestamps.push(now);
     requestTracker.set(clientIp, timestamps);
-    
+
     if (timestamps.length > maxRequests) {
       return res.status(429).json({
         error: 'Rate Limit Exceeded',
         message: 'คุณส่งคำขอรวดเร็วเกินไป กรุณารอสักครู่แล้วลองใหม่ (Too many requests, please slow down.)'
       });
     }
-    
+
     next();
   };
 };
@@ -99,7 +105,7 @@ const getLazadaSheetName = (category) => {
 app.post('/api/store-download', uploadLimiter, (req, res) => {
   try {
     const { data, filename } = req.body;
-    
+
     // DoS Protection: Limit payload size inside the code (Max 20MB characters)
     if (data && data.length > 20 * 1024 * 1024) {
       return res.status(400).send('Payload too large (Max 20MB characters)');
@@ -113,12 +119,12 @@ app.post('/api/store-download', uploadLimiter, (req, res) => {
     if (data) {
       const id = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
       downloadCache.set(id, { data, filename });
-      
+
       // Auto-cleanup cache after 2 minutes
       setTimeout(() => {
         downloadCache.delete(id);
       }, 120000);
-      
+
       res.json({ id });
     } else {
       res.status(400).send('Missing data');
@@ -142,7 +148,7 @@ app.get('/api/download', generalLimiter, (req, res) => {
       } else if (filename.endsWith('.csv')) {
         contentType = 'text/csv;charset=utf-8';
       }
-      
+
       const encodedFilename = encodeURIComponent(filename).replace(/'/g, '%27');
       res.setHeader('Content-Type', contentType);
       res.setHeader(
@@ -150,7 +156,7 @@ app.get('/api/download', generalLimiter, (req, res) => {
         `attachment; filename="${filename}"; filename*=UTF-8''${encodedFilename}`
       );
       res.send(buffer);
-      
+
       downloadCache.delete(id);
     } else {
       res.status(404).send('Download not found or expired');
@@ -192,7 +198,7 @@ app.post('/api/download-direct', uploadLimiter, (req, res) => {
   }
 });
 
-const https = require('https');
+
 
 // helper function to fetch a URL that handles redirects (with SSRF protection)
 function downloadFile(url) {
@@ -271,7 +277,13 @@ app.get('/api/products/export', async (req, res) => {
       return res.status(400).json({ error: 'Invalid platform. Supported platforms are: shopee, lazada, tiktok' });
     }
 
-    const dbProducts = readDB().products || [];
+    // Load products from local db.json
+    const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
+    let db = { products: [] };
+    if (fs.existsSync(dbPath)) {
+      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    }
+    const dbProducts = db.products || [];
 
     const parseWeightToKg = (weightStr) => {
       if (weightStr === undefined || weightStr === null || weightStr === '') return 0;
@@ -307,7 +319,7 @@ app.get('/api/products/export', async (req, res) => {
     switch (platformKey) {
       case 'shopee': {
         const sheet = workbook.addWorksheet('แบบฟอร์มการลงสินค้า');
-        
+
         // Row 1: Raw codes
         sheet.addRow([
           'ps_product_name|1|0',
@@ -370,7 +382,7 @@ app.get('/api/products/export', async (req, res) => {
           'parcel_height',
           'main_image'
         ]);
-        
+
         // Row 2 & 3: Empty headers/subtitles for design requirements
         sheet.addRow([]);
         sheet.addRow([]);
@@ -428,7 +440,7 @@ app.get('/api/products/export', async (req, res) => {
           list.forEach(p => {
             // Default brand mapping check
             const brandName = p.brand && p.brand.trim() ? p.brand : 'No Brand';
-            
+
             sheet.addRow([
               p.name,
               p.image || '',
@@ -461,34 +473,26 @@ app.get('/api/products/export', async (req, res) => {
   }
 });
 
-// DATABASE PERSISTENCE ENDPOINTS
-const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
-
-// Helper to read database safely
-const readDB = () => {
+// 1. GET /api/db (Read Database from local db.json)
+app.get('/api/db', async (req, res) => {
   try {
-    if (!fs.existsSync(dbPath)) {
-      return { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+    const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
+    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+    if (fs.existsSync(dbPath)) {
+      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
     }
-    const data = fs.readFileSync(dbPath, 'utf8');
-    return JSON.parse(data);
+    res.json(db);
   } catch (err) {
-    console.error('Error reading db.json:', err);
-    return { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+    res.status(500).json({ error: err.message });
   }
-};
-
-// 1. GET /api/db (Read JSON Database from server)
-app.get('/api/db', (req, res) => {
-  res.json(readDB());
 });
 
-// 2. POST /api/db/save (Update/Save array to JSON Database key)
-app.post('/api/db/save', uploadLimiter, (req, res) => {
+// 2. POST /api/db/save (Update/Save array to local db.json)
+app.post('/api/db/save', uploadLimiter, async (req, res) => {
   try {
     const { key, data } = req.body;
     const allowedKeys = ['products', 'brands', 'categories', 'users', 'quotations', 'activityLog'];
-    
+
     if (!allowedKeys.includes(key)) {
       return res.status(400).send('Invalid database key');
     }
@@ -496,33 +500,43 @@ app.post('/api/db/save', uploadLimiter, (req, res) => {
       return res.status(400).send('Data must be an array');
     }
 
-    const db = readDB();
+    // Always write to local db.json
+    const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
+    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+    if (fs.existsSync(dbPath)) {
+      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    }
     db[key] = data;
-
     fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
-    res.json({ success: true });
+
+    res.json({ success: true, syncedToSupabase: false });
   } catch (err) {
-    console.error('Error saving to db.json:', err);
+    console.error(`Error saving ${key} to database:`, err);
     res.status(500).send('Error saving database: ' + err.message);
   }
 });
 
-app.post('/api/db/activityLog/append', uploadLimiter, (req, res) => {
+// 3. POST /api/db/activityLog/append (Append a single log entry to local db.json)
+app.post('/api/db/activityLog/append', uploadLimiter, async (req, res) => {
   try {
     const { entry } = req.body;
     if (!entry || !entry.action) {
       return res.status(400).send('Invalid log entry');
     }
 
-    const db = readDB();
+    // Write to local db.json
+    const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
+    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+    if (fs.existsSync(dbPath)) {
+      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+    }
     if (!Array.isArray(db.activityLog)) {
       db.activityLog = [];
     }
-
     db.activityLog = [entry, ...db.activityLog].slice(0, 200);
-
     fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
-    res.json({ success: true, activityLog: db.activityLog });
+
+    res.json({ success: true, activityLog: db.activityLog, syncedToSupabase: false });
   } catch (err) {
     console.error('Error appending activity log:', err);
     res.status(500).send('Error saving database: ' + err.message);
@@ -535,7 +549,7 @@ app.post('/api/db/activityLog/append', uploadLimiter, (req, res) => {
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Catch-all route to serve the React index.html for any frontend routing
-app.get('*', (req, res) => {
+app.get('/*', (req, res) => {
   const indexPath = path.join(__dirname, 'dist', 'index.html');
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);

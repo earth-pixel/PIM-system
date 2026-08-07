@@ -8,6 +8,8 @@ import https from 'https'
 import fs from 'fs'
 import path from 'path'
 
+
+
 // 1. Safety Helpers
 function isSafeGoogleUrl(targetUrl) {
   try {
@@ -23,7 +25,7 @@ function isSafeGoogleUrl(targetUrl) {
 // 2. Custom lightweight rate limiter middleware for Vite Dev Server (no external dependencies)
 const rateLimiter = (limitWindowMs, maxRequests) => {
   const requestTracker = new Map();
-  
+
   // Auto cleanup IP logs every 5 minutes
   setInterval(() => {
     const now = Date.now();
@@ -40,15 +42,15 @@ const rateLimiter = (limitWindowMs, maxRequests) => {
   return (req, res, onLimitExceeded) => {
     const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
     const now = Date.now();
-    
+
     if (!requestTracker.has(clientIp)) {
       requestTracker.set(clientIp, []);
     }
-    
+
     const timestamps = requestTracker.get(clientIp).filter(time => now - time < limitWindowMs);
     timestamps.push(now);
     requestTracker.set(clientIp, timestamps);
-    
+
     if (timestamps.length > maxRequests) {
       onLimitExceeded();
       return false;
@@ -71,29 +73,26 @@ export default defineConfig({
         configureServer(server) {
           server.middlewares.use(async (req, res, next) => {
             const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-            
-            // 1. GET /api/db (Read JSON Database from server)
+
+            // 1. GET /api/db (Read Database from local db.json)
             if (parsedUrl.pathname === '/api/db' && req.method === 'GET') {
               try {
                 const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
-                if (!fs.existsSync(dbPath)) {
-                  res.statusCode = 404;
-                  res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                  res.end(JSON.stringify({ error: 'Database not initialized' }));
-                  return;
+                let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
+                if (fs.existsSync(dbPath)) {
+                  db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
                 }
-                const data = fs.readFileSync(dbPath, 'utf8');
                 res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                res.end(data);
-              } catch (err) {
+                res.end(JSON.stringify(db));
+              } catch (fallbackErr) {
                 res.statusCode = 500;
                 res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                res.end(JSON.stringify({ error: err.message }));
+                res.end(JSON.stringify({ error: fallbackErr.message }));
               }
               return;
             }
 
-            // 2. POST /api/db/save (Update/Save array to JSON Database key)
+            // 2. POST /api/db/save (Update/Save array to local db.json)
             if (parsedUrl.pathname === '/api/db/save' && req.method === 'POST') {
               try {
                 const ipAllowed = uploadLimiter(req, res, () => {
@@ -107,12 +106,11 @@ export default defineConfig({
                 req.on('data', chunk => {
                   body += chunk.toString();
                 });
-                req.on('end', () => {
+                req.on('end', async () => {
                   try {
-                    const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
                     const { key, data } = JSON.parse(body);
                     const allowedKeys = ['products', 'brands', 'categories', 'users', 'quotations', 'activityLog'];
-                    
+
                     if (!allowedKeys.includes(key)) {
                       res.statusCode = 400;
                       res.end('Invalid database key');
@@ -124,18 +122,21 @@ export default defineConfig({
                       return;
                     }
 
+                    // Always write to local db.json
+                    const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
                     let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
                     if (fs.existsSync(dbPath)) {
                       db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
                     }
                     db[key] = data;
-
                     fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
+
                     res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                    res.end(JSON.stringify({ success: true }));
+                    res.end(JSON.stringify({ success: true, syncedToSupabase: false }));
                   } catch (e) {
+                    console.error('Error saving database:', e);
                     res.statusCode = 500;
-                    res.end('Error parsing/writing DB: ' + e.message);
+                    res.end('Error saving database: ' + e.message);
                   }
                 });
               } catch (err) {
@@ -145,24 +146,25 @@ export default defineConfig({
               return;
             }
 
-            // 2.5 POST /api/db/activityLog/append (Append a single log entry to JSON Database)
+            // 2.5 POST /api/db/activityLog/append (Append a single log entry to local db.json)
             if (parsedUrl.pathname === '/api/db/activityLog/append' && req.method === 'POST') {
               try {
                 let body = '';
                 req.on('data', chunk => {
                   body += chunk.toString();
                 });
-                req.on('end', () => {
+                req.on('end', async () => {
                   try {
-                    const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
                     const { entry } = JSON.parse(body);
-                    
+
                     if (!entry || !entry.action) {
                       res.statusCode = 400;
                       res.end('Invalid log entry');
                       return;
                     }
 
+                    // Write to local db.json
+                    const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
                     let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
                     if (fs.existsSync(dbPath)) {
                       db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
@@ -170,16 +172,14 @@ export default defineConfig({
                     if (!Array.isArray(db.activityLog)) {
                       db.activityLog = [];
                     }
-                    
-                    // Prepend new entry
                     db.activityLog = [entry, ...db.activityLog].slice(0, 200);
-
                     fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
+
                     res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                    res.end(JSON.stringify({ success: true, activityLog: db.activityLog }));
+                    res.end(JSON.stringify({ success: true, activityLog: db.activityLog, syncedToSupabase: false }));
                   } catch (e) {
                     res.statusCode = 500;
-                    res.end('Error parsing/writing DB: ' + e.message);
+                    res.end('Error appending activity log: ' + e.message);
                   }
                 });
               } catch (err) {
@@ -236,16 +236,16 @@ export default defineConfig({
                     res.end('Invalid request format');
                     return;
                   }
-                  
+
                   if (data) {
                     const id = Math.random().toString(36).substring(2, 15) + Date.now().toString(36);
                     downloadCache.set(id, { data, filename });
-                    
+
                     // Auto-cleanup cache after 2 minutes
                     setTimeout(() => {
                       downloadCache.delete(id);
                     }, 120000);
-                    
+
                     res.setHeader('Content-Type', 'application/json');
                     res.end(JSON.stringify({ id }));
                   } else {
@@ -268,8 +268,8 @@ export default defineConfig({
 
               let body = '';
               let oversized = false;
-              req.on('data', chunk => { 
-                body += chunk.toString(); 
+              req.on('data', chunk => {
+                body += chunk.toString();
                 if (body.length > 20 * 1024 * 1024) {
                   oversized = true;
                   res.statusCode = 400;
@@ -328,7 +328,7 @@ export default defineConfig({
                   } else if (filename.endsWith('.csv')) {
                     contentType = 'text/csv;charset=utf-8';
                   }
-                  
+
                   const encodedFilename = encodeURIComponent(filename).replace(/'/g, '%27');
                   res.setHeader('Content-Type', contentType);
                   res.setHeader(
@@ -337,7 +337,7 @@ export default defineConfig({
                   );
                   res.write(buffer);
                   res.end();
-                  
+
                   downloadCache.delete(id);
                 } else {
                   res.statusCode = 404;
@@ -423,13 +423,13 @@ export default defineConfig({
               try {
                 const platform = parsedUrl.searchParams.get('platform');
                 const ids = parsedUrl.searchParams.get('ids');
-                
+
                 if (!platform) {
                   res.statusCode = 400;
                   res.end(JSON.stringify({ error: 'Missing parameter: platform is required' }));
                   return;
                 }
-                
+
                 const platformKey = platform.toLowerCase();
                 if (!['shopee', 'lazada', 'tiktok'].includes(platformKey)) {
                   res.statusCode = 400;
@@ -437,7 +437,7 @@ export default defineConfig({
                   return;
                 }
 
-                // Load products from JSON Database
+                // Load products from local db.json
                 const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
                 let db = { products: [] };
                 if (fs.existsSync(dbPath)) {
@@ -612,7 +612,7 @@ export default defineConfig({
   server: {
     host: true,
     watch: {
-      ignored: ['**/ข้อมูล/**']
+      ignored: ['**/ข้อมูล/**', '**/import/**']
     }
   }
 })

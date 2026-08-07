@@ -178,7 +178,13 @@ export async function exportToLazadaMandatory(products = [], options = {}) {
         setVal('ประเภทสีย้อมผม', p.hairColorType || '');
         const weightKg = parseWeightToKg(p.weight);
         if (weightKg > 0) setVal('น้ำหนัก แพคเกจ (กก)', weightKg);
-        setVal('จำนวน', 0);
+        let stockVal = 0;
+        if (options.stockMap && options.stockMap[p.id] !== undefined) {
+          stockVal = Number(options.stockMap[p.id]) || 0;
+        } else if (options.stock !== undefined) {
+          stockVal = Number(options.stock) || 0;
+        }
+        setVal('จำนวน', stockVal);
         setVal('ราคา', Number(p.retailPrice) || 0);
         if (p.packageLength) setVal('ความยาว แพคเกจ (ซม)', Number(p.packageLength));
         if (p.packageWidth) setVal('ความกว้าง แพคเกจ (ซม)', Number(p.packageWidth));

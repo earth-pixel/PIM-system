@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Package, Award, FolderKanban, CalendarDays, FileText, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
@@ -145,7 +145,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
           onClick={() => { setActiveTab('manage-products'); }}
           role="button" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('manage-products'); } }}
-          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-blue-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-blue-100/60 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group"
+          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-blue-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-[0_12px_30px_rgba(0, 113, 227,0.15)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group premium-card-shine"
         >
           {/* Decorative bg circle */}
           <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-blue-50/60 group-hover:bg-blue-100/50 transition-colors duration-300" />
@@ -170,7 +170,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
           onClick={() => setActiveTab('brands')}
           role="button" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('brands'); } }}
-          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-purple-100/60 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group"
+          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-purple-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-[0_12px_30px_rgba(147,51,234,0.15)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group premium-card-shine"
         >
           <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-purple-50/60 group-hover:bg-purple-100/50 transition-colors duration-300" />
           <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-purple-400 to-purple-600" />
@@ -189,7 +189,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
           onClick={() => setActiveTab('categories')}
           role="button" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('categories'); } }}
-          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-amber-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-amber-100/60 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group"
+          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-amber-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-[0_12px_30px_rgba(245,158,11,0.15)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group premium-card-shine"
         >
           <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-amber-50/60 group-hover:bg-amber-100/50 transition-colors duration-300" />
           <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-amber-400 to-orange-500" />
@@ -208,7 +208,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
           onClick={() => setActiveTab('quotations')}
           role="button" tabIndex={0}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('quotations'); } }}
-          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-emerald-100/60 hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group"
+          className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-[0_12px_30px_rgba(16,185,129,0.15)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group premium-card-shine"
         >
           <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-emerald-50/60 group-hover:bg-emerald-100/50 transition-colors duration-300" />
           <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-emerald-400 to-teal-500" />
@@ -509,15 +509,15 @@ export default function Dashboard({ products, brands, categories, quotations = [
                       style={{ animationDelay: `${idx * 60}ms` }}
                     >
                       {/* Hover tooltip badge */}
-                      <div className={`
+                      <div className="
                         absolute -top-2 left-1/2 -translate-x-1/2
                         text-[10px] font-bold text-white
                         px-2.5 py-0.5 rounded-full shadow-lg
                         opacity-0 scale-90 -translate-y-1
                         group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0
                         transition-all duration-200 ease-out pointer-events-none whitespace-nowrap z-20
-                        ${chartDisplay === 'bar' ? 'bg-[#ff3b30]' : 'bg-[#34c759]'}
-                      `}>
+                        bg-[#1d1d1f]/95 backdrop-blur-md border border-white/10
+                      ">
                         {count} รายการ
                       </div>
 
@@ -534,12 +534,12 @@ export default function Dashboard({ products, brands, categories, quotations = [
                             }}
                             className="
                               w-full rounded-t-lg
-                              bg-gradient-to-t from-[#c0392b] via-[#e74c3c] to-[#ff6b6b]
-                              group-hover:from-[#a93226] group-hover:via-[#c0392b] group-hover:to-[#ff453a]
-                              transition-colors duration-300
-                              shadow-[0_-2px_12px_rgba(255,59,48,0.35)]
-                              group-hover:shadow-[0_-4px_20px_rgba(255,59,48,0.55)]
-                              border-t border-l border-r border-red-400/20
+                              bg-gradient-to-t from-[#0052d4] via-[#0071e3] to-[#00c6ff]
+                              group-hover:from-[#0041a8] group-hover:via-[#0071e3] group-hover:to-[#33d2ff]
+                              transition-all duration-300
+                              shadow-[0_-2px_12px_rgba(0, 113, 227,0.25)]
+                              group-hover:shadow-[0_-4px_20px_rgba(0, 113, 227,0.45)]
+                              border-t border-l border-r border-blue-400/20
                             "
                           />
                         </div>
@@ -598,7 +598,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
       {selectedDetailGroup && createPortal(
         <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4">
           <div onClick={() => setSelectedDetailGroup(null)} className="absolute inset-0 bg-black/40 backdrop-blur-xs animate-fade-in" />
-          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-lg w-full p-6 shadow-2xl z-10 flex flex-col max-h-[85vh] animate-scale-in text-[#1d1d1f]" style={{ fontFamily: "'Sarabun', sans-serif" }}>
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-lg w-full p-6 shadow-2xl z-10 flex flex-col max-h-[85vh] animate-scale-in text-[#1d1d1f]">
             
             {/* Header */}
             <div className="flex items-center justify-between border-b border-[#e8e8ed] pb-3 shrink-0">

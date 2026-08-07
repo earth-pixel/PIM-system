@@ -11,8 +11,9 @@ export const companyInfo = {
   website: 'https://www.phanvadee.co.th',
 };
 
-export const initialQuotations = [];
 
+
+export const initialQuotations = [];
 export const initialBrands = [
   "GOOD ALL DAY",
   "Barber Brain",
@@ -97,33 +98,27 @@ export const initializeDB = () => {
       let currentUsers = JSON.parse(activeUsers);
       let modified = false;
 
-      // Restore admin
+      // Restore admin — only add back if completely missing, never override password
       const adminIndex = currentUsers.findIndex(u => u.username === 'admin');
       const defaultAdmin = initialUsers.find(u => u.username === 'admin');
       if (adminIndex === -1) {
         currentUsers.push(defaultAdmin);
         modified = true;
-      } else if (
-        currentUsers[adminIndex].role !== defaultAdmin.role ||
-        currentUsers[adminIndex].password !== defaultAdmin.password ||
-        currentUsers[adminIndex].name !== defaultAdmin.name
-      ) {
-        currentUsers[adminIndex] = { ...currentUsers[adminIndex], ...defaultAdmin };
+      } else if (currentUsers[adminIndex].role !== 'admin') {
+        // Ensure role cannot be stripped away
+        currentUsers[adminIndex] = { ...currentUsers[adminIndex], role: 'admin' };
         modified = true;
       }
 
-      // Restore manager
+      // Restore manager — only add back if completely missing, never override password
       const managerIndex = currentUsers.findIndex(u => u.username === 'manager');
       const defaultManager = initialUsers.find(u => u.username === 'manager');
       if (managerIndex === -1) {
         currentUsers.push(defaultManager);
         modified = true;
-      } else if (
-        currentUsers[managerIndex].role !== defaultManager.role ||
-        currentUsers[managerIndex].password !== defaultManager.password ||
-        currentUsers[managerIndex].name !== defaultManager.name
-      ) {
-        currentUsers[managerIndex] = { ...currentUsers[managerIndex], ...defaultManager };
+      } else if (currentUsers[managerIndex].role !== 'manager') {
+        // Ensure role cannot be stripped away
+        currentUsers[managerIndex] = { ...currentUsers[managerIndex], role: 'manager' };
         modified = true;
       }
 

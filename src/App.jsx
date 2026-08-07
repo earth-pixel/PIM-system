@@ -11,6 +11,7 @@ import UserManage from './components/UserManage';
 import ActivityLogView from './components/ActivityLogView';
 import QuotationManage from './components/QuotationManage';
 import PublicQuotationViewer from './components/PublicQuotationViewer';
+// import UserManual from './components/UserManual';
 
 // Initialize database at module load time to guarantee localStorage is populated
 const freshUsers = initializeDB();
@@ -130,6 +131,7 @@ export default function App() {
   
   // Product being edited (null for new product)
   const [editProduct, setEditProduct] = useState(null);
+  // const [showManual, setShowManual] = useState(false);
 
   // Quotation state
   const [quotations, setQuotations] = useState(() => {
@@ -365,7 +367,6 @@ export default function App() {
     let overwriteCount = 0;
     const adjustments = [];
     const nowStr = new Date().toISOString();
-    
     let updatedBrands = [...brands];
     let updatedCategories = [...categories];
     let updatedProducts = [...products];
@@ -633,18 +634,18 @@ export default function App() {
 
 
   // Auth Operations
-  const handleLogin = (user) => {
+  const handleLogin = useCallback((user) => {
     setCurrentUser(user);
     sessionStorage.setItem('pim_current_user', JSON.stringify(user));
-    // Keep active tab as is to preserve current screen during switch roles or page load
-  };
+    setActiveTab('dashboard');
+  }, []);
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setCurrentUser(null);
     sessionStorage.removeItem('pim_current_user');
     setActiveTab('dashboard');
     setEditProduct(null);
-  };
+  }, []);
 
   // Switch role sandbox helper
   const handleSwitchRole = (role) => {
@@ -756,6 +757,11 @@ export default function App() {
     const updated = products.filter(p => p.id !== id);
     syncProducts(updated);
     if (target) addActivityLog(`ลบสินค้า: ${target.name} (${target.code})`);
+  };
+
+  const handleBulkUpdateProducts = (updatedList, activityMsg = 'แก้ไขข้อมูลสินค้าทีละหลายรายการ (Bulk Edit)') => {
+    syncProducts(updatedList);
+    addActivityLog(activityMsg);
   };
 
   const handleResetProducts = () => {
@@ -939,7 +945,7 @@ export default function App() {
             addActivityLog={addActivityLog}
             onAddCategory={handleAddCategory}
             onAddBrand={handleAddBrand}
-          />
+            onBulkUpdateProducts={handleBulkUpdateProducts}          />
         );
       case 'brands':
         return (
@@ -1023,25 +1029,42 @@ export default function App() {
     return <PublicQuotationViewer shareData={shareData} companyInfo={companyInfo} />;
   }
 
-
-
   // Authenticated Screen vs Guest Login
   if (!currentUser) {
     return <Login onLogin={handleLogin} users={users} />;
   }
 
   return (
-    <DashboardLayout
-      currentUser={currentUser}
-      onLogout={handleLogout}
-      onChangePassword={handleChangePassword}
-      activeTab={activeTab}
-      setActiveTab={handleTabChange}
-      onSwitchRole={handleSwitchRole}
-      activityLog={activityLog}
-      quotations={quotations}
-    >
-      {renderScreen()}
-    </DashboardLayout>
+    <>
+      <DashboardLayout
+        currentUser={currentUser}
+        onLogout={handleLogout}
+        onChangePassword={handleChangePassword}
+        activeTab={activeTab}
+        setActiveTab={handleTabChange}
+        onSwitchRole={handleSwitchRole}
+        activityLog={activityLog}
+        quotations={quotations}
+      >
+        {renderScreen()}
+      </DashboardLayout>
+
+      {/* Floating Help Button - Commented out for now
+      <button
+        type="button"
+        onClick={() => setShowManual(true)}
+        title="คู่มือการใช้งานระบบ"
+        className="fixed bottom-6 right-6 z-[999] w-12 h-12 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all cursor-pointer border-none no-print group"
+      >
+        <span className="text-lg font-extrabold">?</span>
+      </button>
+      */}
+
+      {/* User Manual Modal - Commented out for now
+      {showManual && (
+        <UserManual currentUser={currentUser} onClose={() => setShowManual(false)} />
+      )}
+      */}
+    </>
   );
 }

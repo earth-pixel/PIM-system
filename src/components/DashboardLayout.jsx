@@ -91,7 +91,7 @@ export default function DashboardLayout({
   const [changePwdForm, setChangePwdForm] = useState({ oldPwd: '', newPwd: '', confirmPwd: '' });
   const [changePwdError, setChangePwdError] = useState('');
   const [changePwdSuccess, setChangePwdSuccess] = useState(false);
-  const [showOldPwd, setShowOldPwd] = useState(false);
+  const [showOldPwd, setShowOldPwd] = useState(false);  
   const [showNewPwd, setShowNewPwd] = useState(false);
   const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 

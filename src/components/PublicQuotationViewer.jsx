@@ -1,4 +1,4 @@
-﻿import { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { decodeQuotation } from '../utils/share';
 import { Printer, CheckCircle, AlertCircle, Globe, Building } from 'lucide-react';
 
@@ -115,13 +115,13 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
       {/* Top Navbar / Action Panel */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#d2d2d7]/30 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 flex items-center justify-center text-zinc-900 shrink-0">
-            <svg viewBox="0 0 80 90" className="w-9 h-9 fill-current" xmlns="http://www.w3.org/2000/svg">
-              <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
-              <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
-              <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
-            </svg>
-          </div>
+          <svg viewBox="0 0 160 160" className="w-10 h-10 fill-current text-zinc-900 shrink-0" xmlns="http://www.w3.org/2000/svg">
+            <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
+            <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
+            <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
+            <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
+            <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
+          </svg>
           <div>
             <h1 className="text-sm font-extrabold text-[#1d1d1f]">เอกสารใบเสนอราคาออนไลน์</h1>
             <p className="text-[11px] text-[#555557] font-medium font-mono">{quotation.quotationNumber}</p>
@@ -136,7 +136,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
             <Printer className="w-4 h-4" />
             พิมพ์ / บันทึก PDF
           </button>
-          
+
           {!isAccepted ? (
             <button type="button"
               onClick={handleAccept}
@@ -155,7 +155,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
 
       {/* Main Content Area */}
       <div className="max-w-[850px] mx-auto px-4 sm:px-6 pt-8 print:p-0 print:pt-0">
-        
+
         {/* Banner Alert for Status */}
         {isAccepted && (
           <div className="mb-6 p-4 bg-emerald-50 border border-emerald-150 rounded-2xl flex items-center gap-3 animate-fade-in print:hidden shadow-xs">
@@ -169,17 +169,17 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
 
         {/* Paper Document Representation */}
         <div className="bg-white rounded-3xl border border-[#d2d2d7]/40 shadow-xl p-8 sm:p-12 print:shadow-none print:border-none print:p-0">
-          
+
           {/* SECTION 1: HEADER */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-[#f5f5f7] pb-6 mb-8">
             <div className="flex gap-4 items-start">
-              <div className="w-12 h-12 flex items-center justify-center text-zinc-900 flex-shrink-0">
-                <svg viewBox="0 0 80 90" className="w-12 h-12 fill-current" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
-                  <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
-                  <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
-                </svg>
-              </div>
+              <svg viewBox="0 0 160 160" className="w-14 h-14 fill-current text-zinc-900 shrink-0" xmlns="http://www.w3.org/2000/svg">
+                <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
+                <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
+                <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
+                <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
+                <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
+              </svg>
               <div className="text-xs text-[#1d1d1f] leading-relaxed">
                 <div className="font-extrabold text-sm mb-1 text-black">{co.name}</div>
                 <div className="text-[#555557] max-w-sm">{co.address}</div>
@@ -195,9 +195,8 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
               <span className="text-[10px] text-[#86868b] font-bold tracking-wider uppercase">ใบเสนอราคา / QUOTATION</span>
               <h2 className="text-xl font-black text-[#1d1d1f] mt-1 font-mono tracking-tight">{quotation.quotationNumber}</h2>
               <div className="mt-1.5 flex flex-wrap gap-1.5 sm:justify-end">
-                <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase ${
-                  isAccepted ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
-                }`}>
+                <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase ${isAccepted ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-blue-50 text-blue-600 border border-blue-100'
+                  }`}>
                   {isAccepted ? 'อนุมัติโดยลูกค้า' : 'รอการพิจารณา'}
                 </span>
               </div>

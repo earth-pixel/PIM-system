@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
 
@@ -6,6 +6,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
   const [newBrand, setNewBrand]   = useState('');
   const [errorMsg, setErrorMsg]   = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [hoveredRow, setHoveredRow] = useState(null);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editBrandName, setEditBrandName] = useState('');
@@ -105,7 +106,11 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">จัดการข้อมูลแบรนด์สินค้า</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">BRAND MANAGEMENT</span>
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">จัดการข้อมูลแบรนด์สินค้า</h1>
         </div>
         {currentUser?.role === 'admin' && (
           <button
@@ -114,8 +119,9 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
               setErrorMsg('');
               setIsModalOpen(true);
             }}
-            className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+            className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
           >
+            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
             <Plus className="w-4 h-4" />
             เพิ่มแบรนด์ใหม่
           </button>
@@ -124,43 +130,57 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
 
       {/* Table Container */}
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#e8e8ed]">
-          <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase">รายชื่อแบรนด์ที่เปิดใช้งาน</h4>
+        <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายชื่อแบรนด์ที่เปิดใช้งาน</h4>
+            <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+              {brands.length.toLocaleString()} แบรนด์
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7]/50 uppercase tracking-wider text-xs">
-                <th className="p-4 w-16">ลำดับ</th>
-                <th className="p-4">แบรนด์</th>
-                <th className="p-4 text-center">จำนวนผลิตภัณฑ์ในระบบ</th>
-                <th className="p-4 text-right"></th>
-                {currentUser?.role === 'admin' && <th className="p-4 text-center w-28">การจัดการ</th>}
+              <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
+                <th className="p-2 sm:p-3.5 w-16 text-center">ลำดับ</th>
+                <th className="p-2 sm:p-3.5">แบรนด์</th>
+                <th className="p-2 sm:p-3.5 text-center">จำนวนผลิตภัณฑ์ในระบบ</th>
+                <th className="p-2 sm:p-3.5 text-right"></th>
+                {currentUser?.role === 'admin' && <th className="p-2 sm:p-3.5 text-center w-28">การจัดการ</th>}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e8e8ed]">
+            <tbody className="divide-y divide-[#f0f0f5]">
               {brands.map((brand, index) => {
                 const productCount = products.filter(p => p.brand === brand).length;
                 return (
-                  <tr key={brand} className="hover:bg-[#f5f5f7]/30 transition-colors">
-                    <td className="p-4 font-mono font-medium text-[#555557]">{index + 1}</td>
-                    <td className="p-4 font-semibold text-[#1d1d1f]">{brand}</td>
-                    <td className="p-4 text-center">
-                      <span className="summary-number" style={{ fontSize: '14px', fontWeight: 600 }}>
+                  <tr
+                    key={brand}
+                    onMouseEnter={() => setHoveredRow(brand)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                    className={`transition-all duration-150 ${
+                      hoveredRow === brand
+                        ? 'bg-gradient-to-r from-[#0071e3]/4 via-[#0071e3]/3 to-transparent'
+                        : index % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]/50'
+                    }`}
+                  >
+                    <td className="p-2 sm:p-3.5 text-center font-mono text-[#86868b] text-[10px]">{index + 1}</td>
+                    <td className="p-2 sm:p-3.5 font-semibold text-[#1d1d1f] leading-snug">{brand}</td>
+                    <td className="p-2 sm:p-3.5 text-center text-[#555557] font-medium">
+                      <span className="font-semibold text-black">
                         {productCount}
                       </span>
-                      <span className="text-xs text-[#555557] ml-1">รายการ</span>
+                      <span className="ml-1 text-xs">รายการ</span>
                     </td>
-                    <td className="p-4 text-right">
+                    <td className="p-2 sm:p-3.5 text-right">
                     </td>
                     {currentUser?.role === 'admin' && (
-                      <td className="p-4 text-center">
+                      <td className="p-2 sm:p-3.5 text-center">
                         <div className="flex justify-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => handleStartEdit(brand)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-[#0071e3] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                             title="แก้ไขชื่อแบรนด์"
                           >
                             <Edit className="w-4 h-4" />

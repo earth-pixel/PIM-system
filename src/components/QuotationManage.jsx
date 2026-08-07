@@ -2,7 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Search, X, Plus, Trash2, Edit2, Check, AlertTriangle, AlertCircle,
-  FileText, ChevronRight, Clock, CheckCircle, XCircle, Mail, Printer, Download
+  FileText, ChevronRight, Clock, CheckCircle, XCircle, Mail, Printer, Download,
+  Users, UserCheck
 } from 'lucide-react';
 import QuotationPrint from './QuotationPrint';
 import * as XLSX from 'xlsx';
@@ -45,7 +46,6 @@ const Badge = ({ status }) => {
   );
 };
 
-// ── ConfirmModal ───────────────────────────────────────────────
 function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = 'ยืนยัน', cancelText = 'ยกเลิก', type = 'danger' }) {
   if (!isOpen) return null;
   return createPortal(
@@ -199,7 +199,100 @@ function ProductPickerModal({ products, onSelect, onClose }) {
   );
 }
 
+// ── CustomerPickerModal ───────────────────────────────────────
+function CustomerPickerModal({ customers, onSelect, onClose }) {
+  const [search, setSearch] = useState('');
 
+  const filtered = useMemo(() => {
+    if (!search.trim()) return customers;
+    const term = search.toLowerCase().trim();
+    return customers.filter(c =>
+      (c.name && c.name.toLowerCase().includes(term)) ||
+      (c.companyName && c.companyName.toLowerCase().includes(term)) ||
+      (c.phone && c.phone.toLowerCase().includes(term)) ||
+      (c.taxId && c.taxId.toLowerCase().includes(term)) ||
+      (c.address && c.address.toLowerCase().includes(term))
+    );
+  }, [customers, search]);
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 animate-fade-in">
+      <div onClick={onClose} className="absolute inset-0 bg-black/15 backdrop-blur-xs" />
+      <div className="relative bg-white rounded-2xl shadow-xl border border-[#d2d2d7]/50 w-full max-w-md flex flex-col max-h-[70vh] z-10 animate-scale-in overflow-hidden">
+
+        {/* Header + Search (รวมกัน) */}
+        <div className="px-4 pt-4 pb-3 flex-shrink-0">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-bold text-[#1d1d1f]">เลือกลูกค้า</h3>
+              <p className="text-[10px] text-[#86868b] mt-0.5">{customers.length} รายการในระบบ</p>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#f5f5f7] cursor-pointer text-[#86868b] transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="relative">
+            <Search className="w-3.5 h-3.5 text-[#86868b] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+            <input
+              autoFocus
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="ค้นหาชื่อ, บริษัท, เบอร์โทร..."
+              className="w-full pl-9 pr-9 py-2.5 bg-[#f5f5f7] border border-transparent rounded-xl text-xs text-[#1d1d1f] placeholder-[#86868b] focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#86868b] hover:text-[#1d1d1f] cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Customer List */}
+        <div className="flex-1 overflow-y-auto border-t border-[#f0f0f5]">
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center">
+              <Users className="w-8 h-8 text-[#d2d2d7] mx-auto mb-2 stroke-[1.2]" />
+              <p className="text-xs font-semibold text-[#1d1d1f]">ไม่พบลูกค้า</p>
+              <p className="text-[10px] text-[#86868b] mt-1">ลองค้นหาด้วยคำอื่น</p>
+            </div>
+          ) : (
+            filtered.map((c, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => { onSelect(c); onClose(); }}
+                className="w-full px-4 py-3 hover:bg-[#f5f5f7] text-left transition-colors flex items-center gap-3 cursor-pointer group border-b border-[#f5f5f7] last:border-0"
+              >
+                {/* Avatar */}
+                <div className="w-8 h-8 rounded-full bg-[#0071e3]/10 text-[#0071e3] text-xs font-black flex items-center justify-center shrink-0">
+                  {(c.name || '?').charAt(0).toUpperCase()}
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-bold text-[#1d1d1f] group-hover:text-[#0071e3] transition-colors truncate">{c.name}</div>
+                  <div className="text-[10px] text-[#86868b] mt-0.5 truncate">
+                    {[c.companyName, c.phone].filter(Boolean).join(' · ') || c.address || '-'}
+                  </div>
+                </div>
+                {/* Arrow */}
+                <svg className="w-4 h-4 text-[#d2d2d7] group-hover:text-[#0071e3] transition-colors shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 const generateNewId = () => `qt-${Date.now()}`;
 const generateItemId = () => Date.now() + Math.floor(Math.random() * 1000);
@@ -210,6 +303,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
   const [statusFilter, setStatusFilter] = useState('All');
   const [docTypeFilter, setDocTypeFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
+  const [hoveredRow, setHoveredRow] = useState(null);
 
   const [adminListMode, setAdminListMode] = useState(() => {
     return localStorage.getItem('pim_quotation_admin_list_mode') || 'all';
@@ -248,7 +342,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
       q.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
       (q.customer?.companyName || '').toLowerCase().includes(search.toLowerCase());
 
-        const matchD = !dateFilter || matchDate(q.issuedDate, dateFilter);
+    const matchD = !dateFilter || matchDate(q.issuedDate, dateFilter);
 
     if (currentUser?.role === 'admin' && adminListMode === 'pending') {
       return matchSearch && q.status === 'sent' && q.documentType === 'quotation' && matchD;
@@ -260,7 +354,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
       const isMine = creator === currentUser.username ||
         salesName.toLowerCase().includes(currentUser.username.toLowerCase()) ||
         (currentUser.name && salesName.toLowerCase().includes(currentUser.name.toLowerCase()));
-      
+
       const matchStatus = statusFilter === 'All' || q.status === statusFilter;
       const matchDocType = docTypeFilter === 'All' || q.documentType === docTypeFilter;
       return matchSearch && isMine && matchStatus && matchDocType && matchD;
@@ -403,14 +497,14 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
   return (
     <div className="space-y-4">
-            {currentUser?.role === 'admin' && (
+      {currentUser?.role === 'admin' && (
         <div className="flex bg-[#f5f5f7] p-1 rounded-2xl border border-[#d2d2d7]/20 w-fit flex-wrap gap-1 sm:gap-0">
           <button
             type="button"
             onClick={() => setAdminListMode('pending')}
             className={`px-5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${adminListMode === 'pending'
-                ? 'bg-white text-[#0071e3] shadow-sm'
-                : 'text-[#555557] hover:text-[#1d1d1f]'
+              ? 'bg-white text-[#0071e3] shadow-sm'
+              : 'text-[#555557] hover:text-[#1d1d1f]'
               }`}
           >
             รายการรออนุมัติ
@@ -424,8 +518,8 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
             type="button"
             onClick={() => setAdminListMode('mine')}
             className={`px-5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${adminListMode === 'mine'
-                ? 'bg-white text-[#0071e3] shadow-sm'
-                : 'text-[#555557] hover:text-[#1d1d1f]'
+              ? 'bg-white text-[#0071e3] shadow-sm'
+              : 'text-[#555557] hover:text-[#1d1d1f]'
               }`}
           >
             เอกสารของคุณ
@@ -434,8 +528,8 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
             type="button"
             onClick={() => setAdminListMode('all')}
             className={`px-5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${adminListMode === 'all'
-                ? 'bg-white text-[#0071e3] shadow-sm'
-                : 'text-[#555557] hover:text-[#1d1d1f]'
+              ? 'bg-white text-[#0071e3] shadow-sm'
+              : 'text-[#555557] hover:text-[#1d1d1f]'
               }`}
           >
             เอกสารทั้งหมดในระบบ
@@ -444,29 +538,35 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
       )}
 
       {/* Search and Filters */}
-      <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs space-y-4">
-        <div className="flex flex-col md:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="w-4 h-4 text-[#555557] absolute left-3 top-3" />
+      <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+        <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
+          </div>
+
+          <div className="relative flex-1 min-w-[180px] md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
             <input
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="ค้นหาเลขที่เอกสาร หรือชื่อลูกค้า..."
-              className="w-full pl-9 pr-4 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all placeholder-[#555557]"
+              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 text-zinc-700"
             />
           </div>
-          <div className="flex flex-col sm:flex-row gap-2">
-            <div className="w-full sm:w-44">
+
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="w-full sm:w-auto">
               {currentUser?.role === 'admin' && adminListMode === 'pending' ? (
-                <div className="w-full px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-[#1d1d1f]/75 font-semibold select-none flex items-center">
+                <div className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f]/75 font-medium select-none flex items-center">
                   📄 ใบเสนอราคา
                 </div>
               ) : (
                 <select
                   value={docTypeFilter}
                   onChange={e => setDocTypeFilter(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all cursor-pointer font-semibold"
+                  className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
                 >
                   <option value="All">ประเภทเอกสารทั้งหมด</option>
                   <option value="quotation">📄 ใบเสนอราคา</option>
@@ -476,17 +576,17 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
             </div>
             {/* Status selector or pending status label */}
             {currentUser?.role === 'admin' && adminListMode === 'pending' ? (
-              <div className="w-full sm:w-44">
-                <div className="w-full px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 font-semibold select-none flex items-center">
+              <div className="w-full sm:w-auto">
+                <div className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 font-medium select-none flex items-center">
                   ⏳ รออนุมัติ
                 </div>
               </div>
             ) : (
-              <div className="w-full sm:w-44">
+              <div className="w-full sm:w-auto">
                 <select
                   value={statusFilter}
                   onChange={e => setStatusFilter(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all cursor-pointer font-semibold"
+                  className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
                   disabled={docTypeFilter === 'product_proposal'}
                 >
                   <option value="All">สถานะทั้งหมด</option>
@@ -499,7 +599,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
             )}
 
             {/* Date filter input (always visible!) */}
-            <div className="w-full sm:w-44 relative flex items-center">
+            <div className="w-full sm:w-auto relative flex items-center">
               <input
                 type={dateFilter ? 'date' : 'text'}
                 placeholder="เลือกวันที่..."
@@ -509,14 +609,14 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
                   if (!e.target.value) e.target.type = 'text';
                 }}
                 onChange={e => setDateFilter(e.target.value)}
-                className="w-full pl-3 pr-8 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all cursor-pointer font-bold"
+                className="pl-3 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
                 title="กรองตามวันที่ออกเอกสาร"
               />
               {dateFilter && (
                 <button
                   type="button"
                   onClick={() => setDateFilter('')}
-                  className="absolute right-7.5 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                  className="absolute right-3 text-zinc-400 hover:text-zinc-600 cursor-pointer"
                   title="ล้างตัวกรองวันที่"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -526,9 +626,10 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
             {currentUser?.role === 'admin' && adminListMode === 'all' && (
               <button
                 onClick={handleExportExcel}
-                className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                className="group relative overflow-hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
                 title="ส่งออกรายงาน Excel ตามตัวกรองปัจจุบัน"
               >
+                <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
                 <Download className="w-4 h-4" /> ส่งออก Excel
               </button>
             )}
@@ -538,72 +639,115 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
       {/* List */}
       {filtered.length === 0 ? (
-        <div className="text-center py-12 text-sm text-[#555557] font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
-          ไม่พบรายการใบเสนอราคา
+        <div className="text-center py-12 text-xs text-zinc-400 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+          ไม่พบรายการเอกสารเสนอราคา/สินค้า
         </div>
       ) : (
-        <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xs divide-y divide-[#e8e8ed] overflow-hidden">
-          {filtered.map((q) => (
-            <div
-              key={q.id}
-              onClick={() => onView(quotations.findIndex(x => x.id === q.id))}
-              className={`flex justify-between items-center px-5 py-4 cursor-pointer hover:bg-[#fafafa] transition-colors border-l-4 ${q.documentType === 'product_proposal' ? 'border-violet-500 bg-violet-50/5' : 'border-blue-500'
-                }`}
-            >
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-bold text-[#0071e3] font-mono">{q.quotationNumber || q.id}</span>
-                  {q.documentType === 'product_proposal' ? (
-                    <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-violet-50 text-violet-700 border border-violet-100 uppercase tracking-wide">
-                      📦 ใบเสนอสินค้า
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wide">
-                      📄 ใบเสนอราคา
-                    </span>
-                  )}
-                </div>
-                <div className="text-[11px] text-[#555557] mt-1.5">
-                  {q.documentType === 'product_proposal'
-                    ? 'เอกสารเสนอสินค้า (ไม่ระบุลูกค้า / บันทึกสำเร็จ)'
-                    : `${q.customer?.name} · ${q.customer?.companyName || 'ลูกค้าทั่วไป'}`}
-                </div>
-                <div className="text-[10px] text-[#aaa] mt-1">{q.issuedDate}</div>
-              </div>
-              <div className="text-right flex flex-col items-end gap-1.5">
-                <div className="text-xs font-bold text-[#1d1d1f]">฿{fmt(q.totalAmount)}</div>
-                <div className="flex items-center gap-2">
-                  {q.documentType === 'product_proposal' ? (
-                    <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-violet-50 text-violet-600 border-violet-200">
-                      ✓ พร้อมใช้งาน
-                    </span>
-                  ) : (
-                    <Badge status={q.status} />
-                  )}
-                  {(q.status !== 'approved' || q.documentType === 'product_proposal') && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete(q);
-                      }}
-                      className="p-1 text-red-400 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-100"
-                      title="ลบเอกสาร"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
+        <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xs overflow-hidden">
+          <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายการเอกสารเสนอราคา</h4>
+              <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+                {filtered.length.toLocaleString()} รายการ
+              </span>
             </div>
-          ))}
+          </div>
+          <div className="divide-y divide-[#e8e8ed]">
+            {filtered.map((q) => {
+              const indexInRaw = quotations.findIndex(x => x.id === q.id);
+              const isHovered = hoveredRow === q.id;
+              const borderStyle = q.documentType === 'product_proposal' ? 'border-violet-500' : 'border-[#0071e3]';
+              const bgClass = isHovered
+                ? (q.documentType === 'product_proposal' ? 'bg-gradient-to-r from-violet-500/5 via-violet-500/3 to-transparent' : 'bg-gradient-to-r from-[#0071e3]/4 via-[#0071e3]/3 to-transparent')
+                : (q.documentType === 'product_proposal' ? 'bg-violet-50/5' : 'bg-white');
+
+              return (
+                <div
+                  key={q.id}
+                  onClick={() => onView(indexInRaw)}
+                  onMouseEnter={() => setHoveredRow(q.id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  className={`flex justify-between items-center px-5 py-3.5 cursor-pointer transition-all duration-150 border-l-4 ${borderStyle} ${bgClass}`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-xs font-bold text-[#0071e3] font-mono">{q.quotationNumber || q.id}</span>
+                      {q.documentType === 'product_proposal' ? (
+                        <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-violet-50 text-violet-700 border border-violet-100 uppercase tracking-wide">
+                          📦 ใบเสนอสินค้า
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wide">
+                          📄 ใบเสนอราคา
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-[#555557] mt-1.5">
+                      {q.documentType === 'product_proposal'
+                        ? 'เอกสารเสนอสินค้า (ไม่ระบุลูกค้า / บันทึกสำเร็จ)'
+                        : `${q.customer?.name} · ${q.customer?.companyName || 'ลูกค้าทั่วไป'}`}
+                    </div>
+                    <div className="text-[10px] text-[#aaa] mt-1">{q.issuedDate}</div>
+                  </div>
+                  <div className="text-right flex flex-col items-end gap-1.5">
+                    <div className="text-xs font-bold text-[#1d1d1f]">฿{fmt(q.totalAmount)}</div>
+                    <div className="flex items-center gap-2">
+                      {q.documentType === 'product_proposal' ? (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-violet-50 text-violet-600 border-violet-200">
+                          ✓ พร้อมใช้งาน
+                        </span>
+                      ) : (
+                        <Badge status={q.status} />
+                      )}
+
+                      {(q.status !== 'approved' || q.documentType === 'product_proposal') && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(q);
+                          }}
+                          className="p-1 text-red-400 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-100"
+                          title="ลบเอกสาร"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
   );
 };
 
-// ── Create Tab ─────────────────────────────────────────────────────────────
-const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProposal }) => {
+const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProposal, quotations = [] }) => {
+  // Memoize unique customers list from past quotations
+  const existingCustomers = useMemo(() => {
+    const custMap = new Map();
+    quotations.forEach(q => {
+      if (q.customer && q.customer.name && q.customer.name.trim()) {
+        const key = `${q.customer.name.trim()}_${(q.customer.companyName || '').trim()}`;
+        if (!custMap.has(key)) {
+          custMap.set(key, {
+            name: q.customer.name.trim(),
+            companyName: (q.customer.companyName || '').trim(),
+            phone: (q.customer.phone || '').trim(),
+            taxId: (q.customer.taxId || '').trim(),
+            address: (q.customer.address || '').trim(),
+          });
+        }
+      }
+    });
+    return Array.from(custMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'th'));
+  }, [quotations]);
+
+  const [showCustModal, setShowCustModal] = useState(false);
+  const [selectedCustName, setSelectedCustName] = useState('');
+
   // If converting from a product proposal, lock to quotation mode
   const [docFormat, setDocFormat] = useState(
     sourceProposal ? 'quotation' : (editQt?.documentType || 'quotation')
@@ -647,7 +791,36 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
   const [showPicker, setShowPicker] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState(null);
 
-  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const setField = (k, v) => {
+    setForm(f => ({ ...f, [k]: v }));
+    if (['custName', 'custCompany', 'custPhone', 'custTax', 'custAddr'].includes(k)) {
+      setSelectedCustName('');
+    }
+  };
+
+  const handleSelectCustomer = (cust) => {
+    if (!cust) {
+      setSelectedCustName('');
+      setForm(f => ({
+        ...f,
+        custName: '',
+        custCompany: '',
+        custPhone: '',
+        custTax: '',
+        custAddr: '',
+      }));
+    } else {
+      setSelectedCustName(cust.name);
+      setForm(f => ({
+        ...f,
+        custName: cust.name,
+        custCompany: cust.companyName,
+        custPhone: cust.phone,
+        custTax: cust.taxId,
+        custAddr: cust.address,
+      }));
+    }
+  };
 
   const updateItem = (id, field, val) => {
     setItems(prev => prev.map(it => {
@@ -714,7 +887,8 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
       if (!items.some(it => it.productName.trim())) { setAlert({ type: 'error', msg: 'กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ' }); return; }
     }
 
-    const validItems = items.filter(it => it.productName.trim());
+    // Admin auto-approves; others submit as 'sent' (pending approval)
+    const effectiveStatus = (status === 'sent' && currentUser?.role === 'admin') ? 'approved' : status;
     onSave({
       id: editQt ? editQt.id : generateNewId(),
       quotationNumber: editQt ? editQt.quotationNumber : undefined,
@@ -736,11 +910,14 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
       subtotal: sub,
       vatAmount: docFormat === 'product_proposal' ? 0 : vat,
       totalAmount: docFormat === 'product_proposal' ? sub : total,
-      status,
+      status: effectiveStatus,
+      approvedBy: effectiveStatus === 'approved' ? (currentUser?.name || currentUser?.username || 'ไม่ระบุ') : undefined,
+      approvedDate: effectiveStatus === 'approved' ? new Date().toISOString() : undefined,
+      customerRevised: docFormat === 'product_proposal' ? false : (editQt?.customerRevised || false),
     });
     const successMsg = docFormat === 'product_proposal'
       ? 'บันทึกใบเสนอสินค้าเรียบร้อย!'
-      : (status === 'sent' ? 'ส่งใบเสนอราคาเรียบร้อย!' : 'บันทึกร่างเรียบร้อย!');
+      : (effectiveStatus === 'approved' ? 'อนุมัติและบันทึกใบเสนอราคาเรียบร้อย!' : effectiveStatus === 'sent' ? 'ส่งใบเสนอราคาเรียบร้อย!' : 'บันทึกร่างเรียบร้อย!');
     setAlert({ type: 'success', msg: successMsg });
     setTimeout(onCancel, 1200);
   };
@@ -795,8 +972,8 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
       {!sourceProposal && (
         <label
           className={`mb-6 flex items-center gap-4 rounded-2xl p-4 border cursor-pointer transition-all select-none ${docFormat === 'product_proposal'
-              ? 'bg-violet-50 border-violet-200'
-              : 'bg-white border-[#d2d2d7]/50'
+            ? 'bg-violet-50 border-violet-200'
+            : 'bg-white border-[#d2d2d7]/50'
             } shadow-xs`}
         >
           {/* Custom Checkbox */}
@@ -808,8 +985,8 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
               onChange={e => setDocFormat(e.target.checked ? 'product_proposal' : 'quotation')}
             />
             <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${docFormat === 'product_proposal'
-                ? 'bg-violet-600 border-violet-600'
-                : 'bg-white border-[#d2d2d7]'
+              ? 'bg-violet-600 border-violet-600'
+              : 'bg-white border-[#d2d2d7]'
               }`}>
               {docFormat === 'product_proposal' && (
                 <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
@@ -834,8 +1011,8 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
 
           {/* Right badge */}
           <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border flex-shrink-0 transition-all ${docFormat === 'product_proposal'
-              ? 'bg-violet-100 text-violet-700 border-violet-200'
-              : 'bg-[#f5f5f7] text-[#aaa] border-[#e8e8ed]'
+            ? 'bg-violet-100 text-violet-700 border-violet-200'
+            : 'bg-[#f5f5f7] text-[#aaa] border-[#e8e8ed]'
             }`}>
             {docFormat === 'product_proposal' ? '✓ ใบเสนอสินค้า' : 'ใบเสนอราคา'}
           </span>
@@ -849,10 +1026,45 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
           <div className="xl:col-span-1 space-y-6">
             {/* Customer info */}
             <div className={cardClass}>
-              <div className={titleClass}>
-                <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
-                ข้อมูลลูกค้า
+              <div className="flex items-center justify-between gap-2 mb-4 pb-3 border-b border-[#f5f5f7]">
+                <div className="flex items-center gap-2 text-sm font-bold text-[#1d1d1f]">
+                  <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
+                  ข้อมูลลูกค้า
+                </div>
+                {existingCustomers.length > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustModal(true)}
+                    className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-[#0071e3] border border-blue-200/80 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 shrink-0"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>เลือกจากลูกค้าเก่า ({existingCustomers.length})</span>
+                  </button>
+                ) : (
+                  <span className="text-[11px] text-[#888] font-medium bg-[#f5f5f7] px-2.5 py-1 rounded-lg border border-[#e8e8ed]">
+                    💡 ออกใบเสนอราคาเพื่อเริ่มสะสมประวัติ
+                  </span>
+                )}
               </div>
+
+              {selectedCustName && (
+                <div className="mb-4 px-3.5 py-2.5 bg-blue-50/80 border border-blue-200/80 rounded-xl flex items-center justify-between text-xs animate-fade-in">
+                  <div className="flex items-center gap-2 truncate">
+                    <UserCheck className="w-4 h-4 text-[#0071e3] shrink-0" />
+                    <span className="font-semibold text-[#1d1d1f] truncate">
+                      ดึงข้อมูลจาก: <span className="text-[#0071e3] font-bold">{selectedCustName}</span>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectCustomer(null)}
+                    className="text-[11px] text-red-500 hover:text-red-700 font-bold hover:underline cursor-pointer ml-2 shrink-0"
+                  >
+                    ล้างข้อมูล
+                  </button>
+                </div>
+              )}
+
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div><label className={labelClass}>ชื่อลูกค้า <span className="text-red-500">*</span></label><input className={inputClass} value={form.custName} onChange={e => setField('custName', e.target.value)} /></div>
@@ -891,6 +1103,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
                   </div>
                   <div><label className={labelClass}>หมายเหตุ (ถ้ามี)</label><input className={inputClass} value={form.note} onChange={e => setField('note', e.target.value)} /></div>
                 </div>
+
               </div>
             </div>
           </div>
@@ -909,7 +1122,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
                 onClick={() => setShowPicker(true)}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
               >
-                <Search className="w-3.5 h-3.5" /> เพิ่มข้อมูลสินค้าจากระบบ
+                <Plus className="w-3.5 h-3.5" /> เพิ่มข้อมูลสินค้าจากระบบ
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -1101,7 +1314,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
           </div>
 
           <div className="flex gap-2.5 flex-wrap">
-                        {docFormat === 'product_proposal' ? (
+            {docFormat === 'product_proposal' ? (
               // Product proposal — save + draft buttons
               <>
                 <button
@@ -1125,7 +1338,8 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
                   onClick={() => handleSave('sent')}
                   className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1"
                 >
-                  <Check className="w-3.5 h-3.5" /> บันทึก &amp; ส่ง
+                  <Check className="w-3.5 h-3.5" />
+                  {currentUser?.role === 'admin' ? 'บันทึก & อนุมัติ' : 'บันทึก & ส่ง'}
                 </button>
                 <button
                   onClick={() => handleSave('draft')}
@@ -1175,6 +1389,13 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
         cancelText={confirmConfig?.cancelText}
         type={confirmConfig?.type}
       />
+      {showCustModal && (
+        <CustomerPickerModal
+          customers={existingCustomers}
+          onSelect={handleSelectCustomer}
+          onClose={() => setShowCustModal(false)}
+        />
+      )}
     </div>
   );
 };
@@ -1226,6 +1447,7 @@ const PreviewTab = ({
             ) : (
               <Badge status={q.status} />
             )}
+
           </div>
           <div className="text-[11px] text-[#555557] mt-1 font-semibold">
             {q.customer?.name} {q.customer?.companyName ? `· ${q.customer.companyName}` : ''}
@@ -1378,14 +1600,14 @@ const PreviewTab = ({
         </div>
 
         {/* Items table layout */}
-        <div className="overflow-x-auto mt-6">
+        <div className="overflow-x-auto mt-6 rounded-2xl border border-[#d2d2d7]/50 bg-white">
           <table className="w-full text-xs border-collapse">
             <thead>
-              <tr className="bg-zinc-800 text-white">
+              <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
                 {['ลำดับ', 'รูปภาพ', 'รหัสสินค้า', 'รายการสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'ส่วนลด', 'รวม'].map((h, i) => (
                   <th
                     key={i}
-                    className={`p-3 font-bold text-[10px] tracking-wider uppercase ${i === 0 || i === 1 || i === 4 || i === 5 ? 'text-center' : (i === 2 || i === 3 ? 'text-left' : 'text-right')
+                    className={`p-2.5 sm:p-3.5 font-black text-[10px] tracking-widest uppercase ${i === 0 || i === 1 || i === 4 || i === 5 ? 'text-center' : (i === 2 || i === 3 ? 'text-left' : 'text-right')
                       }`}
                   >
                     {h}
@@ -1393,11 +1615,11 @@ const PreviewTab = ({
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e2e8f0]">
+            <tbody className="divide-y divide-[#f0f0f5]">
               {q.items?.map((it, idx) => (
-                <tr key={it.id || idx} className="hover:bg-[#fafafa]/50">
-                  <td className="p-3 text-center text-[#555557] font-medium">{idx + 1}</td>
-                  <td className="p-3 text-center">
+                <tr key={it.id || idx} className="hover:bg-[#fafafa]/80 transition-colors">
+                  <td className="p-2 sm:p-3.5 text-center text-[#86868b] font-mono text-[10px]">{idx + 1}</td>
+                  <td className="p-2 sm:p-3.5 text-center">
                     {it.productImage ? (
                       <img
                         src={it.productImage}
@@ -1409,18 +1631,24 @@ const PreviewTab = ({
                       <span className="text-[#ccc]">—</span>
                     )}
                   </td>
-                  <td className="p-3 text-left font-semibold text-zinc-600 text-[11px] uppercase tracking-wider">{it.productCode || '—'}</td>
-                  <td className="p-3 text-left">
-                    <div className="font-semibold text-black">{it.productName}</div>
-                    {it.description && <div className="text-[10px] text-[#555557] mt-1 leading-relaxed">{it.description}</div>}
+                  <td className="p-2 sm:p-3.5 text-left font-mono font-bold text-zinc-700 text-[10px] sm:text-xs">
+                    {it.productCode ? (
+                      <span className="bg-[#f5f5f7] px-1.5 py-0.5 rounded-md">
+                        {it.productCode}
+                      </span>
+                    ) : '—'}
                   </td>
-                  <td className="p-3 text-center font-semibold text-black">{it.quantity}</td>
-                  <td className="p-3 text-center text-[#555557]">{it.unit}</td>
-                  <td className="p-3 text-right text-black font-medium">{fmt(it.unitPrice)}</td>
-                  <td className="p-3 text-right text-red-500 font-medium font-semibold">
+                  <td className="p-2 sm:p-3.5 text-left">
+                    <div className="font-semibold text-black leading-snug">{it.productName}</div>
+                    {it.description && <div className="text-[10px] text-[#86868b] mt-1 leading-relaxed">{it.description}</div>}
+                  </td>
+                  <td className="p-2 sm:p-3.5 text-center font-semibold text-black">{it.quantity}</td>
+                  <td className="p-2 sm:p-3.5 text-center text-[#555557] font-medium">{it.unit}</td>
+                  <td className="p-2 sm:p-3.5 text-right text-zinc-700 font-semibold">{fmt(it.unitPrice)}</td>
+                  <td className="p-2 sm:p-3.5 text-right text-red-500 font-semibold">
                     {it.discount > 0 ? (it.discountType === 'percent' ? it.discount + '%' : fmt(it.discount)) : '0'}
                   </td>
-                  <td className="p-3 text-right font-bold text-black">{fmt(it.lineTotal)}</td>
+                  <td className="p-2 sm:p-3.5 text-right font-black text-black">{fmt(it.lineTotal)}</td>
                 </tr>
               ))}
             </tbody>
@@ -1467,7 +1695,6 @@ export default function QuotationManage({
   onSaveQuotation,
   onDeleteQuotation,
   addActivityLog,
-  onClearAllQuotations = () => { },
 }) {
   const [tab, setTab] = useState('list'); // 'list' | 'create' | 'preview'
   const [previewIndex, setPreviewIndex] = useState(null);
@@ -1475,6 +1702,8 @@ export default function QuotationManage({
   const [convertProposal, setConvertProposal] = useState(null); // proposal being converted to quotation
   const [printQt, setPrintQt] = useState(null);
   const [autoPrint, setAutoPrint] = useState(false);
+  const [autoOpenPDF, setAutoOpenPDF] = useState(false);
+  const [openedWindow, setOpenedWindow] = useState(null);
   const [toast, setToast] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [confirmConfig, setConfirmConfig] = useState(null);
@@ -1483,6 +1712,7 @@ export default function QuotationManage({
   const [autoDownloadAndEmail, setAutoDownloadAndEmail] = useState(false);
 
 
+  /*
   const handleClearAll = () => {
     setConfirmConfig({
       title: 'ลบเอกสารทั้งหมด?',
@@ -1497,6 +1727,7 @@ export default function QuotationManage({
       }
     });
   };
+  */
 
   // Filter quotations based on user role to prevent mixing documents
   const userFilteredQuotations = useMemo(() => {
@@ -1588,23 +1819,7 @@ export default function QuotationManage({
     }
   };
 
-    // Render Print overlay if active
-  if (printQt) {
-    return (
-      <QuotationPrint
-        quotation={printQt}
-        companyInfo={companyInfo}
-        onClose={() => {
-          setPrintQt(null);
-          setAutoPrint(false);
-          setAutoDownloadAndEmail(false);
-        }}
-        autoPrint={autoPrint}
-        autoDownloadAndEmail={autoDownloadAndEmail}
-        addActivityLog={addActivityLog}
-      />
-    );
-  }
+  // QuotationPrint is rendered hidden so it can generate PDF without blanking the page
 
   const selectedQt = previewIndex !== null && enrichedQuotations[previewIndex] ? enrichedQuotations[previewIndex] : null;
   const headerTitle = (tab === 'preview' && selectedQt?.documentType === 'product_proposal') ? 'ใบเสนอสินค้า' : 'ใบเสนอราคา';
@@ -1616,6 +1831,10 @@ export default function QuotationManage({
         {/* Dedicated Header for Create/Edit */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#e2e8f0] pb-4 mb-4 gap-3">
           <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">QUOTATION EDITOR</span>
+            </div>
             <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">
               {convertProposal
                 ? '🔁 สร้างใบเสนอราคาจากใบเสนอสินค้า'
@@ -1637,6 +1856,7 @@ export default function QuotationManage({
           editQt={editQt}
           currentUser={currentUser}
           sourceProposal={convertProposal}
+          quotations={quotations}
         />
       </div>
     );
@@ -1674,18 +1894,26 @@ export default function QuotationManage({
           {tab === 'preview' && (
             <button
               onClick={() => setTab('list')}
-              className="mr-1.5 px-3 py-1.5 bg-white border border-[#d2d2d7]/50 hover:bg-[#f5f5f7] text-[#1d1d1f] text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1"
+              className="mr-1.5 group relative overflow-hidden px-3 py-1.5 bg-white border border-[#d2d2d7]/50 hover:bg-[#f5f5f7] text-[#1d1d1f] text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1 cursor-pointer"
             >
+              <span className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               ← กลับหน้ารายการ
             </button>
           )}
-          <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">{headerTitle}</h1>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">QUOTATION MANAGEMENT</span>
+            </div>
+            <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">{headerTitle}</h1>
+          </div>
         </div>
         <div className="flex flex-wrap gap-2.5 items-center self-start sm:self-auto">
           <button
             onClick={handleCreate}
-            className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
           >
+            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
             <Plus className="w-4 h-4" />
             สร้างใบเสนอราคา
           </button>
@@ -1714,6 +1942,10 @@ export default function QuotationManage({
               setIsDownloadGuideOpen(true);
               return;
             }
+            // เปิดแท็บใหม่ทันทีโดยใช้ไฟล์ตัวแสดง PDF เพื่อหลีกเลี่ยงป๊อปอัปบล็อก
+            const newWindow = window.open('/pdf-viewer.html', '_blank');
+            setOpenedWindow(newWindow);
+            setAutoOpenPDF(true);
             setPrintQt(q);
           }}
           onEdit={handleEdit}
@@ -1765,6 +1997,28 @@ export default function QuotationManage({
         isOpen={isDownloadGuideOpen}
         onClose={() => setIsDownloadGuideOpen(false)}
       />
+
+      {/* QuotationPrint rendered hidden — generates PDF in background without blanking the page */}
+      {printQt && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: 0, height: 0, overflow: 'hidden', visibility: 'hidden', pointerEvents: 'none', zIndex: -1 }}>
+          <QuotationPrint
+            quotation={printQt}
+            companyInfo={companyInfo}
+            onClose={() => {
+              setPrintQt(null);
+              setAutoPrint(false);
+              setAutoDownloadAndEmail(false);
+              setAutoOpenPDF(false);
+              setOpenedWindow(null);
+            }}
+            autoPrint={autoPrint}
+            autoDownloadAndEmail={autoDownloadAndEmail}
+            autoOpenInNewTab={autoOpenPDF}
+            openedWindow={openedWindow}
+            addActivityLog={addActivityLog}
+          />
+        </div>
+      )}
     </div>
   );
 }

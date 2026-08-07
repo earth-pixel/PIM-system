@@ -30,7 +30,7 @@ export const TIKTOK_MANDATORY_COLUMNS = [
   { code: 'parcel_width', label: 'ความกว้างของพัสดุ(cm)', width: 18, numFmt: '0.##', value: (p) => (p.packageWidth ? Number(p.packageWidth) : '') },
   { code: 'parcel_height', label: 'ความสูงของพัสดุ(cm)', width: 18, numFmt: '0.##', value: (p) => (p.packageHeight ? Number(p.packageHeight) : '') },
   { code: 'price', label: 'ราคาขายปลีก (สกุลเงินท้องถิ่น)', width: 24, numFmt: '#,##0.00', value: (p) => Number(p.retailPrice) || 0 },
-  { code: 'quantity', label: 'ปริมาณ', width: 12, numFmt: '0', value: () => 0 },
+  { code: 'quantity', label: 'สต็อกสินค้า', width: 12, numFmt: '0', value: () => 0 },
 ];
 
 function buildDescription(p) {
@@ -159,7 +159,13 @@ export async function exportToTiktokMandatory(products = [], options = {}) {
       setVal('main_image', p.image || '');
       setVal('parcel_weight', Math.round(parseWeightToKg(p.weight) * 1000) || 100);
       setVal('price', Number(p.retailPrice) || 0);
-      setVal('quantity', 0);
+      let stockVal = 0;
+      if (options.stockMap && options.stockMap[p.id] !== undefined) {
+        stockVal = Number(options.stockMap[p.id]) || 0;
+      } else if (options.stock !== undefined) {
+        stockVal = Number(options.stock) || 0;
+      }
+      setVal('quantity', stockVal);
       setVal('category', p.category || '');
       
       row.commit();
@@ -174,6 +180,10 @@ export async function exportToTiktokMandatory(products = [], options = {}) {
   const row3 = sheet.getRow(3);
   row3.height = 30;
   row3.hidden = false;
+  
+  if (colMap['quantity']) {
+    row3.getCell(colMap['quantity']).value = 'สต็อกสินค้า';
+  }
   
   for (let c = 1; c <= colCount; c++) {
     const cell = row3.getCell(c);

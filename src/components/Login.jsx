@@ -119,7 +119,7 @@ export default function Login({ onLogin, users }) {
             {/* Login Form */}
             <form onSubmit={handleSubmit} className="space-y-4">
               {errorMsg && (
-                <div className="p-3 text-xs bg-red-55/10 text-red-650 border border-red-500/20 rounded-xl flex items-center gap-2 animate-fade-in">
+                <div className="p-3 text-xs bg-red-50/80 text-red-650 border border-red-500/20 rounded-xl flex items-center gap-2 animate-fade-in">
                   <AlertCircle className="w-4.5 h-4.5 shrink-0 text-red-500" />
                   <span className="font-semibold">{errorMsg}</span>
                 </div>
@@ -191,7 +191,7 @@ export default function Login({ onLogin, users }) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer hover:shadow-md active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none flex items-center justify-center gap-2"
+                className="w-full py-3 bg-gradient-to-r from-blue-600 to-[#0071e3] hover:from-blue-700 hover:to-[#0077ed] text-white rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer hover:shadow-[0_8px_20px_rgba(0, 113, 227,0.25)] active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none flex items-center justify-center gap-2 shadow-sm"
               >
                 {isLoading ? (
                   <>

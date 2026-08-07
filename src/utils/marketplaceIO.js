@@ -443,24 +443,5 @@ export async function autoDetectPlatformAndImport(file) {
     return { platform: 'lazada', products };
   }
 
-  // Fallback scan
-  for (const plat of ['shopee', 'tiktok', 'lazada']) {
-    try {
-      let products = [];
-      if (plat === 'shopee') {
-        products = await importFromShopee(file);
-      } else if (plat === 'tiktok') {
-        products = await importFromTiktok(file);
-      } else {
-        products = await importFromLazada(file);
-      }
-      if (products && products.length > 0) {
-        return { platform: plat, products };
-      }
-    } catch {
-      // ignore
-    }
-  }
-
   throw new Error('ไม่สามารถตรวจสอบและระบุแพลตฟอร์มจากโครงสร้างไฟล์นี้ได้ กรุณาอัปโหลดไฟล์เทมเพลตที่ถูกต้อง');
 }

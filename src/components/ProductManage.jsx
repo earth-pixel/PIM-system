@@ -624,8 +624,22 @@ export default function ProductManage({
   const [showExportPreviewModal, setShowExportPreviewModal] = useState(false);
   const [previewPlatform, setPreviewPlatform] = useState('shopee'); // 'shopee' | 'lazada' | 'tiktok'
   const [previewLazadaCategory, setPreviewLazadaCategory] = useState('ผลิตภัณฑ์จัดแต่งทรงผม');
+  // Image zoom/preview state
+  const [zoomedImage, setZoomedImage] = useState(null);
 
-
+  useEffect(() => {
+    const handleEscape = (e) => {
+      if (e.key === 'Escape') {
+        setZoomedImage(null);
+      }
+    };
+    if (zoomedImage) {
+      window.addEventListener('keydown', handleEscape);
+    }
+    return () => {
+      window.removeEventListener('keydown', handleEscape);
+    };
+  }, [zoomedImage]);
 
   useEffect(() => {
     if (drawerProduct) {
@@ -1056,14 +1070,27 @@ export default function ProductManage({
             <div className="flex-1 overflow-y-auto p-6 space-y-4">
               <div className="space-y-4">
                 {/* Instructions */}
-                <div className="p-3.5 bg-zinc-50 border border-zinc-200/80 rounded-2xl space-y-1.5">
-                  <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider block">💡 วิธีนำเข้าข้อมูลจาก Excel:</span>
-                  <ol className="text-[10px] text-zinc-500 list-decimal list-inside space-y-1">
-                    <li>เลือกไฟล์ Excel (.xlsx) ที่ต้องการนำเข้าด้านล่างนี้</li>
-                    <li>ระบบจะวิเคราะห์หัวตารางและจับคู่คอลัมน์ให้อัตโนมัติตามโครงสร้างแบบฟอร์มสินค้า</li>
-                    <li>ตรวจสอบความถูกต้องในตารางตัวอย่างด้านล่างก่อนยืนยันนำเข้า</li>
-                  </ol>
+                <div className="p-3.5 bg-zinc-50 border border-zinc-200/80 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <span className="text-[10px] font-bold text-zinc-700 uppercase tracking-wider block">💡 วิธีนำเข้าข้อมูลจาก Excel:</span>
+                    <ol className="text-[10px] text-zinc-500 list-decimal list-inside space-y-1">
+                      <li>เลือกไฟล์ Excel (.xlsx) ที่ต้องการนำเข้าด้านล่างนี้</li>
+                      <li>ระบบจะวิเคราะห์หัวตารางและจับคู่คอลัมน์ให้อัตโนมัติตามโครงสร้างแบบฟอร์มสินค้า</li>
+                      <li>ตรวจสอบความถูกต้องในตารางตัวอย่างด้านล่างก่อนยืนยันนำเข้า</li>
+                    </ol>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <a
+                      href="/แพลตฟอร์มนำเข้าสินค้า.xlsx"
+                      download
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white hover:bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl transition-all cursor-pointer font-bold text-[#1d1d1f] hover:text-[#0071e3] shadow-xs text-[11px] h-fit"
+                    >
+                      <Download className="w-3.5 h-3.5 text-[#0071e3]" />
+                      <span>ดาวน์โหลดเทมเพลตนำเข้าสินค้า</span>
+                    </a>
+                  </div>
                 </div>
+
 
                 {/* File Upload Input */}
                 <div className="space-y-2">
@@ -1228,7 +1255,7 @@ export default function ProductManage({
                 }}
                 className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                นำเข้าสินค้าเข้าสู่คลัง
+                ยืนยันการนำเข้าสินค้า
               </button>
             </div>
           </div>
@@ -1455,9 +1482,13 @@ export default function ProductManage({
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">จัดการข้อมูลสินค้า</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">PRODUCT MANAGEMENT</span>
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">จัดการข้อมูลสินค้า</h1>
         </div>
-        <div className="flex flex-wrap gap-2.5 self-start sm:self-auto">
+        <div className="flex flex-wrap gap-2.5 items-center self-start sm:self-auto">
           {/* Import Button */}
           <button
             type="button"
@@ -1466,8 +1497,9 @@ export default function ProductManage({
               setImportError('');
               setShowImportModal(true);
             }}
-            className="px-4 py-2.5 bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border border-[#d2d2d7] text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="group relative overflow-hidden px-4 py-2.5 bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border border-[#d2d2d7] text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
           >
+            <span className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
             <Upload className="w-4 h-4" />
             นำเข้าสินค้า
           </button>
@@ -1477,9 +1509,10 @@ export default function ProductManage({
             <button
               type="button"
               onClick={() => setShowClearAllConfirm(true)}
-              className="px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="group relative overflow-hidden px-4 py-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
               title="ลบข้อมูลสินค้าทั้งหมดออกจากคลังสินค้า"
             >
+              <span className="absolute inset-0 bg-rose-500/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <Trash2 className="w-4 h-4 text-rose-500" />
               ลบสินค้าทั้งหมด
             </button>
@@ -1490,8 +1523,9 @@ export default function ProductManage({
             <button
               type="button"
               onClick={() => setShowExportDropdown(!showExportDropdown)}
-              className="px-4 py-2.5 bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border border-[#d2d2d7] text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              className="group relative overflow-hidden px-4 py-2.5 bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border border-[#d2d2d7] text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
             >
+              <span className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
               <Download className="w-4 h-4" />
               นำออกสินค้า
               <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
@@ -1567,8 +1601,9 @@ export default function ProductManage({
               resetForm();
               setShowForm(true);
             }}
-            className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+            className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
           >
+            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
             <Plus className="w-4 h-4" />
             เพิ่มสินค้าใหม่
           </button>
@@ -1576,67 +1611,68 @@ export default function ProductManage({
       </div>
 
       {/* Filters Panel */}
-      <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs space-y-4 no-print">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3.5">
-          <div className="relative md:col-span-6">
-            <Search className="w-4.5 h-4.5 text-[#555557] absolute left-3 top-3" />
+      <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+        <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[180px] md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
             <input
               type="text"
               placeholder="ค้นหาชื่อสินค้า รหัสสินค้า รายละเอียด..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all placeholder-[#555557]"
+              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400"
             />
           </div>
 
-          <div className="md:col-span-2">
-            <select
-              value={selectedBrand}
-              onChange={(e) => setSelectedBrand(e.target.value)}
-              className="w-full px-3 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
-            >
-              <option value="All">ทุกแบรนด์สินค้า</option>
-              {brands.map(brand => (
-                <option key={brand} value={brand}>{brand}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedBrand}
+            onChange={(e) => setSelectedBrand(e.target.value)}
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+          >
+            <option value="All">ทุกแบรนด์สินค้า</option>
+            {brands.map(brand => (
+              <option key={brand} value={brand}>{brand}</option>
+            ))}
+          </select>
 
-          <div className="md:col-span-2">
-            <select
-              value={selectedCategory}
-              onChange={(e) => setSelectedCategory(e.target.value)}
-              className="w-full px-3 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
-            >
-              <option value="All">ทุกหมวดหมู่</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+          >
+            <option value="All">ทุกหมวดหมู่</option>
+            {categories.map(cat => (
+              <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
 
-          <div className="md:col-span-2">
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="w-full px-3 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
-            >
-              <option value="All">สถานะทั้งหมด</option>
-              <option value="Active">เปิดใช้งาน (Active)</option>
-              <option value="Inactive">ปิดใช้งาน (Inactive)</option>
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center justify-between border-t border-[#f5f5f7] pt-4 text-xs text-[#555557] uppercase tracking-wider font-semibold">
-          <span>พบสินค้าตรงตามเงื่อนไข <strong className="text-black font-bold">{filteredProducts.length}</strong> รายการ</span>
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+          >
+            <option value="All">สถานะทั้งหมด</option>
+            <option value="Active">เปิดใช้งาน (Active)</option>
+            <option value="Inactive">ปิดใช้งาน (Inactive)</option>
+          </select>
         </div>
       </div>
 
       {/* Table/Grid Container */}
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden max-w-full">
-        <div className="px-5 py-4 border-b border-[#e8e8ed] flex items-center justify-between">
-          <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase">รายชื่อสินค้าทั้งหมด</h4>
+        <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายชื่อสินค้าทั้งหมด</h4>
+            <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+              {filteredProducts.length.toLocaleString()} รายการ
+            </span>
+          </div>
 
           {/* View Mode Switcher */}
           <div className="flex bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/40 text-zinc-550 items-center no-print">
@@ -1688,21 +1724,21 @@ export default function ProductManage({
           >
             <table className="w-full text-left border-collapse text-xs table-fixed min-w-[960px]">
               <thead>
-                <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7]/50 uppercase tracking-wider text-[11px]">
-                  <th className="px-2 py-2.5 w-12 text-center">ลำดับ</th>
-                  <th className="px-2 py-2.5 w-12 text-center">รูปภาพ</th>
-                  <th className="px-2 py-2.5 w-20">รหัสสินค้า</th>
-                  <th className="px-2 py-2.5 w-28">รหัสบาร์โค้ด</th>
-                  <th className="px-2 py-2.5">ชื่อสินค้า</th>
-                  <th className="px-2 py-2.5 w-24">แบรนด์</th>
-                  <th className="px-2 py-2.5 w-24">หมวดหมู่</th>
-                  <th className="px-2 py-2.5 text-right w-20">ราคาส่ง</th>
-                  <th className="px-2 py-2.5 text-right w-20">ราคาปลีก</th>
-                  <th className="px-2 py-2.5 text-center w-20">สถานะ</th>
-                  <th className="px-2 py-2.5 text-center w-24 no-print">การจัดการ</th>
+                <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
+                  <th className="p-2 sm:p-3.5 w-12 text-center">ลำดับ</th>
+                  <th className="p-2 sm:p-3.5 w-12 text-center">รูปภาพ</th>
+                  <th className="p-2 sm:p-3.5 w-20">รหัสสินค้า</th>
+                  <th className="p-2 sm:p-3.5 w-28">รหัสบาร์โค้ด</th>
+                  <th className="p-2 sm:p-3.5">ชื่อสินค้า</th>
+                  <th className="p-2 sm:p-3.5 w-24">แบรนด์</th>
+                  <th className="p-2 sm:p-3.5 w-24">หมวดหมู่</th>
+                  <th className="p-2 sm:p-3.5 text-right w-20">ราคาส่ง</th>
+                  <th className="p-2 sm:p-3.5 text-right w-20">ราคาปลีก</th>
+                  <th className="p-2 sm:p-3.5 text-center w-20">สถานะ</th>
+                  <th className="p-2 sm:p-3.5 text-center w-24 no-print">การจัดการ</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#f5f5f7]">
+              <tbody className="divide-y divide-[#f0f0f5]">
                 {filteredProducts.length === 0 ? (
                   <tr>
                     <td colSpan="11" className="p-16 text-center">
@@ -1722,7 +1758,16 @@ export default function ProductManage({
                         {idx + 1}
                       </td>
                       <td className="px-2 py-2 w-12">
-                        <div className="w-8 h-8 rounded-lg overflow-hidden bg-[#f5f5f7] border border-[#d2d2d7]/30 flex-shrink-0 mx-auto flex items-center justify-center">
+                        <div 
+                          className="w-8 h-8 rounded-lg overflow-hidden bg-[#f5f5f7] border border-[#d2d2d7]/30 flex-shrink-0 mx-auto flex items-center justify-center cursor-pointer hover:opacity-85 transition-opacity"
+                          title="คลิกเพื่อดูรูปขนาดเต็ม"
+                          onClick={() => {
+                            const imgSrc = (!product.image || product.image === '-') 
+                              ? 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60' 
+                              : product.image;
+                            setZoomedImage(imgSrc);
+                          }}
+                        >
                           <img 
                             src={(!product.image || product.image === '-') ? 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60' : product.image} 
                             alt={product.name} 
@@ -1826,16 +1871,28 @@ export default function ProductManage({
                       )}
 
                       {/* Apple-style hover actions overlay */}
-                      <div className="absolute inset-0 bg-[#1d1d1f]/5 border border-black/5 opacity-0 group-hover/img:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2">
+                      <div 
+                        onClick={() => {
+                          const imgSrc = (!product.image || product.image === '-') 
+                            ? 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60' 
+                            : product.image;
+                          setZoomedImage(imgSrc);
+                        }}
+                        className="absolute inset-0 bg-[#1d1d1f]/5 border border-black/5 opacity-0 group-hover/img:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 cursor-pointer"
+                        title="คลิกเพื่อดูรูปขนาดเต็ม"
+                      >
                         <button
                           type="button"
-                          onClick={() => setDrawerProduct(product)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDrawerProduct(product);
+                          }}
                           className="px-4 py-1.5 bg-white text-[10.5px] font-bold text-black rounded-full shadow-xs hover:bg-[#f5f5f7] active:scale-95 transition-all cursor-pointer"
                         >
                           ดูรายละเอียด
                         </button>
 
-                        <div className="flex gap-1.5 mt-0.5 no-print">
+                        <div className="flex gap-1.5 mt-0.5 no-print" onClick={(e) => e.stopPropagation()}>
                           <button
                             type="button"
                             onClick={() => {
@@ -2406,14 +2463,20 @@ export default function ProductManage({
                     >
                       {image ? (
                         <>
-                          <img src={image} alt="Preview" className="max-w-full max-h-full object-contain" />
+                          <img 
+                            src={image} 
+                            alt="Preview" 
+                            className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-95 transition-opacity" 
+                            title="คลิกเพื่อดูรูปขนาดเต็ม"
+                            onClick={() => setZoomedImage(image)}
+                          />
                           <button
                             type="button"
                             onClick={() => {
                               setImage('');
                               setFormErrors(prev => ({ ...prev, image: true }));
                             }}
-                            className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black text-white rounded-full transition-colors cursor-pointer"
+                            className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black text-white rounded-full transition-colors cursor-pointer z-10"
                           >
                             <X className="w-3.5 h-3.5" />
                           </button>
@@ -2593,7 +2656,9 @@ export default function ProductManage({
                   <img
                     src={drawerProduct.image}
                     alt={drawerProduct.name}
-                    className="max-w-full max-h-full object-contain"
+                    className="max-w-full max-h-full object-contain cursor-pointer hover:opacity-90 transition-opacity"
+                    title="คลิกเพื่อดูรูปขนาดเต็ม"
+                    onClick={() => setZoomedImage(drawerProduct.image)}
                   />
                 )}
               </div>
@@ -2774,6 +2839,36 @@ export default function ProductManage({
             <div className="text-[10px] text-zinc-400 text-center font-medium">
               กด <kbd className="px-1.5 py-0.5 bg-zinc-100 border rounded-md text-zinc-500 font-mono">Enter</kbd> เพื่อนำไปเลือก หรือ คลิกนอกหน้าต่างเพื่อยกเลิก
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Image Preview Modal (Click-to-Zoom) */}
+      {zoomedImage && createPortal(
+        <div 
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-md transition-opacity duration-300 no-print animate-fade-in"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div className="absolute top-4 right-4 z-[10000]">
+            <button
+              type="button"
+              onClick={() => setZoomedImage(null)}
+              className="p-2.5 bg-white/10 hover:bg-white/20 active:scale-95 text-white rounded-full transition-all cursor-pointer border border-white/10 shadow-lg"
+              title="ปิด"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div 
+            className="relative max-w-[90vw] max-h-[85vh] flex items-center justify-center p-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img
+              src={zoomedImage}
+              alt="Zoomed Product"
+              className="max-w-full max-h-[85vh] object-contain rounded-xl shadow-2xl border border-white/15 animate-scale-in"
+            />
           </div>
         </div>,
         document.body

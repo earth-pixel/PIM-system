@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { UserPlus, Shield, Lock, Plus, Check, AlertCircle, Search } from 'lucide-react';
 
@@ -17,6 +17,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('All');
+  const [hoveredRow, setHoveredRow] = useState(null);
 
   const isOnlyAdmin = editingUser && editingUser.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
 
@@ -188,30 +189,39 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">จัดการผู้ใช้งานระบบ</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">USER MANAGEMENT</span>
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">จัดการผู้ใช้งานระบบ</h1>
         </div>
         <button
           type="button"
           onClick={handleStartCreate}
-          className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
+          className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 self-start sm:self-auto cursor-pointer"
         >
+          <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
           <Plus className="w-4 h-4" />
           ลงทะเบียนผู้ใช้ใหม่
         </button>
       </div>
 
       {/* Filters Panel */}
-      <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
-        <div className="flex flex-col sm:flex-row gap-3.5">
+      <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
+          </div>
           {/* Search Input */}
           <div className="relative flex-1">
-            <Search className="w-4.5 h-4.5 text-[#555557] absolute left-3 top-3" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
             <input
               type="text"
               placeholder="ค้นหาชื่อผู้ใช้ หรือ ชื่อ-นามสกุล..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all placeholder-[#555557]"
+              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400"
             />
           </div>
 
@@ -220,7 +230,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
+              className="w-full px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium"
             >
               <option value="All">สิทธิ์ทั้งหมด (All)</option>
               <option value="admin">Admin</option>
@@ -233,42 +243,60 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
       {/* Table Container */}
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#e8e8ed]">
-          <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase">บัญชีผู้ใช้งานที่อนุมัติแล้ว</h4>
+        <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">บัญชีผู้ใช้งานที่อนุมัติแล้ว</h4>
+            <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+              {filteredUsers.length.toLocaleString()} บัญชี
+            </span>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-sm">
             <thead>
-              <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7]/50 uppercase tracking-wider text-xs">
-                <th className="p-4">Username</th>
-                <th className="p-4">ชื่อ-นามสกุลพนักงาน</th>
-                <th className="p-4">สิทธิ์เข้าถึง</th>
-                <th className="p-4">วันที่เปิดบัญชี</th>
-                <th className="p-4 text-center w-28">การจัดการ</th>
+              <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
+                <th className="p-2 sm:p-3.5">Username</th>
+                <th className="p-2 sm:p-3.5">ชื่อ-นามสกุลพนักงาน</th>
+                <th className="p-2 sm:p-3.5">สิทธิ์เข้าถึง</th>
+                <th className="p-2 sm:p-3.5">วันที่เปิดบัญชี</th>
+                <th className="p-2 sm:p-3.5 text-center w-28">การจัดการ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e8e8ed]">
+            <tbody className="divide-y divide-[#f0f0f5]">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-12 text-center text-[#555557] text-xs">
+                  <td colSpan="5" className="p-16 text-center text-zinc-400 text-xs">
                     ไม่พบผู้ใช้งานตามเงื่อนไขที่เลือก
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((u) => (
-                  <tr key={u.username} className="hover:bg-[#f5f5f7]/30 transition-colors">
-                    <td className="p-4 font-mono font-bold text-[#1d1d1f]">{u.username}</td>
-                    <td className="p-4 font-medium text-[#1d1d1f]">{u.name}</td>
-                    <td className="p-4">{getRoleBadge(u.role)}</td>
-                    <td className="p-4 text-[#555557] font-mono text-xs">{u.createdAt}</td>
-                    <td className="p-4 text-center">
+                filteredUsers.map((u, idx) => (
+                  <tr
+                    key={u.username}
+                    onMouseEnter={() => setHoveredRow(u.username)}
+                    onMouseLeave={() => setHoveredRow(null)}
+                    className={`transition-all duration-150 ${
+                      hoveredRow === u.username
+                        ? 'bg-gradient-to-r from-[#0071e3]/4 via-[#0071e3]/3 to-transparent'
+                        : idx % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]/50'
+                    }`}
+                  >
+                    <td className="p-2 sm:p-3.5 font-mono font-bold text-[#1d1d1f] text-[10px] sm:text-xs">
+                      <span className="bg-[#f5f5f7] px-1.5 py-0.5 rounded-md">
+                        {u.username}
+                      </span>
+                    </td>
+                    <td className="p-2 sm:p-3.5 font-semibold text-[#1d1d1f] leading-snug">{u.name}</td>
+                    <td className="p-2 sm:p-3.5">{getRoleBadge(u.role)}</td>
+                    <td className="p-2 sm:p-3.5 text-[#555557] font-mono text-xs">{u.createdAt}</td>
+                    <td className="p-2 sm:p-3.5 text-center">
                       <div className="flex justify-center gap-1.5">
                         {canEdit(u) && (
                           <button
                             type="button"
                             onClick={() => handleStartEdit(u)}
-                            className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            className="p-1.5 text-[#0071e3] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                             title="แก้ไขผู้ใช้งาน"
                           >
                             <i className="bi bi-pencil-square text-base"></i>

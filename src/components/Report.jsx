@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Printer, Download, Search, X } from 'lucide-react';
+import { Printer, Download, Search, X, ToggleRight, Package, ToggleLeft } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
 export default function Report({ products, brands, categories, addActivityLog }) {
@@ -8,6 +8,7 @@ export default function Report({ products, brands, categories, addActivityLog })
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isExporting, setIsExporting] = useState(false);
+  const [hoveredRow, setHoveredRow] = useState(null);
 
   const filteredProducts = products.filter(product => {
     const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
@@ -22,6 +23,7 @@ export default function Report({ products, brands, categories, addActivityLog })
 
   const activeCount = filteredProducts.filter(p => p.status === 'Active').length;
   const inactiveCount = filteredProducts.filter(p => p.status !== 'Active').length;
+  const activePercent = filteredProducts.length > 0 ? Math.round((activeCount / filteredProducts.length) * 100) : 0;
 
   const handlePrint = () => {
     window.print();
@@ -47,13 +49,8 @@ export default function Report({ products, brands, categories, addActivityLog })
     try {
       const response = await fetch('/api/store-download', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          data: base64Data,
-          filename: filename
-        })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: base64Data, filename: filename })
       });
       if (!response.ok) throw new Error('Failed to store download on server');
       const res = await response.json();
@@ -73,7 +70,6 @@ export default function Report({ products, brands, categories, addActivityLog })
     const byteArray = new Uint8Array(byteNumbers);
     const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
-    
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
@@ -81,11 +77,8 @@ export default function Report({ products, brands, categories, addActivityLog })
     link.style.top = '-9999px';
     document.body.appendChild(link);
     link.click();
-
     setTimeout(() => {
-      if (document.body.contains(link)) {
-        document.body.removeChild(link);
-      }
+      if (document.body.contains(link)) document.body.removeChild(link);
       URL.revokeObjectURL(url);
     }, 10000);
   };
@@ -94,31 +87,15 @@ export default function Report({ products, brands, categories, addActivityLog })
     try {
       const data = [headers, ...rows];
       const worksheet = XLSX.utils.aoa_to_sheet(data);
-
       worksheet['!cols'] = [
-        { wch: 20 }, // SKU
-        { wch: 20 }, // Barcode
-        { wch: 40 }, // Product Name
-        { wch: 20 }, // Brand
-        { wch: 20 }, // Category
-        { wch: 18 }, // Wholesale Price
-        { wch: 18 }, // Retail Price
-        { wch: 15 }, // Cap Fee
-        { wch: 15 }, // Size
-        { wch: 15 }, // Weight
-        { wch: 20 }, // FDA
-        { wch: 20 }, // TISI
-        { wch: 15 }, // Status
-        { wch: 25 }, // Created At
-        { wch: 25 }  // Updated At
+        { wch: 20 }, { wch: 20 }, { wch: 40 }, { wch: 20 }, { wch: 20 },
+        { wch: 18 }, { wch: 18 }, { wch: 15 }, { wch: 15 }, { wch: 15 },
+        { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 25 }
       ];
-
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'รายงานสินค้า');
-
       const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
       await downloadViaRedirect(base64, filename);
-
     } catch (error) {
       console.error('เกิดข้อผิดพลาดในการ Export Excel:', error);
       alert('ไม่สามารถดาวน์โหลดรายงานได้');
@@ -130,44 +107,19 @@ export default function Report({ products, brands, categories, addActivityLog })
     setIsExporting(true);
     try {
       const headers = [
-        'รหัสสินค้า (SKU)',
-        'รหัสบาร์โค้ด',
-        'ชื่อสินค้า',
-        'แบรนด์',
-        'หมวดหมู่สินค้า',
-        'ราคาขายส่ง (บาท)',
-        'ราคาขายปลีก (บาท)',
-        'ค่าฝา (บาท)',
-        'ขนาด',
-        'น้ำหนัก',
-        'หมายเลข อย.',
-        'หมายเลข มอก.',
-        'สถานะ',
-        'วันที่เพิ่มข้อมูล',
-        'วันที่แก้ไขข้อมูลล่าสุด'
+        'รหัสสินค้า (SKU)', 'รหัสบาร์โค้ด', 'ชื่อสินค้า', 'แบรนด์', 'หมวดหมู่สินค้า',
+        'ราคาขายส่ง (บาท)', 'ราคาขายปลีก (บาท)', 'ค่าฝา (บาท)', 'ขนาด', 'น้ำหนัก',
+        'หมายเลข อย.', 'หมายเลข มอก.', 'สถานะ', 'วันที่เพิ่มข้อมูล', 'วันที่แก้ไขข้อมูลล่าสุด'
       ];
-
       const rows = filteredProducts.map(p => [
-        p.code || '',
-        p.barcode || '',
-        p.name || '',
-        p.brand || '',
-        p.category || '',
-        Number(p.wholesalePrice || 0),
-        Number(p.retailPrice || 0),
-        Number(p.capFee || 0),
-        p.size || '',
-        p.weight || '',
-        p.fdaNumber || '',
-        p.tisiNumber || '',
+        p.code || '', p.barcode || '', p.name || '', p.brand || '', p.category || '',
+        Number(p.wholesalePrice || 0), Number(p.retailPrice || 0), Number(p.capFee || 0),
+        p.size || '', p.weight || '', p.fdaNumber || '', p.tisiNumber || '',
         p.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
-        formatDateSafely(p.createdAt),
-        formatDateSafely(p.updatedAt)
+        formatDateSafely(p.createdAt), formatDateSafely(p.updatedAt)
       ]);
-
       const filename = `PIM_Report_Phanvadee_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
       await downloadXLSX(headers, rows, filename);
-      
       if (addActivityLog) {
         const filterText = `แบรนด์: ${selectedBrand === 'All' ? 'ทั้งหมด' : selectedBrand}, หมวดหมู่: ${selectedCategory === 'All' ? 'ทั้งหมด' : selectedCategory}, สถานะ: ${selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}`;
         addActivityLog(`ดาวน์โหลดรายงานสินค้าเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ, ตัวกรอง - ${filterText})`);
@@ -180,126 +132,191 @@ export default function Report({ products, brands, categories, addActivityLog })
   };
 
   return (
-    <div className="space-y-6 animate-fade-in text-[#1d1d1f]">
-      {/* Page Header (Hidden on Print) */}
-      <div className="no-print flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-5 animate-fade-in">
+      {/* ── PAGE HEADER ───────────────────────────────────── */}
+      <div className="no-print flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">รายงานและสรุปข้อมูลสินค้า</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">PRODUCT INTELLIGENCE</span>
+          </div>
+          <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">
+            รายงานสินค้า
+          </h1>
+          <p className="text-xs text-[#86868b] mt-1.5 font-medium">
+            ข้อมูล ณ {new Date().toLocaleString('th-TH', { dateStyle: 'long', timeStyle: 'short' })}
+          </p>
         </div>
 
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center w-full sm:w-auto">
           <button
             type="button"
             disabled={isExporting}
             onClick={handleExportExcel}
-            className={`px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-400 text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer \${
-              isExporting ? 'opacity-80 cursor-wait' : ''
+            className={`group flex-1 sm:flex-initial justify-center relative overflow-hidden px-4 py-2.5 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg ${
+              isExporting
+                ? 'bg-emerald-700 opacity-80 cursor-wait'
+                : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
             }`}
           >
+            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
             {isExporting ? (
               <>
-                <div className="w-3.5 h-3.5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
-                <span>กำลังเตรียมไฟล์...</span>
+                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <span>กำลังเตรียม...</span>
               </>
             ) : (
               <>
-                <Download className="w-4 h-4" />
-                <span>ดาวน์โหลดรายงาน</span>
+                <Download className="w-3.5 h-3.5" />
+                <span>Export Excel</span>
               </>
             )}
           </button>
           <button
             type="button"
             onClick={handlePrint}
-            className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-xs cursor-pointer"
+            className="group flex-1 sm:flex-initial justify-center relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
           >
-            <Printer className="w-4.5 h-4.5" />
-            พิมพ์ (Print)
+            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+            <Printer className="w-3.5 h-3.5" />
+            <span>พิมพ์รายงาน</span>
           </button>
         </div>
       </div>
 
-      {/* Selector Filters (Hidden on Print) */}
-      <div className="no-print bg-white p-4.5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:flex lg:flex-wrap gap-4 items-center">
-        <span className="text-sm font-bold text-zinc-650 lg:mr-2">ตัวกรองรายงาน:</span>
+      {/* ── KPI CARDS ─────────────────────────────────────── */}
+      <div className="no-print grid grid-cols-1 sm:grid-cols-3 gap-4 print-grid-2">
+        {/* Total Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-[#0071e3]/20 bg-gradient-to-br from-[#0071e3]/8 to-[#00c2ff]/5 p-5 group hover:border-[#0071e3]/40 transition-all duration-300 hover:shadow-lg hover:shadow-[#0071e3]/10 print-card print-kpi-card">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#0071e3]/15 to-transparent rounded-bl-[3rem]" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-[#0071e3]/80 mb-1">สินค้าทั้งหมด</p>
+              <h3 className="text-4xl font-black text-[#1d1d1f] leading-none tracking-tight tabular-nums">
+                {filteredProducts.length.toLocaleString()}
+              </h3>
+              <p className="text-xs text-[#86868b] mt-1.5 font-medium">รายการในรายงาน</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-[#0071e3]/15 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <Package className="w-5 h-5 text-[#0071e3]" />
+            </div>
+          </div>
+        </div>
 
-        {/* Search Input with Clear Button */}
-        <div className="relative w-full lg:w-64">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-400 pointer-events-none" />
-          <input
-            type="text"
-            placeholder="ค้นหาชื่อสินค้า / รหัสสินค้า..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-9 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all"
-          />
-          {searchQuery && (
+        {/* Active Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 p-5 group hover:border-emerald-300/80 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/10 print-card print-kpi-card">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-200/40 to-transparent rounded-bl-[3rem]" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600/80 mb-1">เปิดใช้งาน</p>
+              <h3 className="text-4xl font-black text-[#1d1d1f] leading-none tracking-tight tabular-nums">
+                {activeCount.toLocaleString()}
+              </h3>
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <div className="flex-1 h-1 rounded-full bg-emerald-100 overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 transition-all duration-700"
+                    style={{ width: `${activePercent}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-black text-emerald-600">{activePercent}%</span>
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <ToggleRight className="w-5 h-5 text-emerald-600" />
+            </div>
+          </div>
+        </div>
+
+        {/* Inactive Card */}
+        <div className="relative overflow-hidden rounded-2xl border border-zinc-200/60 bg-gradient-to-br from-zinc-50/80 to-slate-50/40 p-5 group hover:border-zinc-300/80 transition-all duration-300 hover:shadow-lg hover:shadow-zinc-400/10 print-card print-kpi-card">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-zinc-200/50 to-transparent rounded-bl-[3rem]" />
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">ปิดใช้งาน</p>
+              <h3 className="text-4xl font-black text-[#1d1d1f] leading-none tracking-tight tabular-nums">
+                {inactiveCount.toLocaleString()}
+              </h3>
+              <p className="text-xs text-[#86868b] mt-1.5 font-medium">รายการที่ปิดใช้งาน</p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <ToggleLeft className="w-5 h-5 text-zinc-500" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ── FILTER BAR ────────────────────────────────────── */}
+      <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+        <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
+          </div>
+
+          {/* Search */}
+          <div className="relative flex-1 min-w-[180px] md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="ค้นหาชื่อสินค้า / รหัสสินค้า..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 cursor-pointer transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <select
+            value={selectedBrand}
+            onChange={(e) => setSelectedBrand(e.target.value)}
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+          >
+            <option value="All">ทุกแบรนด์</option>
+            {brands.map(b => <option key={b} value={b}>{b}</option>)}
+          </select>
+
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+          >
+            <option value="All">ทุกหมวดหมู่</option>
+            {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <select
+            value={selectedStatus}
+            onChange={(e) => setSelectedStatus(e.target.value)}
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+          >
+            <option value="All">ทุกสถานะ</option>
+            <option value="Active">เปิดใช้งาน</option>
+            <option value="Inactive">ปิดใช้งาน</option>
+          </select>
+
+          {(selectedBrand !== 'All' || selectedCategory !== 'All' || selectedStatus !== 'All' || searchQuery) && (
             <button
               type="button"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-450 hover:text-zinc-700 cursor-pointer"
-              title="ล้างคำค้นหา"
+              onClick={() => { setSelectedBrand('All'); setSelectedCategory('All'); setSelectedStatus('All'); setSearchQuery(''); }}
+              className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all cursor-pointer border border-red-200/50 hover:border-red-300 w-full md:w-auto justify-center md:justify-start"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3 h-3" />
+              ล้างตัวกรอง
             </button>
           )}
         </div>
-
-        <select
-          value={selectedBrand}
-          onChange={(e) => setSelectedBrand(e.target.value)}
-          className="w-full lg:w-auto px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer font-medium"
-        >
-          <option value="All">ทุกแบรนด์สินค้า</option>
-          {brands.map(b => (
-            <option key={b} value={b}>{b}</option>
-          ))}
-        </select>
-
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          className="w-full lg:w-auto px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer font-medium"
-        >
-          <option value="All">ทุกหมวดหมู่</option>
-          {categories.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
-
-        <select
-          value={selectedStatus}
-          onChange={(e) => setSelectedStatus(e.target.value)}
-          className="w-full lg:w-auto px-3.5 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-zinc-700 focus:outline-hidden focus:border-black focus:bg-white transition-all cursor-pointer font-medium"
-        >
-          <option value="All">สถานะทั้งหมด</option>
-          <option value="Active">เปิดใช้งาน (Active)</option>
-          <option value="Inactive">ปิดใช้งาน (Inactive)</option>
-        </select>
-
-        <span className="text-xs text-[#555557] font-medium lg:ml-auto w-full lg:w-auto text-right">
-          ข้อมูล ณ วันที่: {new Date().toLocaleString('th-TH')}
-        </span>
       </div>
 
-      {/* KPI Display Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5 print-grid-2">
-        <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
-          <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">จำนวนรายการสินค้าทั้งหมด</p>
-          <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1">{filteredProducts.length.toLocaleString()} รายการ</h3>
-        </div>
-
-        <div className="bg-white p-5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs print-card print-kpi-card">
-          <p className="text-xs text-[#555557] font-bold uppercase tracking-wider">จำนวนสถานะการเปิดและปิดใช้งาน</p>
-          <h3 className="text-2xl font-bold text-[#1d1d1f] mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
-            <span>เปิดใช้งาน: {activeCount.toLocaleString()}</span>
-            <span className="text-[#d2d2d7] font-light hidden sm:inline">|</span>
-            <span>ปิดใช้งาน: {inactiveCount.toLocaleString()}</span>
-          </h3>
-        </div>
-      </div>
-
-      {/* Printable Sheet Header */}
+      {/* ── Printable Sheet Header ─────────────────────────── */}
       <div className="hidden print-only text-center border-b pb-6 space-y-2">
         <h2 className="text-xl font-bold text-black uppercase tracking-wider">รายงานสรุปข้อมูลผลิตภัณฑ์</h2>
         <h3 className="text-md font-semibold text-zinc-700">บริษัท พันธ์วาดี จำกัด</h3>
@@ -308,46 +325,87 @@ export default function Report({ products, brands, categories, addActivityLog })
         </p>
       </div>
 
-      {/* Report Tables */}
-      <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden print-card">
-        <div className="p-4.5 border-b border-[#e8e8ed] no-print">
-          <h4 className="text-sm font-bold text-[#1d1d1f] tracking-wide uppercase">รายละเอียดรายการออกรายงาน ({filteredProducts.length} รายการ)</h4>
+      {/* ── REPORT TABLE ──────────────────────────────────── */}
+      <div className="rounded-2xl border border-[#d2d2d7]/50 bg-white overflow-hidden shadow-xs print-card">
+
+        {/* Table Header Bar */}
+        <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] no-print flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายการสินค้า</h4>
+            <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+              {filteredProducts.length.toLocaleString()} รายการ
+            </span>
+          </div>
+          {filteredProducts.length > 0 && (
+            <p className="text-[10px] text-zinc-400 font-medium hidden sm:block">
+              เปิดใช้งาน {activeCount} · ปิดใช้งาน {inactiveCount}
+            </p>
+          )}
         </div>
-        
+
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-sm">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-[#f5f5f7] text-[#555557] font-bold border-b border-[#d2d2d7] uppercase tracking-wider text-xs">
-                <th className="p-4 w-14 text-center">ลำดับ</th>
-                <th className="p-4 min-w-[120px]">รหัสสินค้า</th>
-                <th className="p-4 min-w-[200px]">ชื่อสินค้า</th>
-                <th className="p-4 min-w-[120px]">แบรนด์</th>
-                <th className="p-4 min-w-[120px]">หมวดหมู่</th>
-                <th className="p-4 text-right min-w-[100px]">ราคาขายส่ง</th>
-                <th className="p-4 text-right min-w-[100px]">ราคาขายปลีก</th>
-                <th className="p-4 text-right min-w-[80px]">ค่าฝา</th>
-                <th className="p-4 text-center min-w-[100px]">สถานะ</th>
+              <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
+                <th className="p-2 sm:p-3.5 w-10 sm:w-12 text-center">#</th>
+                <th className="p-2 sm:p-3.5 min-w-[90px] sm:min-w-[110px]">รหัสสินค้า</th>
+                <th className="p-2 sm:p-3.5 min-w-[150px] sm:min-w-[200px]">ชื่อสินค้า</th>
+                <th className="p-2 sm:p-3.5 min-w-[100px] sm:min-w-[120px]">แบรนด์</th>
+                <th className="p-2 sm:p-3.5 min-w-[100px] sm:min-w-[130px]">หมวดหมู่</th>
+                <th className="p-2 sm:p-3.5 text-right min-w-[80px] sm:min-w-[95px]">ราคาส่ง</th>
+                <th className="p-2 sm:p-3.5 text-right min-w-[80px] sm:min-w-[95px]">ราคาปลีก</th>
+                <th className="p-2 sm:p-3.5 text-right min-w-[65px] sm:min-w-[75px]">ค่าฝา</th>
+                <th className="p-2 sm:p-3.5 text-center min-w-[85px] sm:min-w-[95px]">สถานะ</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#e8e8ed] text-zinc-750">
+            <tbody className="divide-y divide-[#f0f0f5] text-xs sm:text-sm">
               {filteredProducts.map((p, index) => (
-                <tr key={p.id} className="hover:bg-[#f5f5f7]/20 transition-colors">
-                  <td className="p-4 text-center font-mono text-zinc-400">{index + 1}</td>
-                  <td className="p-4 font-mono font-semibold">{p.code}</td>
-                  <td className="p-4 font-bold text-[#1d1d1f]">{p.name}</td>
-                  <td className="p-4 font-medium">{p.brand}</td>
-                  <td className="p-4 text-[#555557]">{p.category}</td>
-                  <td className="p-4 text-right font-semibold">{(p.wholesalePrice || 0).toLocaleString()}</td>
-                  <td className="p-4 text-right font-bold">{(p.retailPrice || 0).toLocaleString()}</td>
-                  <td className="p-4 text-right text-zinc-500">{(p.capFee || 0).toLocaleString()}</td>
-                  <td className="p-4 text-center">
-                    <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full border whitespace-nowrap inline-block ${
-                      p.status === 'Active' 
-                        ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                        : 'bg-zinc-100 text-zinc-500 border-zinc-200'
-                    }`}>
-                      {p.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                <tr
+                  key={p.id}
+                  onMouseEnter={() => setHoveredRow(p.id)}
+                  onMouseLeave={() => setHoveredRow(null)}
+                  className={`transition-all duration-150 ${
+                    hoveredRow === p.id
+                      ? 'bg-gradient-to-r from-[#0071e3]/4 via-[#0071e3]/3 to-transparent'
+                      : index % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]/50'
+                  }`}
+                >
+                  <td className="p-2 sm:p-3.5 text-center font-mono text-[#86868b] text-[10px]">
+                    {index + 1}
+                  </td>
+                  <td className="p-2 sm:p-3.5">
+                    <span className="font-mono font-bold text-[#1d1d1f] text-[10px] sm:text-xs bg-[#f5f5f7] px-1.5 py-0.5 rounded-md">
+                      {p.code}
                     </span>
+                  </td>
+                  <td className="p-2 sm:p-3.5 font-semibold text-[#1d1d1f] leading-snug">{p.name}</td>
+                  <td className="p-2 sm:p-3.5 text-[#555557] font-medium">{p.brand}</td>
+                  <td className="p-2 sm:p-3.5">
+                    <span className="text-[10px] font-semibold text-[#555557] bg-[#f5f5f7] px-2 py-0.5 rounded-lg leading-none inline-block">
+                      {p.category}
+                    </span>
+                  </td>
+                  <td className="p-2 sm:p-3.5 text-right font-semibold text-[#555557] tabular-nums">
+                    {(p.wholesalePrice || 0).toLocaleString()}
+                  </td>
+                  <td className="p-2 sm:p-3.5 text-right font-black text-[#1d1d1f] tabular-nums">
+                    {(p.retailPrice || 0).toLocaleString()}
+                  </td>
+                  <td className="p-2 sm:p-3.5 text-right font-medium text-[#86868b] tabular-nums">
+                    {(p.capFee || 0).toLocaleString()}
+                  </td>
+                  <td className="p-2 sm:p-3.5 text-center">
+                    {p.status === 'Active' ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-black rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                        เปิดใช้งาน
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold rounded-full bg-zinc-100 text-zinc-500 border border-zinc-200/60 whitespace-nowrap">
+                        <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 shrink-0" />
+                        ปิดใช้งาน
+                      </span>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -356,12 +414,26 @@ export default function Report({ products, brands, categories, addActivityLog })
         </div>
 
         {filteredProducts.length === 0 && (
-          <div className="p-16 text-center text-[#555557] text-xs">
-            ไม่มีรายการผลิตภัณฑ์ที่ตรงกับเงื่อนไขการออกเอกสาร
+          <div className="py-20 text-center">
+            <div className="w-14 h-14 rounded-2xl bg-[#f5f5f7] flex items-center justify-center mx-auto mb-4">
+              <Search className="w-6 h-6 text-zinc-400" />
+            </div>
+            <p className="text-sm font-semibold text-[#1d1d1f]">ไม่พบรายการสินค้า</p>
+            <p className="text-xs text-[#86868b] mt-1">ลองปรับเงื่อนไขการค้นหาใหม่</p>
+          </div>
+        )}
+
+        {filteredProducts.length > 0 && (
+          <div className="px-4.5 py-3 border-t border-[#f0f0f5] bg-[#fafafa]/50 no-print flex items-center justify-between">
+            <p className="text-[10px] text-[#86868b] font-medium">
+              แสดง {filteredProducts.length.toLocaleString()} รายการ
+            </p>
+            <p className="text-[10px] text-[#86868b] font-medium hidden sm:block">
+              ราคาปลีกสูงสุด ฿{Math.max(...filteredProducts.map(p => p.retailPrice || 0)).toLocaleString()}
+            </p>
           </div>
         )}
       </div>
-
     </div>
   );
 }
