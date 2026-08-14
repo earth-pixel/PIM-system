@@ -1519,7 +1519,11 @@ export default function ProductManage({
           )}
 
           {/* Export Dropdown */}
-          <div className="relative">
+          <div
+            className="relative"
+            onMouseEnter={() => setShowExportDropdown(true)}
+            onMouseLeave={() => setShowExportDropdown(false)}
+          >
             <button
               type="button"
               onClick={() => setShowExportDropdown(!showExportDropdown)}
@@ -1531,67 +1535,61 @@ export default function ProductManage({
               <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
             </button>
             {showExportDropdown && (
-              <>
-                <div
-                  className="fixed inset-0 z-10"
-                  onClick={() => setShowExportDropdown(false)}
-                />
-                <div className="absolute right-0 mt-1.5 w-52 bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xl z-20 overflow-hidden py-2 animate-scale-in text-[#1d1d1f]">
-                  <span className="text-[9px] font-bold text-[#8e8e93] px-4 py-1 block uppercase tracking-wider">ดาวน์แพลตฟอร์ม </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportShopee(filteredProducts);
-                      if (addActivityLog) {
-                        addActivityLog(`นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    Shopee Excel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportLazada(filteredProducts);
-                      if (addActivityLog) {
-                        addActivityLog(`นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    Lazada Excel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportTikTok(filteredProducts);
-                      if (addActivityLog) {
-                        addActivityLog(`นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    TikTok Shop Excel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportToExcel(filteredProducts);
-                      if (addActivityLog) {
-                        addActivityLog(`นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    ส่งออก Excel
-                  </button>
-                </div>
-              </>
+              <div className="absolute right-0 mt-1.5 w-52 bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xl z-20 overflow-hidden py-2 animate-scale-in text-[#1d1d1f] before:absolute before:-top-2 before:left-0 before:right-0 before:h-2 before:content-['']">
+                <span className="text-[9px] font-bold text-[#8e8e93] px-4 py-1 block uppercase tracking-wider">ดาวน์แพลตฟอร์ม </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    exportShopee(filteredProducts);
+                    if (addActivityLog) {
+                      addActivityLog(`นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                    }
+                    setShowExportDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  Shopee Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    exportLazada(filteredProducts);
+                    if (addActivityLog) {
+                      addActivityLog(`นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                    }
+                    setShowExportDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  Lazada Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    exportTikTok(filteredProducts);
+                    if (addActivityLog) {
+                      addActivityLog(`นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                    }
+                    setShowExportDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  TikTok Shop Excel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    exportToExcel(filteredProducts);
+                    if (addActivityLog) {
+                      addActivityLog(`นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                    }
+                    setShowExportDropdown(false);
+                  }}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
+                >
+                  ส่งออก Excel
+                </button>
+              </div>
             )}
           </div>
 

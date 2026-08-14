@@ -887,6 +887,8 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
       if (!items.some(it => it.productName.trim())) { setAlert({ type: 'error', msg: 'กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ' }); return; }
     }
 
+    const validItems = items.filter(it => it.productName && it.productName.trim());
+
     // Admin auto-approves; others submit as 'sent' (pending approval)
     const effectiveStatus = (status === 'sent' && currentUser?.role === 'admin') ? 'approved' : status;
     onSave({

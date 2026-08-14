@@ -10,20 +10,22 @@ export default function Report({ products, brands, categories, addActivityLog })
   const [isExporting, setIsExporting] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
 
-  const filteredProducts = products.filter(product => {
+  const baseFilteredProducts = products.filter(product => {
     const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
     const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-    const matchesStatus = selectedStatus === 'All' || product.status === selectedStatus;
     const q = searchQuery.trim().toLowerCase();
     const matchesSearch = !q ||
       (product.name || '').toLowerCase().includes(q) ||
       (product.code || '').toLowerCase().includes(q);
-    return matchesBrand && matchesCategory && matchesStatus && matchesSearch;
+    return matchesBrand && matchesCategory && matchesSearch;
   });
 
-  const activeCount = filteredProducts.filter(p => p.status === 'Active').length;
-  const inactiveCount = filteredProducts.filter(p => p.status !== 'Active').length;
-  const activePercent = filteredProducts.length > 0 ? Math.round((activeCount / filteredProducts.length) * 100) : 0;
+  const filteredProducts = baseFilteredProducts.filter(product => {
+    return selectedStatus === 'All' || product.status === selectedStatus;
+  });
+
+  const activeCount = baseFilteredProducts.filter(p => p.status === 'Active').length;
+  const inactiveCount = baseFilteredProducts.filter(p => p.status !== 'Active').length;
 
   const handlePrint = () => {
     window.print();
@@ -187,15 +189,24 @@ export default function Report({ products, brands, categories, addActivityLog })
       {/* ── KPI CARDS ─────────────────────────────────────── */}
       <div className="no-print grid grid-cols-1 sm:grid-cols-3 gap-4 print-grid-2">
         {/* Total Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-[#0071e3]/20 bg-gradient-to-br from-[#0071e3]/8 to-[#00c2ff]/5 p-5 group hover:border-[#0071e3]/40 transition-all duration-300 hover:shadow-lg hover:shadow-[#0071e3]/10 print-card print-kpi-card">
+        <div
+          onClick={() => setSelectedStatus('All')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStatus('All'); } }}
+          className={`relative overflow-hidden rounded-2xl border p-5 group transition-all duration-300 select-none cursor-pointer hover:scale-[1.02] active:scale-[0.98] print-card print-kpi-card ${
+            selectedStatus === 'All'
+              ? 'border-[#0071e3] bg-gradient-to-br from-[#0071e3]/12 to-[#00c2ff]/8 shadow-lg shadow-[#0071e3]/15'
+              : 'border-[#0071e3]/20 bg-gradient-to-br from-[#0071e3]/8 to-[#00c2ff]/5 hover:border-[#0071e3]/40 hover:shadow-lg hover:shadow-[#0071e3]/10'
+          }`}
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-[#0071e3]/15 to-transparent rounded-bl-[3rem]" />
           <div className="flex items-start justify-between">
             <div>
               <p className="text-[10px] font-black uppercase tracking-widest text-[#0071e3]/80 mb-1">สินค้าทั้งหมด</p>
               <h3 className="text-4xl font-black text-[#1d1d1f] leading-none tracking-tight tabular-nums">
-                {filteredProducts.length.toLocaleString()}
+                {baseFilteredProducts.length.toLocaleString()}
               </h3>
-              <p className="text-xs text-[#86868b] mt-1.5 font-medium">รายการในรายงาน</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-[#0071e3]/15 flex items-center justify-center group-hover:scale-110 transition-transform">
               <Package className="w-5 h-5 text-[#0071e3]" />
@@ -204,7 +215,17 @@ export default function Report({ products, brands, categories, addActivityLog })
         </div>
 
         {/* Active Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-emerald-200/60 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 p-5 group hover:border-emerald-300/80 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/10 print-card print-kpi-card">
+        <div
+          onClick={() => setSelectedStatus('Active')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStatus('Active'); } }}
+          className={`relative overflow-hidden rounded-2xl border p-5 group transition-all duration-300 select-none cursor-pointer hover:scale-[1.02] active:scale-[0.98] print-card print-kpi-card ${
+            selectedStatus === 'Active'
+              ? 'border-emerald-500 bg-gradient-to-br from-emerald-100/90 to-teal-50/60 shadow-lg shadow-emerald-500/15'
+              : 'border-emerald-200/60 bg-gradient-to-br from-emerald-50/80 to-teal-50/40 hover:border-emerald-300/80 hover:shadow-lg hover:shadow-emerald-500/10'
+          }`}
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-emerald-200/40 to-transparent rounded-bl-[3rem]" />
           <div className="flex items-start justify-between">
             <div>
@@ -212,15 +233,7 @@ export default function Report({ products, brands, categories, addActivityLog })
               <h3 className="text-4xl font-black text-[#1d1d1f] leading-none tracking-tight tabular-nums">
                 {activeCount.toLocaleString()}
               </h3>
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <div className="flex-1 h-1 rounded-full bg-emerald-100 overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-teal-400 transition-all duration-700"
-                    style={{ width: `${activePercent}%` }}
-                  />
-                </div>
-                <span className="text-[10px] font-black text-emerald-600">{activePercent}%</span>
-              </div>
+
             </div>
             <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform">
               <ToggleRight className="w-5 h-5 text-emerald-600" />
@@ -229,7 +242,17 @@ export default function Report({ products, brands, categories, addActivityLog })
         </div>
 
         {/* Inactive Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-zinc-200/60 bg-gradient-to-br from-zinc-50/80 to-slate-50/40 p-5 group hover:border-zinc-300/80 transition-all duration-300 hover:shadow-lg hover:shadow-zinc-400/10 print-card print-kpi-card">
+        <div
+          onClick={() => setSelectedStatus('Inactive')}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedStatus('Inactive'); } }}
+          className={`relative overflow-hidden rounded-2xl border p-5 group transition-all duration-300 select-none cursor-pointer hover:scale-[1.02] active:scale-[0.98] print-card print-kpi-card ${
+            selectedStatus === 'Inactive'
+              ? 'border-zinc-500 bg-gradient-to-br from-zinc-200/90 to-slate-50/60 shadow-lg shadow-zinc-500/15'
+              : 'border-zinc-200/60 bg-gradient-to-br from-zinc-50/80 to-slate-50/40 hover:border-zinc-300/80 hover:shadow-lg hover:shadow-zinc-400/10'
+          }`}
+        >
           <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-zinc-200/50 to-transparent rounded-bl-[3rem]" />
           <div className="flex items-start justify-between">
             <div>
@@ -237,7 +260,6 @@ export default function Report({ products, brands, categories, addActivityLog })
               <h3 className="text-4xl font-black text-[#1d1d1f] leading-none tracking-tight tabular-nums">
                 {inactiveCount.toLocaleString()}
               </h3>
-              <p className="text-xs text-[#86868b] mt-1.5 font-medium">รายการที่ปิดใช้งาน</p>
             </div>
             <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center group-hover:scale-110 transition-transform">
               <ToggleLeft className="w-5 h-5 text-zinc-500" />
@@ -303,16 +325,7 @@ export default function Report({ products, brands, categories, addActivityLog })
             <option value="Inactive">ปิดใช้งาน</option>
           </select>
 
-          {(selectedBrand !== 'All' || selectedCategory !== 'All' || selectedStatus !== 'All' || searchQuery) && (
-            <button
-              type="button"
-              onClick={() => { setSelectedBrand('All'); setSelectedCategory('All'); setSelectedStatus('All'); setSearchQuery(''); }}
-              className="flex items-center gap-1.5 px-3 py-2 text-[10px] font-bold text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl transition-all cursor-pointer border border-red-200/50 hover:border-red-300 w-full md:w-auto justify-center md:justify-start"
-            >
-              <X className="w-3 h-3" />
-              ล้างตัวกรอง
-            </button>
-          )}
+
         </div>
       </div>
 

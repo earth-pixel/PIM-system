@@ -462,7 +462,6 @@ export default function QuotationPrint({
     const el = printAreaRef.current;
     if (!el) return;
 
-    const docLabel = docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : 'ใบเสนอราคา';
     const quotationCode = quotation.referenceNumber || quotation.quotationNumber || 'document';
     // ใช้รหัสใบเสนอราคาล้วนๆ เป็นชื่อไฟล์ (ไม่มีคำนำหน้า) ส่วน docTitle ใช้แสดงหัวข้อแท็บ/ไฟล์ที่ดาวน์โหลด
     const docTitle = quotationCode;

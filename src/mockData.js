@@ -10,9 +10,7 @@ export const companyInfo = {
   email: 'info@phanvadee.co.th',
   website: 'https://www.phanvadee.co.th',
 };
-
-
-
+  
 export const initialQuotations = [];
 export const initialBrands = [
   "GOOD ALL DAY",
@@ -133,3 +131,4 @@ export const initializeDB = () => {
 
   return finalUsers;
 };
+  

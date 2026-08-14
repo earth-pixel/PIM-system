@@ -275,21 +275,27 @@ export default function DashboardLayout({
     <div className="min-h-screen flex flex-col bg-[#f5f5f7] font-sans text-[#1d1d1f]">
       
       {/* ── Navbar header ───────────────────────────────── */}
-      <header className="sticky top-0 z-40 w-full h-16 bg-white/80 backdrop-blur-md border-b border-[#d2d2d7]/50 no-print">
+      <header className="sticky top-0 z-40 w-full h-16 bg-white/85 backdrop-blur-xl border-b border-[#d2d2d7]/40 no-print shadow-[0_1px_0_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)]">
         <div className="w-full h-full px-4 sm:px-6 lg:px-12 flex items-center justify-between">
           
           {/* Left: Brand Logo */}
-          <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => handleNavClick('dashboard')}>
-            <div className="w-6 h-7 text-zinc-900 shrink-0">
-              <svg viewBox="0 0 80 90" className="w-full h-full fill-current" xmlns="http://www.w3.org/2000/svg">
-                <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
-                <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
-                <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
+          <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => handleNavClick('dashboard')}>
+            <div className="w-7 h-8 shrink-0 transition-transform duration-300 group-hover:scale-110">
+              <svg viewBox="0 0 80 90" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#1d1d1f" />
+                    <stop offset="100%" stopColor="#555557" />
+                  </linearGradient>
+                </defs>
+                <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" fill="url(#logoGrad)" />
+                <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" fill="url(#logoGrad)" opacity="0.75" />
+                <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" fill="url(#logoGrad)" opacity="0.45" />
               </svg>
             </div>
             <div className="flex flex-col">
-              <span className="font-bold text-sm tracking-tight text-[#1d1d1f] uppercase leading-none">PIM-SYSTEM</span>
-              <span className="text-[9px] text-[#555557] font-semibold mt-0.5 tracking-wider">PRODUCT INFORMATION MANAGEMENT</span>
+              <span className="font-extrabold text-sm tracking-tight bg-gradient-to-r from-[#1d1d1f] to-[#3d3d3f] bg-clip-text text-transparent uppercase leading-none">PIM-SYSTEM</span>
+              <span className="text-[8.5px] text-[#86868b] font-semibold mt-0.5 tracking-widest uppercase">PRODUCT INFORMATION MANAGEMENT</span>
             </div>
           </div>
 
@@ -313,10 +319,10 @@ export default function DashboardLayout({
                     <button type="button"
                       onClick={() => setIsProductsDropdownOpen(!isProductsDropdownOpen)}
                       className={`
-                        px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1
+                        px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1
                         ${isProductGroupActive
-                          ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                          : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100'
+                          ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
+                          : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
                         }
                       `}
                     >
@@ -325,8 +331,8 @@ export default function DashboardLayout({
                     </button>
 
                     {isProductsDropdownOpen && (
-                      <div className="absolute top-full left-0 w-52 pt-1.5 z-30">
-                        <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-lg p-1.5 space-y-0.5 animate-scale-in">
+                      <div className="absolute top-full left-0 w-52 pt-2 z-30">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-1.5 space-y-0.5 animate-scale-in">
                           <button type="button"
                             onClick={() => handleNavClick('manage-products')}
                             className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'manage-products' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
@@ -358,10 +364,10 @@ export default function DashboardLayout({
                   key={item.key}
                   onClick={() => handleNavClick(item.key)}
                   className={`
-                    px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1.5
+                    px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1.5
                     ${isActive
-                      ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                      : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100'
+                      ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
+                      : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
                     }
                   `}
                 >
@@ -388,10 +394,10 @@ export default function DashboardLayout({
                   <button type="button"
                     onClick={() => setIsUsersDropdownOpen(!isUsersDropdownOpen)}
                     className={`
-                      px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap flex items-center gap-1
+                      px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1
                       ${isUserGroupActive
-                        ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                        : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100'
+                        ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
+                        : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
                       }
                     `}
                   >
@@ -400,8 +406,8 @@ export default function DashboardLayout({
                   </button>
 
                   {isUsersDropdownOpen && (
-                    <div className="absolute top-full left-0 w-52 pt-1.5 z-30">
-                      <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-lg p-1.5 space-y-0.5 animate-scale-in">
+                    <div className="absolute top-full left-0 w-52 pt-2 z-30">
+                      <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-1.5 space-y-0.5 animate-scale-in">
                         <button type="button"
                           onClick={() => handleNavClick('users')}
                           className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
@@ -426,10 +432,10 @@ export default function DashboardLayout({
                 <button type="button"
                   onClick={() => handleNavClick('users')}
                   className={`
-                    px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-150 cursor-pointer whitespace-nowrap
+                    px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap
                     ${activeTab === 'users'
-                      ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                      : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100'
+                      ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
+                      : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
                     }
                   `}
                 >
@@ -457,7 +463,7 @@ export default function DashboardLayout({
                     }
                   }}
                   className={`
-                    relative p-2.5 text-zinc-650 hover:text-black hover:bg-zinc-50 rounded-full transition-all duration-300 cursor-pointer flex items-center justify-center bg-white border border-[#d2d2d7]/50 shadow-xs hover:shadow-md
+                    relative p-2.5 text-zinc-600 hover:text-[#0071e3] rounded-full transition-all duration-300 cursor-pointer flex items-center justify-center bg-white/90 border border-[#d2d2d7]/60 shadow-[0_1px_4px_rgba(0,0,0,0.06)] hover:shadow-[0_2px_12px_rgba(0,113,227,0.15)] hover:border-[#0071e3]/30 hover:bg-white
                     ${shouldShake ? 'animate-bell-shake' : ''}
                   `}
                   title="การแจ้งเตือนกิจกรรม"
@@ -470,8 +476,8 @@ export default function DashboardLayout({
                 </button>
 
                 {isNotificationsOpen && (
-                  <div className="absolute right-0 top-full w-85 pt-2 z-45">
-                    <div className="bg-white/95 backdrop-blur-md rounded-3xl border border-[#d2d2d7]/40 shadow-2xl p-4.5 space-y-3.5 animate-scale-in text-[#1d1d1f]">
+                  <div className="absolute right-0 top-full w-85 pt-2.5 z-45">
+                    <div className="bg-white/97 backdrop-blur-2xl rounded-3xl border border-[#d2d2d7]/35 shadow-[0_24px_64px_rgba(0,0,0,0.12),0_8px_24px_rgba(0,0,0,0.06)] p-4.5 space-y-3.5 animate-scale-in text-[#1d1d1f]">
                       {/* Header */}
                       <div className="flex items-center justify-between border-b border-[#e8e8ed] pb-2.5">
                         <div className="flex flex-col">
@@ -624,25 +630,25 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#d2d2d7]/50 bg-white hover:bg-zinc-50 transition-all cursor-pointer text-xs"
+                className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-[#d2d2d7]/60 bg-white/90 hover:bg-white hover:border-[#d2d2d7] hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition-all duration-200 cursor-pointer text-xs group shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
               >
-                <div className="w-6 h-6 rounded-full bg-zinc-950 flex items-center justify-center text-white font-semibold text-xs">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center text-white font-bold text-xs shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
                   {(currentUser?.name || currentUser?.username || 'U').charAt(0)}
                 </div>
-                <span className="font-bold text-[#1d1d1f]">{currentUser?.name || currentUser?.username || 'User'}</span>
-                <i className={`bi bi-chevron-down text-[10px] text-zinc-500 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`}></i>
+                <span className="font-bold text-[#1d1d1f] group-hover:text-black">{currentUser?.name || currentUser?.username || 'User'}</span>
+                <i className={`bi bi-chevron-down text-[10px] text-zinc-400 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`}></i>
               </button>
 
               {isProfileOpen && (
-                <div className="absolute right-0 top-full w-64 pt-1.5 z-30">
-                  <div className="bg-white rounded-3xl border border-[#d2d2d7]/50 shadow-xl p-4 space-y-4 animate-scale-in">
+                <div className="absolute right-0 top-full w-64 pt-2 z-30">
+                  <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-[#d2d2d7]/40 shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] p-4 space-y-4 animate-scale-in">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-zinc-950 flex items-center justify-center text-white font-semibold text-sm">
+                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-950 flex items-center justify-center text-white font-bold text-sm shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
                         {(currentUser?.name || currentUser?.username || 'U').charAt(0)}
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm font-bold text-[#1d1d1f] truncate leading-tight">{currentUser?.name || currentUser?.username || 'User'}</span>
-                        <span className="text-[10px] text-[#555557] truncate mt-0.5">@{currentUser?.username || 'user'}</span>
+                        <span className="text-[10px] text-[#86868b] truncate mt-0.5">@{currentUser?.username || 'user'}</span>
                         <div className="flex mt-1.5">{getRoleBadge(currentUser?.role)}</div>
                       </div>
                     </div>
@@ -737,31 +743,34 @@ export default function DashboardLayout({
 
       {/* Mobile Drawer Menu Panel */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden fixed inset-0 top-0 z-50 no-print">
-          {/* Backdrop overlay */}
+        <div className="lg:hidden fixed inset-0 z-50 no-print">
+          {/* Backdrop overlay - dim only, no blur */}
           <div 
             onClick={() => setIsMobileMenuOpen(false)}
-            className="absolute inset-0 bg-black/15 backdrop-blur-xs animate-fade-in"
+            className="absolute inset-0 bg-black/30 animate-fade-in"
           />
           {/* Drawer container */}
-          <div className="absolute right-0 top-0 bottom-0 w-[300px] bg-white border-l border-[#d2d2d7]/50 shadow-2xl flex flex-col p-4 sm:p-5 space-y-4 overflow-hidden animate-slide-in-right mobile-drawer">
+          <div className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[calc(100vw-56px)] bg-white/97 backdrop-blur-xl border-l border-[#d2d2d7]/50 shadow-[0_0_60px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden animate-slide-in-right mobile-drawer">
             
             {/* Close Button Header */}
-            <div className="flex items-center justify-end">
+            <div className="flex items-center justify-end p-3 pb-0 shrink-0">
               <button type="button"
                 onClick={() => setIsMobileMenuOpen(false)}
-                className="p-1 text-zinc-550 hover:text-black hover:bg-zinc-100 rounded-full cursor-pointer transition-colors"
+                className="p-1.5 text-zinc-500 hover:text-black hover:bg-zinc-100 rounded-full cursor-pointer transition-colors"
                 aria-label="Close menu"
               >
-                <i className="bi bi-x-lg text-lg"></i>
+                <i className="bi bi-x-lg text-base"></i>
               </button>
             </div>
 
-            <hr className="border-zinc-200/50 -mt-2" />
+            <hr className="border-zinc-100 mx-3 shrink-0" />
+
+            {/* Scrollable content area */}
+            <div className="flex-1 overflow-y-auto flex flex-col gap-3 p-3 pt-2 scrollbar-thin">
 
             {/* User Profile Info */}
-            <div className="bg-[#f5f5f7] p-3 sm:p-4 rounded-2xl border border-[#d2d2d7]/35 flex items-center gap-3 user-card">
-              <div className="w-10 h-10 rounded-full bg-zinc-950 flex items-center justify-center text-white font-semibold text-sm user-avatar">
+            <div className="bg-[#f5f5f7] p-3 rounded-2xl border border-[#d2d2d7]/35 flex items-center gap-3 user-card shrink-0">
+              <div className="w-10 h-10 rounded-full bg-zinc-950 flex items-center justify-center text-white font-semibold text-sm user-avatar shrink-0">
                 {(currentUser?.name || currentUser?.username || 'U').charAt(0)}
               </div>
               <div className="flex flex-col min-w-0">
@@ -889,10 +898,8 @@ export default function DashboardLayout({
               )}
             </div>
 
-            <hr className="border-zinc-200/50 my-1" />
-
             {/* Sandbox simulated role switcher (Mobile) */}
-            <div className="space-y-1.5 bg-[#f5f5f7] p-3 rounded-2xl border border-[#d2d2d7]/35 sandbox-card">
+            <div className="space-y-1.5 bg-[#f5f5f7] p-3 rounded-2xl border border-[#d2d2d7]/35 sandbox-card shrink-0">
               <span className="text-[10px] font-bold text-[#555557] tracking-wider uppercase block sandbox-title">จำลองสิทธิ์ (Sandbox)</span>
               <div className="grid grid-cols-3 gap-1.5 pt-1">
                 {['admin', 'manager', 'user'].map((r) => (
@@ -920,7 +927,6 @@ export default function DashboardLayout({
                 ))}
               </div>
             </div>
-            <hr className="border-zinc-200/50 my-1" />
 
             {/* Logout button */}
             <button type="button"
@@ -928,11 +934,13 @@ export default function DashboardLayout({
                 setIsMobileMenuOpen(false);
                 setShowLogoutConfirm(true);
               }}
-              className="w-full py-2 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-650 transition-colors cursor-pointer flex items-center justify-center gap-2 mb-2 btn-logout"
+              className="w-full py-2.5 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-650 transition-colors cursor-pointer flex items-center justify-center gap-2 shrink-0 btn-logout"
             >
               <i className="bi bi-box-arrow-right"></i>
               <span>ออกจากระบบ</span>
             </button>
+
+            </div>{/* end scrollable area */}
           </div>
         </div>
       )}
@@ -941,35 +949,33 @@ export default function DashboardLayout({
       <main className="flex-1 flex flex-col min-w-0">
         <div 
           key={activeTab}
-          className={`flex-1 flex flex-col w-full min-w-0 p-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4 lg:px-12 lg:pb-12 lg:pt-5 animate-page-transition ${
-            activeTab === 'dashboard' ? 'lg:h-[calc(100vh-4rem)] lg:overflow-hidden' : ''
+          className={`flex-1 flex flex-col w-full min-w-0 p-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4 lg:px-8 lg:pb-8 lg:pt-4 xl:px-12 xl:pb-12 xl:pt-5 animate-page-transition ${
+            activeTab === 'dashboard' ? 'lg:h-[calc(100vh-4rem)] lg:overflow-hidden xl:h-[calc(100vh-4rem)] xl:overflow-hidden' : ''
           }`}
         >
           {children}
         </div>
       </main>
 
-      {/* Apple-Style Minimalist Footer (Hidden on dashboard tab to maintain fixed layout height) */}
+      {/* Premium Footer */}
       {activeTab !== 'dashboard' && (
-        <footer className="w-full bg-[#f5f5f7]/50 border-t border-[#d2d2d7]/30 py-4 px-6 lg:px-12 no-print shrink-0 text-[#86868b]">
-          <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-3 text-[10px] md:text-[11px] font-medium">
+        <footer className="w-full bg-white/60 backdrop-blur-sm border-t border-[#d2d2d7]/25 py-3.5 px-6 lg:px-12 no-print shrink-0">
+          <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5 text-[10px] md:text-[11px] font-medium">
             {/* Left Side: Copyright */}
             <div className="flex items-center gap-1.5 flex-wrap justify-center md:justify-start">
               <span className="font-bold text-[#1d1d1f]">© {new Date().getFullYear()} PHANVADEE CO., LTD.</span>
-              <span className="text-[#d2d2d7]">|</span>
-              <span>ALL RIGHTS RESERVED.</span>
             </div>
 
             {/* Middle: Secure Connection Indicator */}
-            <div className="flex items-center gap-1.5 bg-[#e8f5e9]/70 text-[#2e7d32] border border-[#a5d6a7]/20 px-2.5 py-0.5 rounded-full text-[9px] font-bold uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#4caf50] animate-pulse" />
-              <span>PIM Secure API Connected</span>
+            <div className="flex items-center gap-1.5 bg-emerald-50/80 text-emerald-700 border border-emerald-200/40 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider shadow-[0_1px_4px_rgba(16,185,129,0.08)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_4px_rgba(16,185,129,0.5)]" />
+              <span>PIM Secure Connected</span>
             </div>
 
             {/* Right Side: Helpdesk */}
-            <div className="flex items-center gap-3 flex-wrap justify-center md:justify-end text-[10px] md:text-[11px]">
-              <span className="font-semibold text-[#1d1d1f]">
-                IT Support: <a href="tel:0865231495" className="text-[#0071e3] hover:underline font-bold">086-523-1495</a>
+            <div className="flex items-center gap-3 flex-wrap justify-center md:justify-end">
+              <span className="text-[#86868b] font-medium">
+                IT Support: <a href="tel:0865231495" className="text-[#0071e3] hover:underline font-bold transition-colors">086-523-1495</a>
               </span>
             </div>
           </div>

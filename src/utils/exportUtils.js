@@ -122,6 +122,23 @@ export async function exportTikTok(products, options = {}) {
 // 4. GENERAL EXCEL / GOOGLE SHEETS EXPORT
 // ─────────────────────────────────────────────
 export function exportToExcel(products) {
+  const headers = [
+    'รหัสสินค้า (SKU)',
+    'รหัสบาร์โค้ด',
+    'ชื่อสินค้า',
+    'แบรนด์',
+    'หมวดหมู่',
+    'ราคาส่ง (บาท)',
+    'ราคาปลีก (บาท)',
+    'สถานะ',
+    'รายละเอียด',
+    'ขนาด',
+    'น้ำหนัก',
+    'หมายเลข อย.',
+    'หมายเลข มอก.',
+    'วันที่ลงทะเบียน'
+  ];
+
   const rows = products.map(product => ({
     'รหัสสินค้า (SKU)': product.code,
     'รหัสบาร์โค้ด': product.barcode || '',
@@ -139,7 +156,7 @@ export function exportToExcel(products) {
     'วันที่ลงทะเบียน': product.createdAt || ''
   }));
 
-  const ws = XLSX.utils.json_to_sheet(rows);
+  const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
   applyColumnWidths(ws, [15, 15, 35, 15, 15, 15, 15, 12, 50, 12, 12, 18, 18, 18]);
 
   const wb = XLSX.utils.book_new();

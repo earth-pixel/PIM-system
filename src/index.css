@@ -609,8 +609,9 @@ textarea {
   }
 
   .bg-\[\#f5f5f7\],
-  .bg-\[\#f5f5f7\]\/30,
-  .bg-\[\#f5f5f7\]\/50 {
+  .bg-\[\#f5f5f7\]\/80,
+  .bg-\[\#f5f5f7\]\/50,
+  .bg-\[\#f5f5f7\]\/30 {
     background-color: #0d0d0f !important;
   }
 
@@ -679,6 +680,8 @@ textarea {
   .hover\:bg-\[\#f5f5f7\]:hover,
   .hover\:bg-zinc-50:hover,
   .hover\:bg-\[\#fafafa\]:hover,
+  .hover\:bg-\[\#fafafa\]\/80:hover,
+  .hover\:bg-\[\#fafafa\]\/50:hover,
   .hover\:bg-zinc-100:hover,
   .hover\:bg-zinc-50\/70:hover,
   .hover\:bg-\[\#e8e8ed\]:hover {
@@ -688,8 +691,11 @@ textarea {
   .bg-zinc-50,
   .bg-zinc-100,
   .bg-zinc-200,
-  .bg-\[\#e8e8ed\] {
-    background-color: #2c2c2e !important;
+  .bg-\[\#e8e8ed\],
+  .bg-\[\#fafafa\]\/50,
+  .bg-\[\#fafafa\]\/80,
+  .bg-\[\#fafafa\] {
+    background-color: #161618 !important;
   }
 
   .bg-zinc-300 {
@@ -817,12 +823,12 @@ textarea {
   }
 
   header {
-    background-color: rgba(28, 28, 30, 0.8) !important;
+    background-color: #0d0d0f !important;
     border-color: #2c2c2e !important;
   }
 
   footer {
-    background-color: rgba(28, 28, 30, 0.4) !important;
+    background-color: #0d0d0f !important;
     border-color: #2c2c2e !important;
   }
 
@@ -866,6 +872,78 @@ textarea {
   }
   ::-webkit-scrollbar-thumb:hover {
     background: #555557;
+  }
+
+  /* Override custom opacity-background containers to solid dark shades */
+  .bg-white\/97,
+  .bg-white\/95,
+  .bg-white\/90,
+  .bg-white\/85,
+  .bg-white\/80,
+  .bg-white\/60 {
+    background-color: #1c1c1e !important;
+  }
+
+  /* Brand Logo Gradient & Logo Text colors in dark mode */
+  #logoGrad stop:first-child {
+    stop-color: #ffffff !important;
+  }
+  #logoGrad stop:last-child {
+    stop-color: #a1a1a6 !important;
+  }
+
+  header span.font-extrabold {
+    background: none !important;
+    -webkit-background-clip: unset !important;
+    -webkit-text-fill-color: unset !important;
+    color: #ffffff !important;
+  }
+
+  header span.tracking-widest {
+    color: #a1a1a6 !important;
+  }
+
+  /* Hover states in dark mode (prevent text from turning black and background from turning white) */
+  .hover\:text-\[\#1d1d1f\]:hover {
+    color: #ffffff !important;
+  }
+  .hover\:bg-zinc-100\/80:hover {
+    background-color: rgba(255, 255, 255, 0.08) !important;
+  }
+  .hover\:text-black:hover {
+    color: #ffffff !important;
+  }
+  .hover\:bg-white:hover {
+    background-color: #1c1c1e !important;
+  }
+  .hover\:border-\[\#d2d2d7\]:hover {
+    border-color: #2c2c2e !important;
+  }
+  .group:hover .group-hover\:text-black {
+    color: #ffffff !important;
+  }
+
+  /* KPI Cards in Reports page overrides for dark mode */
+  .from-emerald-50\/80 {
+    --tw-gradient-from: rgba(16, 185, 129, 0.08) !important;
+  }
+  .to-teal-50\/40 {
+    --tw-gradient-to: rgba(20, 184, 166, 0.04) !important;
+  }
+  .from-zinc-50\/80 {
+    --tw-gradient-from: rgba(156, 163, 175, 0.08) !important;
+  }
+  .to-slate-50\/40 {
+    --tw-gradient-to: rgba(148, 163, 184, 0.04) !important;
+  }
+  .border-emerald-200\/60 {
+    border-color: rgba(16, 185, 129, 0.2) !important;
+  }
+  .border-zinc-200\/60 {
+    border-color: rgba(156, 163, 175, 0.2) !important;
+  }
+  .bg-emerald-100 {
+    background-color: rgba(16, 185, 129, 0.15) !important;
   }
 }
 
