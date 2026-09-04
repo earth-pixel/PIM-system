@@ -1145,9 +1145,9 @@ export default function DashboardLayout({
                     <input
                       type="text"
                       value={editProfileForm.username}
-                      onChange={e => setEditProfileForm(f => ({ ...f, username: e.target.value.replace(/\s+/g, '') }))}
+                      onChange={e => setEditProfileForm(f => ({ ...f, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))}
                       placeholder="เช่น somsak_r"
-                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all lowercase"
+                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all lowercase font-mono"
                     />
                   </div>
                   <p className="text-[9.5px] text-zinc-400 mt-1">ใช้สำหรับเข้าสู่ระบบ (ภาษาอังกฤษ ตัวเลข และ _ เท่านั้น)</p>
@@ -1175,6 +1175,10 @@ export default function DashboardLayout({
                       }
                       if (cleanUsername.length < 3) {
                         setEditProfileError('ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร');
+                        return;
+                      }
+                      if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+                        setEditProfileError('ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษ (a-z), ตัวเลข (0-9) และ _ เท่านั้น');
                         return;
                       }
                       // Check if unchanged

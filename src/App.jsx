@@ -24,8 +24,22 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [quotations, setQuotations] = useState([]);
   const [activityLog, setActivityLog] = useState([]);
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      return localStorage.getItem('pim_active_tab') || 'dashboard';
+    } catch {
+      return 'dashboard';
+    }
+  });
   const [editProduct, setEditProduct] = useState(null);
+
+  const handleTabChange = useCallback(tab => {
+    if (tab === 'manage-products') setEditProduct(null);
+    setActiveTab(tab);
+    try {
+      localStorage.setItem('pim_active_tab', tab);
+    } catch {}
+  }, []);
 
   useEffect(() => {
     clearLegacyCache();
@@ -61,17 +75,14 @@ export default function App() {
   const handleLogin = async (username, password) => {
     const result = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
     await loadDatabase();
-    setCurrentUser(result.user); setActiveTab('dashboard');
+    setCurrentUser(result.user);
+    handleTabChange('dashboard');
   };
   const handleLogout = async () => {
     await request('/api/auth/logout', { method: 'POST' });
     clearLegacyCache(); setCurrentUser(null); setUsers([]); setProducts([]); setCategories([]); setSubcategories({}); setQuotations([]); setActivityLog([]);
-    setActiveTab('dashboard'); setEditProduct(null);
+    handleTabChange('dashboard'); setEditProduct(null);
   };
-  const handleTabChange = useCallback(tab => {
-    if (tab === 'manage-products') setEditProduct(null);
-    setActiveTab(tab);
-  }, []);
   useEffect(() => {
     if (!currentUser) return;
     const navigate = event => {
@@ -91,7 +102,7 @@ export default function App() {
     try {
       const result = await request('/api/db/activityLog/append', { method: 'POST', body: JSON.stringify({ entry: { action } }) });
       setActivityLog(result.activityLog);
-    } catch (error) { setSaveError(error.message); }
+    } catch (error) { console.error('Failed to add activity log:', error); }
   };
   const handleChangePassword = async (newPassword, oldPassword) => {
     const result = await request('/api/auth/password', { method: 'POST', body: JSON.stringify({ oldPassword, newPassword }) });
@@ -306,7 +317,7 @@ export default function App() {
   }
 
   // Authenticated Screen vs Guest Login
-  if (authLoading) return <div className="p-8 text-center">กำลังตรวจสอบการเข้าสู่ระบบ…</div>;
+  if (authLoading) return null;
   if (!currentUser) {
     return <Login onLogin={handleLogin} users={users} />;
   }

@@ -278,7 +278,9 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
                         <td className="p-4 text-center text-[#86868b] font-medium">{idx + 1}</td>
                         <td className="p-4 text-center">
                           {item.productImage ? (
-                            <img src={item.productImage} className="w-8 h-8 rounded-lg object-cover border border-[#e2e8f0] mx-auto" alt="" />
+                            <div className="w-9 h-9 rounded-lg bg-[#fafafa] border border-[#e2e8f0] flex items-center justify-center p-0.5 mx-auto overflow-hidden">
+                              <img src={item.productImage} className="max-w-full max-h-full w-auto h-auto object-contain rounded-md block" alt="" />
+                            </div>
                           ) : (
                             <span className="text-[#ccc]">—</span>
                           )}

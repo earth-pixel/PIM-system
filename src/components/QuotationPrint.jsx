@@ -870,31 +870,32 @@ export default function QuotationPrint({
         </td>
         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
           {itemBarcode ? (
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '2px', backgroundColor: '#ffffff', color: '#111111', padding: '4px 6px', borderRadius: '6px', border: `1px solid ${BORDER}` }}>
               <img
                 src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(itemBarcode)}&height=10&scale=3&includetext=false`}
-                style={{ height: '32px', maxWidth: '100%', objectFit: 'contain', imageRendering: 'pixelated' }}
-                alt=""
+                style={{ height: '28px', maxWidth: '100%', objectFit: 'contain', imageRendering: 'pixelated', display: 'block', backgroundColor: '#ffffff' }}
+                alt={itemBarcode}
               />
-              <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#555557' }}>{itemBarcode}</span>
+              <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#111111', fontWeight: 'bold' }}>{itemBarcode}</span>
             </div>
           ) : '—'}
         </td>
         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
           {item.productImage ? (
-            <img
-              src={item.productImage}
-              alt=""
-              style={{
-                width: '60px',
-                height: '60px',
-                borderRadius: '8px',
-                border: `1px solid ${BORDER}`,
-                objectFit: 'cover',
-                display: 'block',
-                margin: '0 auto'
-              }}
-            />
+            <div style={{ width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', background: '#fafafa', borderRadius: '8px', border: `1px solid ${BORDER}`, padding: '2px', overflow: 'hidden' }}>
+              <img
+                src={item.productImage}
+                alt=""
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  display: 'block'
+                }}
+              />
+            </div>
           ) : (
             <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
           )}
@@ -923,19 +924,20 @@ export default function QuotationPrint({
         <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{globalIdx + 1}</td>
         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
           {item.productImage ? (
-            <img
-              src={item.productImage}
-              alt=""
-              style={{
-                width: '32px',
-                height: '32px',
-                borderRadius: '4px',
-                border: `1px solid ${BORDER}`,
-                objectFit: 'cover',
-                display: 'block',
-                margin: '0 auto'
-              }}
-            />
+            <div style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', background: '#fafafa', borderRadius: '4px', border: `1px solid ${BORDER}`, padding: '2px', overflow: 'hidden' }}>
+              <img
+                src={item.productImage}
+                alt=""
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%',
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  display: 'block'
+                }}
+              />
+            </div>
           ) : (
             <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
           )}

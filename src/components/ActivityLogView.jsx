@@ -99,16 +99,104 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
     }
   };
 
-  const getActionEmoji = (action) => {
-    if (action.includes('พิมพ์') || action.includes('ดาวน์โหลด') || action.includes('นำออก')) return '🖨️';
-    if (action.includes('เพิ่ม')) return '📦';
-    if (action.includes('แก้ไข') || action.includes('เปลี่ยน')) return '✏️';
-    if (action.includes('ลบ')) return '🗑️';
-    if (action.includes('ล้าง')) return '⚠️';
-    if (action.includes('สิทธิ์')) return '🔑';
-    return '🔧';
+  const getDisplayAction = (log) => {
+    if (!log) return '';
+    const act = log.action || '';
+    if (act === 'บันทึกประวัติการดำเนินงาน') {
+      if (log.details?.actionType === 'delete' || log.details?.changes?.some(c => c.after === 'ลบแล้ว' || c.after?.includes('ลบ') || c.after?.includes('ล้าง'))) {
+        return 'ล้างประวัติการดำเนินงานทั้งหมดในระบบ';
+      }
+    }
+    // If action is "บันทึกสินค้า" but all changes are deletions
+    if (act === 'บันทึกสินค้า' && log.details?.changes?.length > 0 && log.details?.changes?.every(c => c.after === 'ลบแล้ว' || c.after?.includes('ลบ'))) {
+      if (log.details.changes.length === 1) {
+        return `ลบสินค้า: ${String(log.details.changes[0].field).replace('ลบข้อมูล: ', '')}`;
+      }
+      return `ลบสินค้า (${log.details.changes.length} รายการ)`;
+    }
+    if (act === 'บันทึกผู้ใช้' && log.details?.changes?.length > 0 && log.details?.changes?.every(c => c.after === 'ลบแล้ว' || c.after?.includes('ลบ'))) {
+      return 'ลบบัญชีผู้ใช้';
+    }
+    if (act === 'บันทึกเอกสาร' && log.details?.changes?.length > 0 && log.details?.changes?.every(c => c.after === 'ลบแล้ว' || c.after?.includes('ลบ'))) {
+      return 'ลบเอกสาร';
+    }
+    return act;
   };
 
+  const getActionEmoji = (action) => {
+    if (!action) return '📋';
+    if (action.includes('พิมพ์') || action.includes('ดาวน์โหลด') || action.includes('นำออก')) return '🖨️';
+    if (action.includes('เพิ่ม') || action.includes('สร้าง')) return '📦';
+    if (action.includes('แก้ไข') || action.includes('เปลี่ยน') || action.includes('อัปเดต')) return '✏️';
+    if (action.includes('ลบ') || action.includes('ล้าง')) return '🗑️';
+    if (action.includes('สิทธิ์') || action.includes('รหัสผ่าน')) return '🔑';
+    if (action.includes('อนุมัติ')) return '✅';
+    return '📋';
+  };
+
+  const formatChangeValue = (val) => {
+    if (!val || val === '-') return '-';
+    if (val === 'มีข้อมูล') return 'มีข้อมูลอยู่ในระบบ';
+    if (val === 'ลบแล้ว') return 'ลบออกจากระบบแล้ว';
+    return val;
+  };
+
+  const formatChangeField = (rawField, log) => {
+    if (!rawField) return 'ข้อมูลรายการ';
+    const str = String(rawField);
+
+    if (str === 'บันทึกประวัติการดำเนินงาน' || str === 'บันทึกประวัติการทำงานเดิม' || str === 'ประวัติการดำเนินงาน') {
+      return 'ล้างประวัติการดำเนินงานในระบบ';
+    }
+
+    // Check if string is a pure UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const isPureUUID = uuidRegex.test(str.trim());
+
+    if (isPureUUID) {
+      if (log?.details?.type === 'activityLog' || log?.action?.includes('ประวัติ')) {
+        return 'ล้างประวัติการดำเนินงานในระบบ';
+      }
+      if (log?.details?.type === 'quotations' || log?.action?.includes('ใบเสนอราคา') || log?.action?.includes('เอกสาร')) {
+        return 'เอกสารใบเสนอราคาเดิม (ถูกลบ)';
+      }
+      if (log?.details?.type === 'products' || log?.action?.includes('สินค้า')) {
+        return 'ข้อมูลสินค้าเดิม (ถูกลบ)';
+      }
+      return 'ข้อมูลรายการเดิมที่ถูกลบ';
+    }
+
+    const FIELD_TRANSLATIONS = {
+      name: 'ชื่อสินค้า',
+      code: 'รหัสสินค้า (SKU)',
+      barcode: 'รหัสบาร์โค้ด',
+      brand: 'แบรนด์สินค้า',
+      category: 'หมวดหมู่สินค้า',
+      subCategory: 'หมวดหมู่ย่อย',
+      retailPrice: 'ราคาขายปลีก',
+      wholesalePrice: 'ราคาขายส่ง',
+      capFee: 'ค่าฝา',
+      stock: 'จำนวนสต็อก',
+      status: 'สถานะ',
+      totalAmount: 'ยอดรวมสุทธิ',
+      username: 'ชื่อผู้ใช้งาน',
+      role: 'สิทธิ์การใช้งาน',
+      passwordHash: 'รหัสผ่าน',
+      image: 'รูปภาพ',
+      description: 'รายละเอียด',
+      fdaNumber: 'หมายเลข อย.',
+      tisiNumber: 'หมายเลข มอก.'
+    };
+
+    if (str.includes(': ')) {
+      const [prefix, key] = str.split(': ');
+      const translatedKey = FIELD_TRANSLATIONS[key] || key;
+      const cleanPrefix = uuidRegex.test(prefix.trim()) ? 'ข้อมูลรายการ' : prefix;
+      return `${cleanPrefix}: ${translatedKey}`;
+    }
+
+    return FIELD_TRANSLATIONS[str] || str;
+  };
 
   const handlePrint = () => {
     if (checkIsInAppBrowser()) {
@@ -344,11 +432,11 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                       className="w-4 h-4 rounded-md border-[#d2d2d7] text-[#0071e3] focus:ring-[#0071e3] cursor-pointer mt-1 shrink-0 no-print"
                     />
                     <span className="text-xl shrink-0 mt-0.5" role="img" aria-label="action icon">
-                      {getActionEmoji(log.action)}
+                      {getActionEmoji(getDisplayAction(log))}
                     </span>
                     <div className="space-y-1 min-w-0 flex-1">
                       <p className="font-semibold text-[#1d1d1f] break-words leading-relaxed text-sm">
-                        {log.action}
+                        {getDisplayAction(log)}
                       </p>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-black text-[#1d1d1f]">{log.userName}</span>
@@ -364,7 +452,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                           <div className="space-y-1">
                             {log.details.changes.map((ch, idx) => (
                               <div key={idx} className="flex items-center gap-1.5 py-0.5 px-2 bg-zinc-50 rounded border border-zinc-200/50 max-w-full">
-                                <span className="font-bold text-zinc-700 shrink-0">{ch.field}:</span>
+                                <span className="font-bold text-zinc-700 shrink-0">{formatChangeField(ch.field, log)}:</span>
                                 <span className="text-red-650 line-through px-1 rounded bg-red-50/40 text-[9.5px] truncate max-w-[200px]">{ch.before}</span>
                                 <ArrowRight className="w-2.5 h-2.5 text-zinc-400 shrink-0" />
                                 <span className="text-emerald-700 px-1 rounded bg-emerald-50/40 font-bold text-[9.5px] truncate max-w-[200px]">{ch.after}</span>
@@ -499,12 +587,12 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
             <div className="max-h-[60vh] overflow-y-auto space-y-4 text-xs text-[#1d1d1f] pt-1 pb-2 pr-1 scrollbar-thin">
               <div className="flex items-start gap-3">
                 <span className="text-2xl shrink-0 mt-0.5" role="img" aria-label="action icon">
-                  {getActionEmoji(selectedLog.action)}
+                  {getActionEmoji(getDisplayAction(selectedLog))}
                 </span>
                 <div className="space-y-1.5 flex-1 min-w-0">
                   <span className="text-[10px] text-[#555557] font-bold uppercase block tracking-wider">ประวัติการดำเนินการ</span>
                   <p className="font-bold text-zinc-800 break-words leading-relaxed text-sm">
-                    {selectedLog.action}
+                    {getDisplayAction(selectedLog)}
                   </p>
                 </div>
               </div>
@@ -534,22 +622,42 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                 <div className="space-y-2.5 pt-1">
                   <span className="text-[10px] text-[#555557] font-bold uppercase block tracking-wider">รายละเอียดการเปลี่ยนแปลง</span>
                   <div className="space-y-2">
-                    {selectedLog.details.changes.map((ch, idx) => (
-                      <div key={idx} className="p-3 bg-white rounded-2xl border border-[#d2d2d7]/50 space-y-1.5 shadow-2xs">
-                        <div className="font-bold text-zinc-800 text-xs">{ch.field}</div>
-                        <div className="flex items-center gap-2 flex-wrap text-[10px] text-[#555557] font-semibold">
-                          <span>ก่อน:</span>
-                          <span className="px-2 py-0.5 bg-red-50 text-red-650 rounded-lg border border-red-100/50 line-through break-all text-[11px] font-medium">
-                            {ch.before}
-                          </span>
-                          <ArrowRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
-                          <span>หลัง:</span>
-                          <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-lg border border-emerald-100/50 break-all text-[11px] font-bold">
-                            {ch.after}
-                          </span>
+                    {selectedLog.details.changes.map((ch, idx) => {
+                      const isDeleted = ch.after === 'ลบแล้ว' || ch.after?.includes('ลบ') || ch.after?.includes('ล้าง');
+                      const isAdded = ch.before === '-' || ch.after?.includes('เพิ่ม');
+                      return (
+                        <div key={idx} className={`p-3 rounded-2xl border space-y-1.5 shadow-2xs ${
+                          isDeleted ? 'bg-red-50/30 border-red-200/70' : 'bg-white border-[#d2d2d7]/50'
+                        }`}>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-bold text-zinc-800 text-xs truncate">{formatChangeField(ch.field, selectedLog)}</span>
+                            {isDeleted && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-red-100 text-red-700 shrink-0">
+                                ลบข้อมูลแล้ว
+                              </span>
+                            )}
+                            {isAdded && (
+                              <span className="text-[9px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 shrink-0">
+                                เพิ่มใหม่
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 flex-wrap text-[10px] text-[#555557] font-semibold">
+                            <span>ก่อน:</span>
+                            <span className="px-2 py-0.5 bg-zinc-100 text-zinc-700 rounded-lg border border-zinc-200 line-through break-all text-[11px] font-medium">
+                              {formatChangeValue(ch.before)}
+                            </span>
+                            <ArrowRight className="w-3.5 h-3.5 text-zinc-400 shrink-0" />
+                            <span>หลัง:</span>
+                            <span className={`px-2 py-0.5 rounded-lg border break-all text-[11px] font-bold ${
+                              isDeleted ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-700 border-emerald-100/50'
+                            }`}>
+                              {formatChangeValue(ch.after)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

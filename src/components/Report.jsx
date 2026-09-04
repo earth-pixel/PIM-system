@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Printer, Download, Search, X, ToggleRight, Package, ToggleLeft } from 'lucide-react';
+import { Printer, Download, Search, X, ToggleRight, Package, ToggleLeft, Barcode } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ProductProposalReport from './ProductProposalReport';
 import QuotationReport from './QuotationReport';
@@ -10,7 +10,20 @@ const isOwnDocument = () => true;
 
 
 export default function Report({ products, brands, categories, subcategories = {}, quotations = [], currentUser, addActivityLog, onArchiveDeleteQuotations }) {
-  const [reportType, setReportType] = useState('products');
+  const [reportType, setReportTypeState] = useState(() => {
+    try {
+      return localStorage.getItem('pim_report_type') || 'products';
+    } catch {
+      return 'products';
+    }
+  });
+
+  const setReportType = (val) => {
+    setReportTypeState(val);
+    try {
+      localStorage.setItem('pim_report_type', typeof val === 'function' ? val(reportType) : val);
+    } catch {}
+  };
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [selectedSubCategory, setSelectedSubCategory] = useState('All');
@@ -39,7 +52,9 @@ export default function Report({ products, brands, categories, subcategories = {
       const q = searchQuery.trim().toLowerCase();
       const matchesSearch = !q ||
         (product.name || '').toLowerCase().includes(q) ||
-        (product.code || '').toLowerCase().includes(q);
+        (product.code || '').toLowerCase().includes(q) ||
+        (product.barcode || '').toLowerCase().includes(q) ||
+        (product.variants || []).some(v => (v.barcode || '').toLowerCase().includes(q) || (v.sku || '').toLowerCase().includes(q));
       return matchesBrand && matchesCategory && matchesSubCategory && matchesSearch;
     });
   }, [products, selectedBrand, selectedCategory, selectedSubCategory, searchQuery]);
@@ -316,13 +331,13 @@ export default function Report({ products, brands, categories, subcategories = {
 
           {/* Search */}
           <div className="relative flex-1 min-w-[180px] md:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0071e3] pointer-events-none" />
             <input
               type="text"
-              placeholder="ค้นหาชื่อสินค้า / รหัสสินค้า..."
+              placeholder="ค้นหาชื่อสินค้า / SKU / บาร์โค้ด..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400"
+              className="w-full pl-9 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400"
             />
             {searchQuery && (
               <button

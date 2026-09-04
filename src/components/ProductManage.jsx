@@ -20,9 +20,11 @@ import {
   Upload,
   ChevronDown,
   LayoutGrid,
-  List
+  List,
+  Barcode
 } from 'lucide-react';
 import { exportShopee, exportLazada, exportTikTok, exportToExcel } from '../utils/exportUtils';
+import { playScanBeep, findProductByBarcodeOrCode } from '../utils/scannerUtils';
 import {
   parseWeightToKg
 } from '../utils/marketplaceIO';
@@ -731,10 +733,17 @@ export default function ProductManage({
 
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (product.barcode && product.barcode.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      const q = searchQuery.toLowerCase().trim();
+      const matchesSearch = !q ||
+        (product.name && product.name.toLowerCase().includes(q)) ||
+        (product.code && product.code.toLowerCase().includes(q)) ||
+        (product.barcode && product.barcode.toLowerCase().includes(q)) ||
+        (product.description && product.description.toLowerCase().includes(q)) ||
+        (product.variants && product.variants.some(v =>
+          (v.sku && v.sku.toLowerCase().includes(q)) ||
+          (v.barcode && v.barcode.toLowerCase().includes(q)) ||
+          (v.options && v.options.some(o => o.value && o.value.toLowerCase().includes(q)))
+        ));
       const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
       const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
       const matchesSubCategory = selectedSubCategory === 'All' || product.subCategory === selectedSubCategory;
@@ -743,6 +752,24 @@ export default function ProductManage({
       return matchesSearch && matchesBrand && matchesCategory && matchesSubCategory && matchesStatus;
     });
   }, [products, searchQuery, selectedBrand, selectedCategory, selectedSubCategory, selectedStatus]);
+
+  const handleProductSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      const term = searchQuery.trim();
+      if (!term) return;
+
+      const match = findProductByBarcodeOrCode(products, term);
+      if (match && match.product) {
+        playScanBeep('success');
+        setDrawerProduct(match.product);
+      } else if (filteredProducts.length === 1) {
+        playScanBeep('success');
+        setDrawerProduct(filteredProducts[0]);
+      } else if (filteredProducts.length === 0) {
+        playScanBeep('error');
+      }
+    }
+  };
 
   const availableSubCategories = useMemo(() => {
     if (category && subcategories[category]) {
@@ -1680,15 +1707,25 @@ export default function ProductManage({
           </div>
 
           {/* Search */}
-          <div className="relative flex-1 min-w-[180px] md:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+          <div className="relative flex-1 min-w-[200px] md:max-w-sm">
+            <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0071e3] pointer-events-none" />
             <input
               type="text"
-              placeholder="ค้นหาชื่อสินค้า รหัสสินค้า รายละเอียด..."
+              placeholder="ค้นหาชื่อ, รหัส SKU, บาร์โค้ด (รองรับ Barcode Scanner)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400"
+              onKeyDown={handleProductSearchKeyDown}
+              className="w-full pl-9 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 font-medium"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           <select

@@ -31,31 +31,142 @@ function appendLog(db, user, action, details = null) {
   db.activityLog = [{ id: randomUUID(), userName: user.name || user.username, userRole: user.role, action, details, timestamp: new Date().toISOString() }, ...(db.activityLog || [])].slice(0, 200);
 }
 function logCollectionChange(db, user, key, before) {
-  const labels = { products: 'สินค้า', users: 'ผู้ใช้', quotations: 'เอกสาร', brands: 'แบรนด์', categories: 'หมวดหมู่', subcategories: 'หมวดหมู่ย่อย', activityLog: 'ประวัติการดำเนินงาน' };
+  const labels = {
+    products: 'สินค้า',
+    users: 'ผู้ใช้',
+    quotations: 'เอกสารใบเสนอราคา',
+    brands: 'แบรนด์',
+    categories: 'หมวดหมู่',
+    subcategories: 'หมวดหมู่ย่อย',
+    activityLog: 'ประวัติการดำเนินงาน'
+  };
+
   const after = db[key] || (key === 'subcategories' ? {} : []);
+
+  // Special case: clearing activityLog
+  if (key === 'activityLog') {
+    if (Array.isArray(before) && before.length > 0 && Array.isArray(after) && after.length === 0) {
+      appendLog(db, user, `ล้างประวัติการดำเนินงานทั้งหมดในระบบ`, {
+        type: 'activityLog',
+        actionType: 'delete',
+        changes: [
+          {
+            field: 'ประวัติกิจกรรมในระบบ',
+            before: `มีข้อมูลประวัติเดิม ${before.length} รายการ`,
+            after: 'ล้างข้อมูลออกจากระบบแล้ว'
+          }
+        ],
+        remark: 'ผู้ดูแลระบบ (Admin) ทำการล้างประวัติการดำเนินงานทั้งหมดในระบบ'
+      });
+    }
+    return;
+  }
+
   if (!Array.isArray(after)) {
     appendLog(db, user, `บันทึก${labels[key] || key}`, { type: key });
     return;
   }
+
   const identity = value => typeof value === 'object' ? value.id : value;
   const changes = [];
+  const addedItems = [];
+  const modifiedItems = [];
+  const deletedItems = [];
+
   for (const value of after) {
     const previous = Array.isArray(before) ? before.find(old => identity(old) === identity(value)) : undefined;
-    if (same(previous, value)) continue;
-    const name = typeof value === 'object' ? value.quotationNumber || value.code || value.username || value.id : value;
-    if (!previous) changes.push({ field: String(name), before: '-', after: 'เพิ่มใหม่' });
-    else if (typeof value === 'object') {
-      for (const field of ['name', 'code', 'username', 'role', 'brand', 'category', 'retailPrice', 'wholesalePrice', 'capFee', 'stock', 'status', 'totalAmount']) {
-        if (!same(previous[field], value[field])) changes.push({ field: `${name}: ${field}`, before: String(previous[field] ?? '-'), after: String(value[field] ?? '-') });
+    if (!previous) {
+      addedItems.push(value);
+      const name = typeof value === 'object' ? (value.name ? `${value.name}${value.code ? ` (${value.code})` : ''}` : value.quotationNumber || value.username || value.code || 'รายการใหม่') : value;
+      changes.push({ field: String(name), before: '-', after: 'เพิ่มใหม่ในระบบ' });
+    } else if (!same(previous, value)) {
+      modifiedItems.push({ previous, value });
+      const name = typeof value === 'object' ? (value.name ? `${value.name}${value.code ? ` (${value.code})` : ''}` : value.quotationNumber || value.username || value.code || 'รายการ') : value;
+      if (typeof value === 'object') {
+        const FIELD_MAP = {
+          name: 'ชื่อ', code: 'รหัส SKU', username: 'ชื่อผู้ใช้', role: 'สิทธิ์', brand: 'แบรนด์', category: 'หมวดหมู่',
+          retailPrice: 'ราคาขายปลีก', wholesalePrice: 'ราคาขายส่ง', capFee: 'ค่าฝา', stock: 'สต็อก', status: 'สถานะ', totalAmount: 'ยอดรวม'
+        };
+        for (const [fKey, fLabel] of Object.entries(FIELD_MAP)) {
+          if (!same(previous[fKey], value[fKey])) {
+            changes.push({ field: `${name}: ${fLabel}`, before: String(previous[fKey] ?? '-'), after: String(value[fKey] ?? '-') });
+          }
+        }
+        if (previous.image !== value.image) changes.push({ field: `${name}: รูปภาพ`, before: '(รูปเดิม)', after: '(รูปใหม่)' });
+        if (previous.passwordHash !== value.passwordHash) changes.push({ field: `${name}: รหัสผ่าน`, before: '********', after: 'เปลี่ยนรหัสผ่าน' });
       }
-      if (previous.image !== value.image) changes.push({ field: `${name}: รูปภาพ`, before: '(รูปเดิม)', after: '(รูปใหม่)' });
-      if (previous.passwordHash !== value.passwordHash) changes.push({ field: `${name}: รหัสผ่าน`, before: '********', after: 'เปลี่ยนรหัสผ่าน' });
     }
   }
+
   if (Array.isArray(before)) {
-    for (const value of before) if (!after.some(newValue => identity(newValue) === identity(value))) changes.push({ field: String(typeof value === 'object' ? value.quotationNumber || value.code || value.username || value.id : value), before: 'มีข้อมูล', after: 'ลบแล้ว' });
+    for (const value of before) {
+      if (!after.some(newValue => identity(newValue) === identity(value))) {
+        deletedItems.push(value);
+        let itemLabel = '';
+        let beforeDesc = 'มีข้อมูลอยู่ในระบบ';
+        if (typeof value === 'object') {
+          if (key === 'products') {
+            itemLabel = `${value.name || 'สินค้า'}${value.code ? ` [SKU: ${value.code}]` : ''}`;
+            beforeDesc = value.brand ? `แบรนด์ ${value.brand} (ราคา ${Number(value.retailPrice || 0).toLocaleString()} บาท)` : 'มีข้อมูลสินค้าในระบบ';
+          } else if (key === 'quotations') {
+            itemLabel = `เอกสาร ${value.quotationNumber || value.id}${value.customer?.name ? ` (ลูกค้า: ${value.customer.name})` : ''}`;
+            beforeDesc = `สถานะเดิม: ${value.status || '-'}`;
+          } else if (key === 'users') {
+            itemLabel = `ผู้ใช้ ${value.name || value.username} (สิทธิ์: ${value.role || 'user'})`;
+            beforeDesc = `บัญชีผู้ใช้: ${value.username}`;
+          } else {
+            itemLabel = value.name || value.id || 'รายการเดิม';
+          }
+        } else {
+          itemLabel = String(value);
+        }
+
+        changes.push({
+          field: `ลบข้อมูล: ${itemLabel}`,
+          before: beforeDesc,
+          after: 'ลบออกจากระบบแล้ว'
+        });
+      }
+    }
   }
-  appendLog(db, user, `บันทึก${labels[key] || key}`, { type: key, changes: changes.slice(0, 200) });
+
+  // Generate action title clearly indicating add/edit/delete
+  let actionTitle = '';
+  if (deletedItems.length > 0 && addedItems.length === 0 && modifiedItems.length === 0) {
+    if (after.length === 0 && before.length > 1) {
+      actionTitle = `ลบข้อมูล${labels[key] || key}ทั้งหมด (${before.length} รายการ)`;
+    } else if (deletedItems.length === 1) {
+      const d = deletedItems[0];
+      const dName = typeof d === 'object' ? (d.name ? `${d.name}${d.code ? ` (${d.code})` : ''}` : d.quotationNumber || d.username || d.code || '1 รายการ') : d;
+      actionTitle = `ลบ${labels[key] || key}: ${dName}`;
+    } else {
+      actionTitle = `ลบ${labels[key] || key} (${deletedItems.length} รายการ)`;
+    }
+  } else if (addedItems.length > 0 && deletedItems.length === 0 && modifiedItems.length === 0) {
+    if (addedItems.length === 1) {
+      const a = addedItems[0];
+      const aName = typeof a === 'object' ? (a.name ? `${a.name}${a.code ? ` (${a.code})` : ''}` : a.quotationNumber || a.username || a.code || '1 รายการ') : a;
+      actionTitle = `เพิ่ม${labels[key] || key}ใหม่: ${aName}`;
+    } else {
+      actionTitle = `เพิ่ม${labels[key] || key}ใหม่ (${addedItems.length} รายการ)`;
+    }
+  } else if (modifiedItems.length > 0 && addedItems.length === 0 && deletedItems.length === 0) {
+    if (modifiedItems.length === 1) {
+      const m = modifiedItems[0].value;
+      const mName = typeof m === 'object' ? (m.name ? `${m.name}${m.code ? ` (${m.code})` : ''}` : m.quotationNumber || m.username || m.code || '1 รายการ') : m;
+      actionTitle = `แก้ไขข้อมูล${labels[key] || key}: ${mName}`;
+    } else {
+      actionTitle = `แก้ไขข้อมูล${labels[key] || key} (${modifiedItems.length} รายการ)`;
+    }
+  } else {
+    actionTitle = `อัปเดตข้อมูล${labels[key] || key}`;
+  }
+
+  appendLog(db, user, actionTitle, {
+    type: key,
+    actionType: deletedItems.length > 0 ? 'delete' : addedItems.length > 0 ? 'add' : 'edit',
+    changes: changes.slice(0, 200)
+  });
 }
 function rememberQuotationNumbers(db) {
   db._quotationSequences ||= {};

@@ -126,8 +126,12 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
     if (password && (password.length < 8 || password.length > 256)) { setErrorMsg('รหัสผ่านใหม่ต้องมี 8–256 ตัวอักษร'); return; }
     const cleanUsername = username.trim().toLowerCase();
 
+    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      setErrorMsg('ชื่อไอดีเข้าระบบ (Username) ต้องเป็นภาษาอังกฤษ (a-z), ตัวเลข (0-9) และ _ เท่านั้น');
+      return;
+    }
+
     if (editingUser) {
-      const cleanUsername = username.trim().toLowerCase();
 
       // ตรวจ username ซ้ำ (ยกเว้นตัวเอง)
       const duplicateUser = users.find(
@@ -378,10 +382,12 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                   <input
                     type="text"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="form-input"
+                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    placeholder="เช่น somsak_r"
+                    className="form-input font-mono lowercase"
                     autoFocus={!editingUser}
                   />
+                  <p className="text-[10px] text-zinc-400 mt-1">ใช้ภาษาอังกฤษ ตัวเลข และ _ เท่านั้น (เช่น somsak_r)</p>
                 </div>
 
                 {/* Password */}

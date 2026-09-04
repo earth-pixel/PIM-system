@@ -1,14 +1,15 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Search, X, Plus, Trash2, Edit2, Check, AlertTriangle, AlertCircle,
   FileText, ChevronRight, ChevronDown, Clock, CheckCircle, XCircle, Mail, Printer, Download,
-  Users, UserCheck, Package
+  Users, UserCheck, Package, Barcode
 } from 'lucide-react';
 import QuotationPrint from './QuotationPrint';
 import * as XLSX from 'xlsx';
 import MobileDownloadModal from './MobileDownloadModal';
 import { checkIsInAppBrowser } from '../utils/browserUtils';
+import { playScanBeep, findProductByBarcodeOrCode } from '../utils/scannerUtils';
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', {
@@ -127,6 +128,14 @@ function ProductPickerModal({ products, onSelect, onClose }) {
   const [search, setSearch] = useState('');
   const [selectedMap, setSelectedMap] = useState({}); // key -> { product, variant }
   const [expandedProductIds, setExpandedProductIds] = useState(new Set());
+  const [scanFeedback, setScanFeedback] = useState(null);
+  const searchInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!scanFeedback) return;
+    const timer = setTimeout(() => setScanFeedback(null), 3200);
+    return () => clearTimeout(timer);
+  }, [scanFeedback]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return products;
@@ -144,6 +153,79 @@ function ProductPickerModal({ products, onSelect, onClose }) {
       ))
     );
   }, [products, search]);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const term = search.trim();
+
+      // If user presses Enter on empty search and has items selected, confirm immediately
+      if (!term) {
+        if (Object.keys(selectedMap).length > 0) {
+          handleConfirm();
+        }
+        return;
+      }
+
+      // Check barcode / SKU match
+      let match = findProductByBarcodeOrCode(products, term);
+
+      // Fallback: if exactly 1 product matched in current filtered list
+      if (!match && filtered.length === 1) {
+        const p = filtered[0];
+        if (p.variants && p.variants.length === 1) {
+          match = { product: p, variant: p.variants[0], variantIdx: 0 };
+        } else {
+          match = { product: p, variant: null, variantIdx: -1 };
+        }
+      }
+
+      if (match && match.product) {
+        const { product, variant, variantIdx } = match;
+
+        if (variant && variantIdx >= 0) {
+          const key = `${product.id}__var__${variantIdx}`;
+          setSelectedMap(prev => ({
+            ...prev,
+            [key]: { product, variant }
+          }));
+        } else if (product.variants && product.variants.length > 0) {
+          setSelectedMap(prev => {
+            const next = { ...prev };
+            product.variants.forEach((v, idx) => {
+              next[`${product.id}__var__${idx}`] = { product, variant: v };
+            });
+            return next;
+          });
+        } else {
+          const key = `prod_${product.id}`;
+          setSelectedMap(prev => ({
+            ...prev,
+            [key]: { product, variant: null }
+          }));
+        }
+
+        playScanBeep('success');
+        const varLabel = variant?.options?.map(o => o.value).join('/') || variant?.sku;
+        const displayName = varLabel ? `${product.name} (${varLabel})` : product.name;
+        setScanFeedback({
+          type: 'success',
+          message: `ยิงบาร์โค้ดสำเร็จ: ${displayName}`
+        });
+        setSearch('');
+        setTimeout(() => {
+          searchInputRef.current?.focus();
+        }, 30);
+      } else {
+        playScanBeep('error');
+        setScanFeedback({
+          type: 'error',
+          message: `ไม่พบสินค้าสำหรับบาร์โค้ด "${term}"`
+        });
+        searchInputRef.current?.select();
+      }
+    }
+  };
 
   const toggleProduct = (product) => {
     const hasVariants = product.variants && product.variants.length > 0;
@@ -278,25 +360,53 @@ function ProductPickerModal({ products, onSelect, onClose }) {
         {/* Search & Bulk Bar */}
         <div className="px-6 py-3 border-b border-[#f5f5f7] flex-shrink-0 bg-[#fafafa] space-y-2.5">
           <div className="relative">
-            <Search className="w-4 h-4 text-[#86868b] absolute left-3 top-2.5" />
+            <Barcode className="w-4 h-4 text-[#0071e3] absolute left-3 top-2.5" />
             <input
+              ref={searchInputRef}
               autoFocus
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="ค้นหาชื่อสินค้า, รหัส SKU, บาร์โค้ด, แบรนด์..."
-              className="w-full pl-9 pr-9 py-2 bg-white border border-[#d2d2d7] rounded-xl text-xs focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] transition-all shadow-xs"
+              onKeyDown={handleSearchKeyDown}
+              placeholder="ค้นหาชื่อสินค้า, รหัส SKU, หรือยิง Barcode Scanner..."
+              className="w-full pl-9 pr-28 py-2 bg-white border border-[#d2d2d7] rounded-xl text-xs focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] transition-all shadow-xs"
             />
-            {search && (
+            <div className="absolute right-2.5 top-2 flex items-center gap-1.5">
+              {search ? (
+                <button
+                  type="button"
+                  onClick={() => { setSearch(''); searchInputRef.current?.focus(); }}
+                  className="text-[#86868b] hover:text-[#1d1d1f] p-0.5"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              ) : (
+                <span className="text-[10px] font-bold text-[#0071e3] bg-blue-50 px-2 py-0.5 rounded border border-blue-200/60 flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                  รองรับ Barcode
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Scanner Feedback Banner */}
+          {scanFeedback && (
+            <div className={`flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold animate-fade-in ${
+              scanFeedback.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs' : 'bg-red-50 text-red-700 border border-red-200 shadow-xs'
+            }`}>
+              <div className="flex items-center gap-2 truncate">
+                {scanFeedback.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                <span className="truncate">{scanFeedback.message}</span>
+              </div>
               <button
                 type="button"
-                onClick={() => setSearch('')}
-                className="absolute right-3 top-2.5 text-[#86868b] hover:text-[#1d1d1f]"
+                onClick={() => setScanFeedback(null)}
+                className="text-zinc-400 hover:text-zinc-600 p-0.5 ml-2 shrink-0"
               >
-                <X className="w-4 h-4" />
+                <X className="w-3.5 h-3.5" />
               </button>
-            )}
-          </div>
+            </div>
+          )}
 
           <div className="flex items-center justify-between text-xs pt-0.5">
             <div className="flex items-center gap-2">
@@ -352,13 +462,12 @@ function ProductPickerModal({ products, onSelect, onClose }) {
                   >
                     {/* Checkbox */}
                     <div
-                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0 ${
-                        isFullySelected
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0 ${isFullySelected
                           ? 'bg-[#0071e3] border-[#0071e3] text-white shadow-xs'
                           : isSelected
-                          ? 'bg-blue-100 border-[#0071e3] text-[#0071e3]'
-                          : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'
-                      }`}
+                            ? 'bg-blue-100 border-[#0071e3] text-[#0071e3]'
+                            : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'
+                        }`}
                     >
                       {isFullySelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
                       {isSelected && !isFullySelected && <div className="w-2 h-2 bg-[#0071e3] rounded-xs" />}
@@ -395,11 +504,10 @@ function ProductPickerModal({ products, onSelect, onClose }) {
                       <button
                         type="button"
                         onClick={(e) => toggleExpand(product.id, e)}
-                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border flex items-center gap-1 transition-all cursor-pointer flex-shrink-0 ${
-                          isExpanded
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border flex items-center gap-1 transition-all cursor-pointer flex-shrink-0 ${isExpanded
                             ? 'bg-blue-100 text-[#0071e3] border-blue-200'
                             : 'bg-white text-[#555557] border-[#d2d2d7] hover:border-[#0071e3] hover:text-[#0071e3]'
-                        }`}
+                          }`}
                       >
                         <span>{product.variants.length} รูปแบบ</span>
                         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
@@ -420,20 +528,19 @@ function ProductPickerModal({ products, onSelect, onClose }) {
                           <div
                             key={vIdx}
                             onClick={(e) => toggleVariant(product, v, vIdx, e)}
-                            className={`py-2 px-3 flex items-center justify-between rounded-lg cursor-pointer transition-colors ${
-                              isVarSelected ? 'bg-blue-100/70 font-semibold' : 'hover:bg-blue-50/50'
-                            }`}
+                            className={`py-2 px-3 flex items-center justify-between rounded-lg cursor-pointer transition-colors ${isVarSelected ? 'bg-blue-100/70 font-semibold' : 'hover:bg-blue-50/50'
+                              }`}
                           >
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div
-                                className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                                  isVarSelected ? 'bg-[#0071e3] border-[#0071e3] text-white' : 'border-[#d2d2d7] bg-white'
-                                }`}
+                                className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${isVarSelected ? 'bg-[#0071e3] border-[#0071e3] text-white' : 'border-[#d2d2d7] bg-white'
+                                  }`}
                               >
                                 {isVarSelected && <Check className="w-3 h-3 stroke-[3]" />}
                               </div>
                               <span className="text-xs text-[#1d1d1f] truncate">{varLabel}</span>
                               {v.sku && <span className="text-[10px] text-[#86868b] font-mono">({v.sku})</span>}
+                              {v.barcode && <span className="text-[10px] text-[#0071e3] font-mono">· บาร์โค้ด: {v.barcode}</span>}
                             </div>
                             <span className="text-xs font-bold text-[#1d1d1f] flex-shrink-0 ml-2">
                               {Number(varPrice).toLocaleString()} ฿
@@ -1161,278 +1268,287 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
       {/* Search and Filters — ซ่อนเมื่ออยู่ใน admin 'all' mode */}
       {!(currentUser?.role === 'admin' && adminListMode === 'all') && (
-      <>{/* Search and Filters */}
-      <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
-        <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
-          </div>
-
-          <div className="relative flex-1 min-w-[180px] md:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="ค้นหาเลขที่เอกสาร หรือชื่อลูกค้า..."
-              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 text-zinc-700"
-            />
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="w-full sm:w-auto">
-              {currentUser?.role === 'admin' && adminListMode === 'pending' ? (
-                <div className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f]/75 font-medium select-none flex items-center">
-                  📄 ใบเสนอราคา
-                </div>
-              ) : (
-                <select
-                  value={docTypeFilter}
-                  onChange={e => setDocTypeFilter(e.target.value)}
-                  className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-                >
-                  <option value="All">ประเภทเอกสารทั้งหมด</option>
-                  <option value="quotation">📄 ใบเสนอราคา</option>
-                  <option value="product_proposal">📦 ใบเสนอสินค้า</option>
-                </select>
-              )}
-            </div>
-            {/* Status selector or pending status label */}
-            {currentUser?.role === 'admin' && adminListMode === 'pending' ? (
-              <div className="w-full sm:w-auto">
-                <div className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 font-medium select-none flex items-center">
-                  ⏳ รออนุมัติ
-                </div>
+        <>{/* Search and Filters */}
+          <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+            <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
               </div>
-            ) : (
-              <div className="w-full sm:w-auto">
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-                  disabled={docTypeFilter === 'product_proposal'}
-                >
-                  {currentUser?.role === 'admin' && adminListMode === 'all' ? (
-                    <>
-                      <option value="All">สถานะทั้งหมด</option>
-                      <option value="approved">อนุมัติแล้ว</option>
-                    </>
+
+              <div className="relative flex-1 min-w-[180px] md:max-w-xs">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="ค้นหาเลขที่เอกสาร หรือชื่อลูกค้า..."
+                  className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 text-zinc-700"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="w-full sm:w-auto">
+                  {currentUser?.role === 'admin' && adminListMode === 'pending' ? (
+                    <div className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f]/75 font-medium select-none flex items-center">
+                      📄 ใบเสนอราคา
+                    </div>
                   ) : (
-                    <>
-                      <option value="All">สถานะทั้งหมด</option>
-                      <option value="draft">แบบร่าง</option>
-                      <option value="sent">รออนุมัติ</option>
-                      <option value="approved">อนุมัติแล้ว</option>
-                      <option value="rejected">ไม่อนุมัติ</option>
-                    </>
+                    <select
+                      value={docTypeFilter}
+                      onChange={e => setDocTypeFilter(e.target.value)}
+                      className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+                    >
+                      <option value="All">ประเภทเอกสารทั้งหมด</option>
+                      <option value="quotation">📄 ใบเสนอราคา</option>
+                      <option value="product_proposal">📦 ใบเสนอสินค้า</option>
+                    </select>
                   )}
-                </select>
-              </div>
-            )}
+                </div>
+                {/* Status selector or pending status label */}
+                {currentUser?.role === 'admin' && adminListMode === 'pending' ? (
+                  <div className="w-full sm:w-auto">
+                    <div className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 font-medium select-none flex items-center">
+                      ⏳ รออนุมัติ
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full sm:w-auto">
+                    <select
+                      value={statusFilter}
+                      onChange={e => setStatusFilter(e.target.value)}
+                      className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+                      disabled={docTypeFilter === 'product_proposal'}
+                    >
+                      {currentUser?.role === 'admin' && adminListMode === 'all' ? (
+                        <>
+                          <option value="All">สถานะทั้งหมด</option>
+                          <option value="approved">อนุมัติแล้ว</option>
+                        </>
+                      ) : (
+                        <>
+                          <option value="All">สถานะทั้งหมด</option>
+                          <option value="draft">แบบร่าง</option>
+                          <option value="sent">รออนุมัติ</option>
+                          <option value="approved">อนุมัติแล้ว</option>
+                          <option value="rejected">ไม่อนุมัติ</option>
+                        </>
+                      )}
+                    </select>
+                  </div>
+                )}
 
-            {/* Date filter input (always visible!) */}
-            <div className="w-full sm:w-auto relative flex items-center">
-              <input
-                type={dateFilter ? 'date' : 'text'}
-                placeholder="เลือกวันที่..."
-                value={dateFilter}
-                onFocus={(e) => (e.target.type = 'date')}
-                onBlur={(e) => {
-                  if (!e.target.value) e.target.type = 'text';
-                }}
-                onChange={e => setDateFilter(e.target.value)}
-                className="pl-3 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-                title="กรองตามวันที่ออกเอกสาร"
-              />
-              {dateFilter && (
-                <button
-                  type="button"
-                  onClick={() => setDateFilter('')}
-                  className="absolute right-3 text-zinc-400 hover:text-zinc-600 cursor-pointer"
-                  title="ล้างตัวกรองวันที่"
-                >
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
+                {/* Date filter input (always visible!) */}
+                <div className="w-full sm:w-auto relative flex items-center">
+                  <input
+                    type={dateFilter ? 'date' : 'text'}
+                    placeholder="เลือกวันที่..."
+                    value={dateFilter}
+                    onFocus={(e) => (e.target.type = 'date')}
+                    onBlur={(e) => {
+                      if (!e.target.value) e.target.type = 'text';
+                    }}
+                    onChange={e => setDateFilter(e.target.value)}
+                    className="pl-3 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+                    title="กรองตามวันที่ออกเอกสาร"
+                  />
+                  {dateFilter && (
+                    <button
+                      type="button"
+                      onClick={() => setDateFilter('')}
+                      className="absolute right-3 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                      title="ล้างตัวกรองวันที่"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                {currentUser?.role === 'admin' && adminListMode === 'all' && (
+                  <button
+                    onClick={handleExportExcel}
+                    className="group relative overflow-hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                    title="ส่งออกรายงาน Excel ตามตัวกรองปัจจุบัน"
+                  >
+                    <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+                    <Download className="w-4 h-4" /> ส่งออก Excel
+                  </button>
+                )}
+              </div>
             </div>
-            {currentUser?.role === 'admin' && adminListMode === 'all' && (
-              <button
-                onClick={handleExportExcel}
-                className="group relative overflow-hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
-                title="ส่งออกรายงาน Excel ตามตัวกรองปัจจุบัน"
-              >
-                <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-                <Download className="w-4 h-4" /> ส่งออก Excel
-              </button>
-            )}
           </div>
-        </div>
-      </div>
-      </> /* end of hidden-in-all-mode block */
+        </> /* end of hidden-in-all-mode block */
       )}
 
       {/* List — ซ่อนเมื่ออยู่ใน admin 'all' mode */}
       {!(currentUser?.role === 'admin' && adminListMode === 'all') && (
-      <>{/* List */}
-      {filtered.length === 0 ? (
-        <div className="text-center py-12 text-xs text-zinc-400 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
-          ไม่พบรายการเอกสารเสนอราคา/สินค้า
-        </div>
-      ) : (
-        <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xs overflow-hidden">
-          <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-3">
-              <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายการเอกสารเสนอราคา</h4>
-              <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
-                {filtered.length.toLocaleString()} รายการ
-              </span>
+        <>{/* List */}
+          {filtered.length === 0 ? (
+            <div className="text-center py-12 text-xs text-zinc-400 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+              ไม่พบรายการเอกสารเสนอราคา/สินค้า
             </div>
-
-            {/* Sorting Dropdown */}
-            <div className="relative self-start sm:self-auto select-none">
-              <button
-                type="button"
-                onClick={() => setIsSortOpen(!isSortOpen)}
-                className="px-3.5 py-1.5 bg-[#f5f5f7] hover:bg-[#e8e8ed] border border-[#d2d2d7] rounded-xl text-xs font-bold text-[#1d1d1f] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 z-10"
-              >
-                <span>{sortBy === 'newest' ? 'ใหม่ที่สุด' : 'เก่าที่สุด'}</span>
-                <svg
-                  className={`w-3.5 h-3.5 text-[#555557] transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`}
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  viewBox="0 0 24 24"
-                >
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                </svg>
-              </button>
-
-              {isSortOpen && (
-                <>
-                  {/* Invisible overlay backdrop to close dropdown */}
-                  <div
-                    className="fixed inset-0 z-30 cursor-default"
-                    onClick={() => setIsSortOpen(false)}
-                  />
-                  {/* Dropdown Menu */}
-                  <div className="absolute right-0 mt-1.5 w-32 bg-white border border-[#d2d2d7]/85 rounded-xl shadow-lg py-1 z-40 animate-scale-in origin-top-right">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSortBy('newest');
-                        setIsSortOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${
-                        sortBy === 'newest'
-                          ? 'text-[#0071e3] bg-[#0071e3]/5'
-                          : 'text-[#1d1d1f]'
-                      }`}
-                    >
-                      ใหม่ที่สุด
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSortBy('oldest');
-                        setIsSortOpen(false);
-                      }}
-                      className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${
-                        sortBy === 'oldest'
-                          ? 'text-[#0071e3] bg-[#0071e3]/5'
-                          : 'text-[#1d1d1f]'
-                      }`}
-                    >
-                      เก่าที่สุด
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="divide-y divide-[#e8e8ed]">
-            {filtered.map((q) => {
-              const indexInRaw = quotations.findIndex(x => x.id === q.id);
-              const isHovered = hoveredRow === q.id;
-              const borderStyle = q.documentType === 'product_proposal' ? 'border-violet-500' : 'border-[#0071e3]';
-              const bgClass = isHovered
-                ? (q.documentType === 'product_proposal' ? 'bg-gradient-to-r from-violet-500/5 via-violet-500/3 to-transparent' : 'bg-gradient-to-r from-[#0071e3]/4 via-[#0071e3]/3 to-transparent')
-                : (q.documentType === 'product_proposal' ? 'bg-violet-50/5' : 'bg-white');
-
-              return (
-                <div
-                  key={q.id}
-                  onClick={() => onView(indexInRaw)}
-                  onMouseEnter={() => setHoveredRow(q.id)}
-                  onMouseLeave={() => setHoveredRow(null)}
-                  className={`flex justify-between items-center px-5 py-3.5 cursor-pointer transition-all duration-150 border-l-4 ${borderStyle} ${bgClass}`}
-                >
-                  <div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs font-bold text-[#0071e3] font-mono">{q.quotationNumber || q.id}</span>
-                      {q.documentType === 'product_proposal' ? (
-                        <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-violet-50 text-violet-700 border border-violet-100 uppercase tracking-wide">
-                          📦 ใบเสนอสินค้า
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wide">
-                          📄 ใบเสนอราคา
-                        </span>
-                      )}
-                    </div>
-                    <div className="text-[11px] text-[#555557] mt-1.5">
-                      {q.documentType === 'product_proposal'
-                        ? 'เอกสารเสนอสินค้า (ไม่ระบุลูกค้า / บันทึกสำเร็จ)'
-                        : `${q.customer?.name} · ${q.customer?.companyName || 'ลูกค้าทั่วไป'}`}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      <span className="text-[10px] text-[#aaa]">{formatDate(q.issuedDate)}</span>
-                      {currentUser?.role === 'admin' && adminListMode === 'pending' && q.salespersonName && (
-                        <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                          <Users className="w-2.5 h-2.5" />
-                          {q.salespersonName}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right flex flex-col items-end gap-1.5">
-                    <div className="text-xs font-bold text-[#1d1d1f]">฿{fmt(q.totalAmount)}</div>
-                    <div className="flex items-center gap-2">
-                      {q.documentType === 'product_proposal' ? (
-                        <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-violet-50 text-violet-600 border-violet-200">
-                          ✓ พร้อมใช้งาน
-                        </span>
-                      ) : (
-                        <Badge status={q.status} />
-                      )}
-
-                      {canDeleteDocument(q, currentUser) && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(q);
-                          }}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-200"
-                          title="ลบเอกสาร"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  </div>
+          ) : (
+            <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xs overflow-hidden">
+              <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-3">
+                  <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายการเอกสารเสนอราคา</h4>
+                  <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+                    {filtered.length.toLocaleString()} รายการ
+                  </span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-      </> /* end list block */
+
+                {/* Sorting Dropdown */}
+                <div className="relative self-start sm:self-auto select-none">
+                  <button
+                    type="button"
+                    onClick={() => setIsSortOpen(!isSortOpen)}
+                    className="px-3.5 py-1.5 bg-[#f5f5f7] hover:bg-[#e8e8ed] border border-[#d2d2d7] rounded-xl text-xs font-bold text-[#1d1d1f] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 z-10"
+                  >
+                    <span>{sortBy === 'newest' ? 'ใหม่ที่สุด' : 'เก่าที่สุด'}</span>
+                    <svg
+                      className={`w-3.5 h-3.5 text-[#555557] transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`}
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.5"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                    </svg>
+                  </button>
+
+                  {isSortOpen && (
+                    <>
+                      {/* Invisible overlay backdrop to close dropdown */}
+                      <div
+                        className="fixed inset-0 z-30 cursor-default"
+                        onClick={() => setIsSortOpen(false)}
+                      />
+                      {/* Dropdown Menu */}
+                      <div className="absolute right-0 mt-1.5 w-32 bg-white border border-[#d2d2d7]/85 rounded-xl shadow-lg py-1 z-40 animate-scale-in origin-top-right">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortBy('newest');
+                            setIsSortOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${sortBy === 'newest'
+                              ? 'text-[#0071e3] bg-[#0071e3]/5'
+                              : 'text-[#1d1d1f]'
+                            }`}
+                        >
+                          ใหม่ที่สุด
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSortBy('oldest');
+                            setIsSortOpen(false);
+                          }}
+                          className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${sortBy === 'oldest'
+                              ? 'text-[#0071e3] bg-[#0071e3]/5'
+                              : 'text-[#1d1d1f]'
+                            }`}
+                        >
+                          เก่าที่สุด
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+              <div className="divide-y divide-[#e8e8ed]">
+                {filtered.map((q) => {
+                  const indexInRaw = quotations.findIndex(x => x.id === q.id);
+                  const isHovered = hoveredRow === q.id;
+                  const borderStyle = q.documentType === 'product_proposal' ? 'border-violet-500' : 'border-[#0071e3]';
+                  const bgClass = isHovered
+                    ? (q.documentType === 'product_proposal' ? 'bg-gradient-to-r from-violet-500/5 via-violet-500/3 to-transparent' : 'bg-gradient-to-r from-[#0071e3]/4 via-[#0071e3]/3 to-transparent')
+                    : (q.documentType === 'product_proposal' ? 'bg-violet-50/5' : 'bg-white');
+
+                  return (
+                    <div
+                      key={q.id}
+                      onClick={() => onView(indexInRaw)}
+                      onMouseEnter={() => setHoveredRow(q.id)}
+                      onMouseLeave={() => setHoveredRow(null)}
+                      className={`flex justify-between items-center px-5 py-3.5 cursor-pointer transition-all duration-150 border-l-4 ${borderStyle} ${bgClass}`}
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-bold text-[#0071e3] font-mono">{q.quotationNumber || q.id}</span>
+                          {q.documentType === 'product_proposal' ? (
+                            <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-violet-50 text-violet-700 border border-violet-100 uppercase tracking-wide">
+                              📦 ใบเสนอสินค้า
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wide">
+                              📄 ใบเสนอราคา
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-[#555557] mt-1.5">
+                          {q.documentType === 'product_proposal'
+                            ? 'เอกสารเสนอสินค้า (ไม่ระบุลูกค้า / บันทึกสำเร็จ)'
+                            : `${q.customer?.name} · ${q.customer?.companyName || 'ลูกค้าทั่วไป'}`}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                          <span className="text-[10px] text-[#aaa]">{formatDate(q.issuedDate)}</span>
+                          {currentUser?.role === 'admin' && adminListMode === 'pending' && q.salespersonName && (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                              <Users className="w-2.5 h-2.5" />
+                              {q.salespersonName}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right flex flex-col items-end gap-1.5">
+                        <div className="text-xs font-bold text-[#1d1d1f]">฿{fmt(q.totalAmount)}</div>
+                        <div className="flex items-center gap-2">
+                          {q.documentType === 'product_proposal' ? (
+                            <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-violet-50 text-violet-600 border-violet-200">
+                              ✓ พร้อมใช้งาน
+                            </span>
+                          ) : (
+                            <Badge status={q.status} />
+                          )}
+
+                          {canDeleteDocument(q, currentUser) && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(q);
+                              }}
+                              className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-200"
+                              title="ลบเอกสาร"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </> /* end list block */
       )}
     </div>
   );
 };
 
-const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProposal, quotations = [], users = [] }) => {
+const CreateTab = ({
+  onSave,
+  onCancel,
+  products,
+  editQt,
+  currentUser,
+  sourceProposal,
+  quotations = [],
+  users = [],
+  docFormat: controlledDocFormat,
+  setDocFormat: controlledSetDocFormat
+}) => {
   // Memoize unique customers list from past quotations
   const existingCustomers = useMemo(() => {
     const custMap = new Map();
@@ -1463,9 +1579,11 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
   const [selectedCustName, setSelectedCustName] = useState('');
 
   // If converting from a product proposal, lock to quotation mode
-  const [docFormat, setDocFormat] = useState(
+  const [localDocFormat, setLocalDocFormat] = useState(
     sourceProposal ? 'quotation' : (editQt?.documentType || 'quotation')
   );
+  const docFormat = controlledDocFormat ?? localDocFormat;
+  const setDocFormat = controlledSetDocFormat ?? setLocalDocFormat;
   const [form, setForm] = useState(() => {
     if (editQt) {
       return {
@@ -1505,6 +1623,15 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
   const [alert, setAlert] = useState(null);
   const [showPicker, setShowPicker] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState(null);
+  const [quickBarcode, setQuickBarcode] = useState('');
+  const [quickScanBanner, setQuickScanBanner] = useState(null);
+  const quickScanInputRef = useRef(null);
+
+  useEffect(() => {
+    if (!quickScanBanner) return;
+    const t = setTimeout(() => setQuickScanBanner(null), 3500);
+    return () => clearTimeout(t);
+  }, [quickScanBanner]);
 
   const setField = (k, v) => {
     setForm(f => ({ ...f, [k]: v }));
@@ -1590,6 +1717,85 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
       return [...existingFilled, ...newItems];
     });
     setShowPicker(false);
+  };
+
+  const handleQuickBarcodeScan = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const term = quickBarcode.trim();
+      if (!term) return;
+
+      const match = findProductByBarcodeOrCode(products, term);
+
+      if (match && match.product) {
+        const { product, variant } = match;
+        const price = variant?.price ?? product.retailPrice ?? 0;
+        const variantLabel = variant?.options?.map(o => o.value).join(' / ') ?? '';
+        const itemBarcode = variant?.barcode ?? product.barcode ?? '';
+        const itemCode = variant?.sku ?? variant?.code ?? product.code ?? '';
+        const displayName = variantLabel ? `${product.name} (${variantLabel})` : product.name;
+
+        // Check if item is already in quotation items list
+        const existingIdx = items.findIndex(it =>
+          (itemBarcode && it.barcode && it.barcode.trim().toLowerCase() === itemBarcode.trim().toLowerCase()) ||
+          (itemCode && it.productCode && it.productCode.trim().toLowerCase() === itemCode.trim().toLowerCase())
+        );
+
+        if (existingIdx !== -1) {
+          const updated = [...items];
+          const curr = updated[existingIdx];
+          const nextQty = (Number(curr.quantity) || 0) + 1;
+          const gross = nextQty * curr.unitPrice;
+          const lineTotal = curr.discountType === 'percent' ? gross * (1 - curr.discount / 100) : gross - curr.discount;
+          updated[existingIdx] = {
+            ...curr,
+            quantity: nextQty,
+            lineTotal,
+          };
+          setItems(updated);
+          setQuickScanBanner({
+            type: 'success',
+            message: `เพิ่มจำนวน: ${displayName} เป็น ${nextQty} ชิ้น เรียบร้อย`
+          });
+        } else {
+          const newItem = {
+            id: generateItemId(),
+            productName: displayName,
+            productCode: itemCode,
+            productImage: variant?.image ?? product.image ?? '',
+            description: '',
+            unit: 'ชิ้น',
+            quantity: 1,
+            unitPrice: price,
+            discount: 0,
+            discountType: 'percent',
+            lineTotal: price,
+            barcode: itemBarcode,
+            size: variant?.size ?? product.size ?? '',
+            weight: variant?.weight ?? product.weight ?? '',
+          };
+          setItems(prev => {
+            const existingFilled = prev.filter(it => it.productName && it.productName.trim() !== '');
+            return [...existingFilled, newItem];
+          });
+          setQuickScanBanner({
+            type: 'success',
+            message: `เพิ่มสินค้า: ${displayName} (1 ชิ้น) เรียบร้อย`
+          });
+        }
+
+        playScanBeep('success');
+        setQuickBarcode('');
+        setTimeout(() => quickScanInputRef.current?.focus(), 30);
+      } else {
+        playScanBeep('error');
+        setQuickScanBanner({
+          type: 'error',
+          message: `ไม่พบสินค้าสำหรับบาร์โค้ด "${term}" ในระบบ PIM`
+        });
+        quickScanInputRef.current?.select();
+      }
+    }
   };
 
   const vatRate = Number(form.vatRate);
@@ -1884,6 +2090,53 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
                 )}
               </div>
             </div>
+
+            {/* Barcode Scanner Quick
+            
+            Bar */}
+            <div className="mb-4 p-3 bg-gradient-to-r from-blue-50/50 via-[#fbfbfb] to-white border border-[#d2d2d7]/70 rounded-2xl shadow-xs">
+              <div className="relative w-full">
+                <Barcode className="w-4 h-4 text-[#0071e3] absolute left-3 top-2.5" />
+                <input
+                  ref={quickScanInputRef}
+                  type="text"
+                  value={quickBarcode}
+                  onChange={e => setQuickBarcode(e.target.value)}
+                  onKeyDown={handleQuickBarcodeScan}
+                  placeholder="ยิง Barcode Scanner เพื่อเพิ่มสินค้าลงเอกสารทันที..."
+                  className="w-full pl-9 pr-8 py-2 bg-white border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f] focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all font-mono shadow-xs"
+                />
+                {quickBarcode && (
+                  <button
+                    type="button"
+                    onClick={() => { setQuickBarcode(''); quickScanInputRef.current?.focus(); }}
+                    className="absolute right-2.5 top-2 text-[#86868b] hover:text-[#1d1d1f] p-0.5 cursor-pointer"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Quick scan feedback banner */}
+            {quickScanBanner && (
+              <div className={`mb-3 flex items-center justify-between px-3.5 py-2 rounded-xl text-xs font-semibold animate-fade-in ${
+                quickScanBanner.type === 'success' ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 shadow-xs' : 'bg-red-50 text-red-700 border border-red-200 shadow-xs'
+              }`}>
+                <div className="flex items-center gap-2 truncate">
+                  {quickScanBanner.type === 'success' ? <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" /> : <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />}
+                  <span className="truncate">{quickScanBanner.message}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setQuickScanBanner(null)}
+                  className="text-zinc-400 hover:text-zinc-600 p-0.5 ml-2 shrink-0"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
@@ -2340,7 +2593,7 @@ const PreviewTab = ({
         {/* Details layout */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-[#1d1d1f]">
           {q.documentType !== 'product_proposal' && (
-            <div className="bg-[#f5f5f7]/40 rounded-xl p-4 border border-[#d2d2d7]/30">
+            <div className="bg-[#f5f5f7] rounded-xl p-4 border border-[#d2d2d7]/50">
               <div className="text-xs font-extrabold text-[#1d1d1f] border-b border-[#e8e8ed] pb-2 mb-3 uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
                 ข้อมูลลูกค้า
@@ -2363,8 +2616,8 @@ const PreviewTab = ({
           )}
 
           {q.documentType === 'product_proposal' ? (
-            <div className="bg-gradient-to-br from-violet-50/80 via-purple-50/30 to-white rounded-2xl p-6 border border-violet-200/70 md:col-span-2 shadow-xs space-y-4">
-              <div className="flex items-center justify-between border-b border-violet-150/70 pb-3">
+            <div className="bg-violet-50 rounded-2xl p-6 border border-violet-200 md:col-span-2 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-violet-200 pb-3">
                 <div className="flex items-center gap-2.5">
                   <div className="w-2 h-5 bg-gradient-to-b from-violet-600 to-purple-600 rounded-full shadow-xs"></div>
                   <h3 className="text-sm font-extrabold text-violet-950 uppercase tracking-wider">
@@ -2375,7 +2628,7 @@ const PreviewTab = ({
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
                 {/* 1. Salesperson */}
-                <div className="bg-white/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-violet-100/90 shadow-2xs hover:border-violet-300/60 transition-all duration-200">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-violet-100 shadow-2xs hover:border-violet-300 transition-all duration-200">
                   <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
                     ผู้นำเสนอ / ผู้จัดทำ
                   </span>
@@ -2385,7 +2638,7 @@ const PreviewTab = ({
                 </div>
 
                 {/* 2. Issue Date */}
-                <div className="bg-white/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-violet-100/90 shadow-2xs hover:border-violet-300/60 transition-all duration-200">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-violet-100 shadow-2xs hover:border-violet-300 transition-all duration-200">
                   <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
                     วันที่จัดทำเอกสาร
                   </span>
@@ -2395,7 +2648,7 @@ const PreviewTab = ({
                 </div>
 
                 {/* 3. Items Count */}
-                <div className="bg-white/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-violet-100/90 shadow-2xs hover:border-violet-300/60 transition-all duration-200">
+                <div className="bg-white p-4 sm:p-5 rounded-2xl border border-violet-100 shadow-2xs hover:border-violet-300 transition-all duration-200">
                   <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
                     จำนวนรายการสินค้า
                   </span>
@@ -2406,7 +2659,7 @@ const PreviewTab = ({
               </div>
             </div>
           ) : (
-            <div className="bg-[#f5f5f7]/40 rounded-xl p-4 border border-[#d2d2d7]/30">
+            <div className="bg-[#f5f5f7] rounded-xl p-4 border border-[#d2d2d7]/50">
               <div className="text-xs font-extrabold text-[#1d1d1f] border-b border-[#e8e8ed] pb-2 mb-3 uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
                 รายละเอียดเอกสาร
@@ -2437,33 +2690,31 @@ const PreviewTab = ({
               <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
                 {q.documentType === 'product_proposal'
                   ? ['ลำดับ', 'ภาพสินค้า', 'รหัสสินค้า', 'บาร์โค้ด', 'ชื่อสินค้า / รายการ', 'ขนาด', 'น้ำหนัก', 'ราคาจำหน่าย'].map((h, i) => (
-                      <th
-                        key={i}
-                        className={`p-2.5 sm:p-3.5 font-black text-[10px] tracking-widest uppercase ${
-                          i === 0 || i === 1 || i === 2 || i === 3 || i === 5 || i === 6
-                            ? 'text-center'
-                            : i === 4
+                    <th
+                      key={i}
+                      className={`p-2.5 sm:p-3.5 font-black text-[10px] tracking-widest uppercase ${i === 0 || i === 1 || i === 2 || i === 3 || i === 5 || i === 6
+                          ? 'text-center'
+                          : i === 4
                             ? 'text-left'
                             : 'text-right'
                         }`}
-                      >
-                        {h}
-                      </th>
-                    ))
+                    >
+                      {h}
+                    </th>
+                  ))
                   : ['ลำดับ', 'รูปภาพ', 'รหัสสินค้า', 'รายการสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'ส่วนลด', 'รวม'].map((h, i) => (
-                      <th
-                        key={i}
-                        className={`p-2.5 sm:p-3.5 font-black text-[10px] tracking-widest uppercase ${
-                          i === 0 || i === 1 || i === 4 || i === 5
-                            ? 'text-center'
-                            : i === 2 || i === 3
+                    <th
+                      key={i}
+                      className={`p-2.5 sm:p-3.5 font-black text-[10px] tracking-widest uppercase ${i === 0 || i === 1 || i === 4 || i === 5
+                          ? 'text-center'
+                          : i === 2 || i === 3
                             ? 'text-left'
                             : 'text-right'
                         }`}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                    >
+                      {h}
+                    </th>
+                  ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f0f5]">
@@ -2473,11 +2724,13 @@ const PreviewTab = ({
                     <td className="p-2 sm:p-3.5 text-center text-[#86868b] font-mono text-[10px]">{idx + 1}</td>
                     <td className="p-2 sm:p-3.5 text-center">
                       {it.productImage ? (
-                        <img
-                          src={it.productImage}
-                          className="w-14 h-14 rounded-xl object-cover border border-violet-100 mx-auto shadow-2xs"
-                          alt=""
-                        />
+                        <div className="w-14 h-14 rounded-xl bg-[#fafafa] border border-violet-100 flex items-center justify-center p-1 mx-auto shadow-2xs overflow-hidden">
+                          <img
+                            src={it.productImage}
+                            className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg block"
+                            alt=""
+                          />
+                        </div>
                       ) : (
                         <div className="w-14 h-14 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-400 text-xs mx-auto">
                           —
@@ -2493,14 +2746,47 @@ const PreviewTab = ({
                     </td>
                     <td className="p-2 sm:p-3 text-center">
                       {it.barcode ? (
-                        <div className="inline-flex flex-col items-center justify-center bg-white p-2 rounded-xl border border-zinc-200 shadow-2xs group hover:border-violet-400 hover:shadow-xs transition-all">
+                        <div
+                          style={{
+                            display: 'inline-flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            backgroundColor: '#ffffff',
+                            color: '#111111',
+                            padding: '6px 10px',
+                            borderRadius: '10px',
+                            border: '1px solid #e2e8f0',
+                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+                          }}
+                        >
                           <img
-                            src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(it.barcode)}&height=9&scale=3&includetext=false`}
+                            src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(it.barcode)}&height=10&scale=3&includetext=false`}
                             alt={it.barcode}
-                            className="h-7 max-w-[120px] object-contain select-none"
+                            style={{
+                              height: '28px',
+                              maxWidth: '130px',
+                              objectFit: 'contain',
+                              userSelect: 'none',
+                              backgroundColor: '#ffffff',
+                              imageRendering: 'pixelated'
+                            }}
                             loading="lazy"
                           />
-                          <span className="font-mono text-[11px] font-black text-zinc-900 tracking-wider mt-1 bg-zinc-50 px-2 py-0.5 rounded border border-zinc-200/70">
+                          <span
+                            style={{
+                              fontFamily: 'monospace',
+                              fontSize: '11px',
+                              fontWeight: 800,
+                              color: '#111111',
+                              letterSpacing: '0.5px',
+                              marginTop: '4px',
+                              backgroundColor: '#f1f5f9',
+                              padding: '1px 8px',
+                              borderRadius: '4px',
+                              border: '1px solid #cbd5e1'
+                            }}
+                          >
                             {it.barcode}
                           </span>
                         </div>
@@ -2529,11 +2815,13 @@ const PreviewTab = ({
                     <td className="p-2 sm:p-3.5 text-center text-[#86868b] font-mono text-[10px]">{idx + 1}</td>
                     <td className="p-2 sm:p-3.5 text-center">
                       {it.productImage ? (
-                        <img
-                          src={it.productImage}
-                          className="w-8 h-8 rounded-lg object-cover border border-[#d2d2d7]/50 mx-auto"
-                          alt=""
-                        />
+                        <div className="w-9 h-9 rounded-lg bg-[#fafafa] border border-[#d2d2d7]/50 flex items-center justify-center p-0.5 mx-auto overflow-hidden">
+                          <img
+                            src={it.productImage}
+                            className="max-w-full max-h-full w-auto h-auto object-contain rounded-md block"
+                            alt=""
+                          />
+                        </div>
                       ) : (
                         <span className="text-[#ccc]">—</span>
                       )}
@@ -2605,7 +2893,20 @@ export default function QuotationManage({
   onDeleteQuotation,
   addActivityLog,
 }) {
-  const [tab, setTab] = useState('list'); // 'list' | 'create' | 'preview'
+  const [tab, setTabState] = useState(() => {
+    try {
+      return localStorage.getItem('pim_quotation_tab') || 'list';
+    } catch {
+      return 'list';
+    }
+  });
+
+  const setTab = (newTab) => {
+    setTabState(newTab);
+    try {
+      localStorage.setItem('pim_quotation_tab', typeof newTab === 'function' ? newTab(tab) : newTab);
+    } catch { }
+  };
   const [previewIndex, setPreviewIndex] = useState(null);
   const [editQt, setEditQt] = useState(null);
   const [convertProposal, setConvertProposal] = useState(null); // proposal being converted to quotation
@@ -2617,8 +2918,18 @@ export default function QuotationManage({
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [confirmConfig, setConfirmConfig] = useState(null);
   const [isDownloadGuideOpen, setIsDownloadGuideOpen] = useState(false);
-
   const [autoDownloadAndEmail, setAutoDownloadAndEmail] = useState(false);
+  const [createDocFormat, setCreateDocFormat] = useState('quotation');
+
+  useEffect(() => {
+    if (editQt) {
+      setCreateDocFormat(editQt.documentType || 'quotation');
+    } else if (convertProposal) {
+      setCreateDocFormat('quotation');
+    } else {
+      setCreateDocFormat('quotation');
+    }
+  }, [editQt, convertProposal]);
 
 
   /*
@@ -2741,13 +3052,24 @@ export default function QuotationManage({
         <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-[#e2e8f0] pb-4 mb-4 gap-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">QUOTATION EDITOR</span>
+              <div className={`w-1 h-5 rounded-full ${
+                createDocFormat === 'product_proposal'
+                  ? 'bg-gradient-to-b from-violet-600 to-purple-400'
+                  : 'bg-gradient-to-b from-[#0071e3] to-[#00c2ff]'
+              }`} />
+              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                createDocFormat === 'product_proposal' ? 'text-violet-600' : 'text-[#0071e3]'
+              }`}>
+                {createDocFormat === 'product_proposal' ? 'PRODUCT PROPOSAL EDITOR' : 'QUOTATION EDITOR'}
+              </span>
             </div>
             <h1 className="text-2xl font-bold tracking-tight text-[#1d1d1f]">
               {convertProposal
                 ? '🔁 สร้างใบเสนอราคาจากใบเสนอสินค้า'
-                : editQt ? 'แก้ไขเอกสาร' : 'สร้างเอกสารใหม่'}
+                : editQt
+                  ? (createDocFormat === 'product_proposal' ? 'แก้ไขใบเสนอสินค้า' : 'แก้ไขใบเสนอราคา')
+                  : (createDocFormat === 'product_proposal' ? 'สร้างเอกสารใหม่ (ใบเสนอสินค้า)' : 'สร้างเอกสารใหม่ (ใบเสนอราคา)')
+              }
             </h1>
           </div>
           <button
@@ -2767,6 +3089,8 @@ export default function QuotationManage({
           sourceProposal={convertProposal}
           quotations={quotations}
           users={users}
+          docFormat={createDocFormat}
+          setDocFormat={setCreateDocFormat}
         />
       </div>
     );
@@ -2812,16 +3136,14 @@ export default function QuotationManage({
           )}
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <div className={`w-1 h-5 rounded-full ${
-                (tab === 'preview' && selectedQt?.documentType === 'product_proposal')
+              <div className={`w-1 h-5 rounded-full ${(tab === 'preview' && selectedQt?.documentType === 'product_proposal')
                   ? 'bg-gradient-to-b from-violet-600 to-purple-400'
                   : 'bg-gradient-to-b from-[#0071e3] to-[#00c2ff]'
-              }`} />
-              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
-                (tab === 'preview' && selectedQt?.documentType === 'product_proposal')
+                }`} />
+              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${(tab === 'preview' && selectedQt?.documentType === 'product_proposal')
                   ? 'text-violet-600'
                   : 'text-[#0071e3]'
-              }`}>
+                }`}>
                 {(tab === 'preview' && selectedQt?.documentType === 'product_proposal')
                   ? 'PRODUCT PROPOSAL'
                   : 'QUOTATION MANAGEMENT'}

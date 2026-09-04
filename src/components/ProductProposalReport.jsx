@@ -209,23 +209,6 @@ export default function ProductProposalReport({
         </div>
 
         <div className="flex gap-2 items-center w-full sm:w-auto">
-          {isAdmin && onArchive && (
-            <button
-              type="button"
-              onClick={onArchive}
-              className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-400 hover:to-red-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-red-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0"
-              title="จัดการและลบเอกสารเก่า (เฉพาะ Admin)"
-            >
-              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-              <Archive className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">จัดการเอกสารเก่า</span>
-              <span className="sm:hidden">เอกสารเก่า</span>
-              <span className="flex items-center gap-0.5 bg-white/20 px-1.5 py-0.5 rounded-md text-[10px]">
-                <Shield className="w-2.5 h-2.5" />
-                Admin
-              </span>
-            </button>
-          )}
           <button
             type="button"
             disabled={isExporting}
@@ -283,7 +266,7 @@ export default function ProductProposalReport({
         </div>
       </div>
 
-      <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+      <div className="no-print bg-white p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
         <div className="flex flex-col md:flex-row gap-3 md:items-center">
           <div className="relative flex-1 min-w-[200px] md:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
@@ -391,9 +374,7 @@ export default function ProductProposalReport({
                     >
                       <td className="p-3.5 text-center font-mono text-[#86868b]">{index + 1}</td>
                       <td className="p-3.5 font-mono font-bold text-violet-700">
-                        <span className="bg-violet-50 px-2 py-0.5 rounded-md border border-violet-100">
-                          {proposal.quotationNumber || proposal.id}
-                        </span>
+                        {proposal.quotationNumber || proposal.id}
                       </td>
                       <td className="p-3.5 text-[#555557] whitespace-nowrap">{formatDate(proposal.issuedDate)}</td>
                       <td className="p-3.5 text-[#555557] font-medium">{proposal.salespersonName || proposal.createdBy || '-'}</td>
@@ -468,13 +449,13 @@ export default function ProductProposalReport({
       {/* ── VIEW PROPOSAL DETAILS MODAL ───────────────────── */}
       {viewDoc && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-fade-in no-print">
-          <div onClick={() => setViewDoc(null)} className="absolute inset-0 bg-[#1d1d1f]/15 backdrop-blur-md transition-all duration-300" />
-          <div className="relative bg-white/98 backdrop-blur-2xl rounded-3xl border border-[#d2d2d7]/40 max-w-2xl w-full p-6 shadow-[0_24px_64px_rgba(0,0,0,0.12)] space-y-5 z-10 animate-scale-in max-h-[90vh] overflow-y-auto">
+          <div onClick={() => setViewDoc(null)} className="absolute inset-0 bg-[#1d1d1f]/40 transition-all duration-300" />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-2xl w-full p-6 shadow-2xl space-y-5 z-10 animate-scale-in max-h-[90vh] overflow-y-auto">
             <div className="flex items-start justify-between border-b border-[#e8e8ed] pb-4">
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-lg text-[#1d1d1f]">รายละเอียดใบเสนอสินค้า</h3>
-                  <span className="font-mono text-xs font-bold bg-violet-50 text-violet-700 px-2.5 py-0.5 rounded-full border border-violet-100">
+                  <span className="font-mono text-xs font-bold text-violet-700">
                     {viewDoc.quotationNumber || viewDoc.id}
                   </span>
                 </div>
@@ -489,7 +470,7 @@ export default function ProductProposalReport({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-gradient-to-br from-violet-50/40 via-purple-50/20 to-white p-4.5 rounded-2xl text-xs border border-violet-100/60 shadow-2xs">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-violet-50 p-4.5 rounded-2xl text-xs border border-violet-100 shadow-2xs">
               <div>
                 <span className="text-zinc-500 block text-[10px] font-bold uppercase tracking-wider">ผู้สร้าง / พนักงาน</span>
                 <p className="font-bold text-[#1d1d1f] text-sm mt-0.5">{viewDoc.salespersonName || viewDoc.createdBy || '-'}</p>
