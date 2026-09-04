@@ -1,3 +1,4 @@
+import { createApi } from './server/api.js';
 import express from 'express';
 import ExcelJS from 'exceljs';
 import { URL } from 'url';
@@ -15,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 // Body parsing middleware to handle large file base64 transfers (limit 50MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use('/api', createApi(process.env.PIM_DB_PATH || path.join(__dirname, 'ข้อมูล', 'db.json')));
 
 // 1. Safety Helpers
 function isSafeGoogleUrl(targetUrl) {
@@ -278,7 +280,7 @@ app.get('/api/products/export', async (req, res) => {
     }
 
     // Load products from local db.json
-    const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
+    const dbPath = (process.env.PIM_DB_PATH || path.join(__dirname, 'ข้อมูล', 'db.json'));
     let db = { products: [] };
     if (fs.existsSync(dbPath)) {
       db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
@@ -473,83 +475,11 @@ app.get('/api/products/export', async (req, res) => {
   }
 });
 
-// 1. GET /api/db (Read Database from local db.json)
-app.get('/api/db', async (req, res) => {
-  try {
-    const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
-    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
-    if (fs.existsSync(dbPath)) {
-      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-    }
-    res.json(db);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 2. POST /api/db/save (Update/Save array to local db.json)
-app.post('/api/db/save', uploadLimiter, async (req, res) => {
-  try {
-    const { key, data } = req.body;
-    const allowedKeys = ['products', 'brands', 'categories', 'users', 'quotations', 'activityLog'];
-
-    if (!allowedKeys.includes(key)) {
-      return res.status(400).send('Invalid database key');
-    }
-    if (!Array.isArray(data)) {
-      return res.status(400).send('Data must be an array');
-    }
-
-    // Always write to local db.json
-    const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
-    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
-    if (fs.existsSync(dbPath)) {
-      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-    }
-    db[key] = data;
-    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
-
-    res.json({ success: true, syncedToSupabase: false });
-  } catch (err) {
-    console.error(`Error saving ${key} to database:`, err);
-    res.status(500).send('Error saving database: ' + err.message);
-  }
-});
-
-// 3. POST /api/db/activityLog/append (Append a single log entry to local db.json)
-app.post('/api/db/activityLog/append', uploadLimiter, async (req, res) => {
-  try {
-    const { entry } = req.body;
-    if (!entry || !entry.action) {
-      return res.status(400).send('Invalid log entry');
-    }
-
-    // Write to local db.json
-    const dbPath = path.join(__dirname, 'ข้อมูล', 'db.json');
-    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
-    if (fs.existsSync(dbPath)) {
-      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-    }
-    if (!Array.isArray(db.activityLog)) {
-      db.activityLog = [];
-    }
-    db.activityLog = [entry, ...db.activityLog].slice(0, 200);
-    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
-
-    res.json({ success: true, activityLog: db.activityLog, syncedToSupabase: false });
-  } catch (err) {
-    console.error('Error appending activity log:', err);
-    res.status(500).send('Error saving database: ' + err.message);
-  }
-});
-
-
-
 // Serve static files from the React frontend build (Vite copies public folder contents to dist automatically)
 app.use(express.static(path.join(__dirname, 'dist')));
 
 // Catch-all route to serve the React index.html for any frontend routing
-app.get('/*', (req, res) => {
+app.get('/{*path}', (req, res) => {
   const indexPath = path.join(__dirname, 'dist', 'index.html');
   if (fs.existsSync(indexPath)) {
     res.sendFile(indexPath);
@@ -558,6 +488,6 @@ app.get('/*', (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`PIM Export Server running on port ${PORT}`);
+const httpServer = app.listen(PORT, process.env.HOST || '0.0.0.0', () => {
+  console.log(`PIM Export Server running on port ${httpServer.address().port}`);
 });

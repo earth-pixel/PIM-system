@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react';
+import { request } from '../utils/api';
+import { useState, useEffect } from 'react';
 import { decodeQuotation } from '../utils/share';
 import { Printer, CheckCircle, AlertCircle, Globe, Building } from 'lucide-react';
 
@@ -31,14 +32,18 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
   const [isAccepted, setIsAccepted] = useState(false);
   const [showConfetti, setShowConfetti] = useState(false);
 
-  const quotation = useMemo(() => {
-    if (!shareData) return null;
-    try {
-      return decodeQuotation(shareData);
-    } catch {
-      return null;
-    }
+  const [quotation, setQuotation] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [accepting, setAccepting] = useState(false);
+  useEffect(() => {
+    let active = true;
+    decodeQuotation(shareData).then(q => { if (active) { setQuotation(q); setIsAccepted(Boolean(q.customerAcceptedAt)); } })
+      .catch(error => { if (active) setError(error.message); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
   }, [shareData]);
+  if (loading) return <div className="p-8 text-center">กำลังตรวจสอบเอกสาร…</div>;
 
   if (!quotation) {
     return (
@@ -50,7 +55,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
           <div>
             <h2 className="font-bold text-lg text-[#1d1d1f] tracking-tight">ไม่พบเอกสารใบเสนอราคา</h2>
             <p className="text-xs text-[#555557] mt-2 leading-relaxed">
-              ลิงก์อาจไม่ถูกต้อง หรือเอกสารอาจถูกยกเลิกแล้ว กรุณาติดต่อพนักงานขายของท่าน
+              {error || 'ลิงก์อาจไม่ถูกต้อง หรือเอกสารถูกยกเลิกแล้ว กรุณาติดต่อพนักงานขาย'}
             </p>
           </div>
         </div>
@@ -75,14 +80,21 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
     website: companyInfo.website || 'https://www.phanvadee.com',
   };
 
-  const handleAccept = () => {
-    setIsAccepted(true);
-    setShowConfetti(true);
-    setTimeout(() => setShowConfetti(false), 5000);
+  const handleAccept = async () => {
+    if (accepting) return;
+    setAccepting(true); setError('');
+    try {
+      const result = await request('/api/public/quotations/' + shareData + '/accept', { method: 'POST' });
+      if (!result.success || !result.quotation?.customerAcceptedAt) throw new Error('ยังยืนยันการตอบรับไม่ได้');
+      setQuotation(result.quotation); setIsAccepted(true); setShowConfetti(true);
+      setTimeout(() => setShowConfetti(false), 5000);
+    } catch (error) { setError(error.message); }
+    finally { setAccepting(false); }
   };
 
   return (
     <div className="min-h-screen bg-[#f5f5f7] pb-16 print:bg-white print:pb-0" style={{ fontFamily: "'Sarabun', 'Helvetica Neue', Arial, sans-serif" }}>
+      {error && <p role="alert" className="p-4 text-red-700 text-center">{error}</p>}
       {/* Confetti Animation Effect (Pure CSS) */}
       {showConfetti && (
         <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
@@ -140,6 +152,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
           {!isAccepted ? (
             <button type="button"
               onClick={handleAccept}
+              disabled={accepting}
               className="px-5 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
             >
               ยอมรับใบเสนอราคานี้
@@ -162,7 +175,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
             <CheckCircle className="w-6 h-6 text-emerald-500 shrink-0" />
             <div>
               <h4 className="text-xs font-extrabold text-emerald-800">ขอบคุณที่เลือกใช้บริการของเรา!</h4>
-              <p className="text-[11px] text-emerald-600 mt-0.5 font-medium">คุณได้ยอมรับข้อเสนอในใบเสนอราคานี้แล้ว ทางพนักงานขายที่ดูแลจะได้รับการแจ้งเตือนและติดต่อกลับโดยเร็วที่สุด</p>
+              <p className="text-[11px] text-emerald-600 mt-0.5 font-medium">ระบบบันทึกการยอมรับข้อเสนอของคุณแล้ว พนักงานขายตรวจสอบได้จากประวัติเอกสาร</p>
             </div>
           </div>
         )}

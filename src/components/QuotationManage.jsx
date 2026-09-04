@@ -2,8 +2,8 @@ import { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Search, X, Plus, Trash2, Edit2, Check, AlertTriangle, AlertCircle,
-  FileText, ChevronRight, Clock, CheckCircle, XCircle, Mail, Printer, Download,
-  Users, UserCheck
+  FileText, ChevronRight, ChevronDown, Clock, CheckCircle, XCircle, Mail, Printer, Download,
+  Users, UserCheck, Package
 } from 'lucide-react';
 import QuotationPrint from './QuotationPrint';
 import * as XLSX from 'xlsx';
@@ -33,6 +33,51 @@ const STATUS_ICONS = {
 const calcLineTotal = (it) => {
   const gross = it.quantity * it.unitPrice;
   return it.discountType === 'percent' ? gross * (1 - it.discount / 100) : gross - it.discount;
+};
+
+const isOwnDocument = (q, currentUser) => {
+  if (!currentUser) return false;
+  const creator = q.createdBy || '';
+  const salesName = q.salespersonName || '';
+  return creator === currentUser.username ||
+    salesName.toLowerCase().includes(currentUser.username.toLowerCase()) ||
+    (currentUser.name && salesName.toLowerCase().includes(currentUser.name.toLowerCase()));
+};
+
+const formatDate = (d) => {
+  if (!d) return '-';
+  try {
+    if (typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)) {
+      const [year, month, day] = d.split('-').map(Number);
+      return `${day}/${month}/${year + 543}`;
+    }
+    if (typeof d === 'string' && d.includes('T')) {
+      const dateObj = new Date(d);
+      if (!isNaN(dateObj.getTime())) {
+        return dateObj.toLocaleDateString('th-TH');
+      }
+    }
+    const dateObj = new Date(d);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString('th-TH');
+    }
+    return d;
+  } catch {
+    return d;
+  }
+};
+
+const canDeleteDocument = (q, currentUser) => {
+  if (!currentUser) return true;
+  if (currentUser.role === 'admin') return true;
+  if (currentUser.role === 'manager' || currentUser.role === 'user') {
+    if (q.documentType === 'product_proposal') {
+      return isOwnDocument(q, currentUser);
+    }
+    // ใบเสนอราคา: ลบได้ถ้าเป็นของตัวเอง และยังไม่อนุมัติ (status !== 'approved')
+    return isOwnDocument(q, currentUser) && q.status !== 'approved';
+  }
+  return isOwnDocument(q, currentUser);
 };
 
 // ── Badge ──────────────────────────────────────────────────────────────────
@@ -80,118 +125,357 @@ function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText 
 // ── ProductPickerModal ───────────────────────────────────────
 function ProductPickerModal({ products, onSelect, onClose }) {
   const [search, setSearch] = useState('');
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [selectedVariant, setSelectedVariant] = useState(null);
+  const [selectedMap, setSelectedMap] = useState({}); // key -> { product, variant }
+  const [expandedProductIds, setExpandedProductIds] = useState(new Set());
 
-  const filtered = products.filter(p =>
-    !search ||
-    p.name.toLowerCase().includes(search.toLowerCase()) ||
-    p.code.toLowerCase().includes(search.toLowerCase()) ||
-    (p.barcode && p.barcode.toLowerCase().includes(search.toLowerCase()))
-  );
+  const filtered = useMemo(() => {
+    if (!search.trim()) return products;
+    const term = search.toLowerCase().trim();
+    return products.filter(p =>
+      (p.name && p.name.toLowerCase().includes(term)) ||
+      (p.code && p.code.toLowerCase().includes(term)) ||
+      (p.barcode && p.barcode.toLowerCase().includes(term)) ||
+      (p.brand && p.brand.toLowerCase().includes(term)) ||
+      (p.category && p.category.toLowerCase().includes(term)) ||
+      (p.variants && p.variants.some(v =>
+        (v.sku && v.sku.toLowerCase().includes(term)) ||
+        (v.barcode && v.barcode.toLowerCase().includes(term)) ||
+        (v.options && v.options.some(o => o.value && o.value.toLowerCase().includes(term)))
+      ))
+    );
+  }, [products, search]);
 
-  const handleConfirm = () => {
-    if (!selectedProduct) return;
-    onSelect(selectedProduct, selectedVariant);
+  const toggleProduct = (product) => {
+    const hasVariants = product.variants && product.variants.length > 0;
+    if (hasVariants) {
+      const allSelected = product.variants.every((_, idx) => !!selectedMap[`${product.id}__var__${idx}`]);
+      setSelectedMap(prev => {
+        const next = { ...prev };
+        if (allSelected) {
+          product.variants.forEach((_, idx) => {
+            delete next[`${product.id}__var__${idx}`];
+          });
+        } else {
+          product.variants.forEach((v, idx) => {
+            next[`${product.id}__var__${idx}`] = { product, variant: v };
+          });
+        }
+        return next;
+      });
+    } else {
+      const key = `prod_${product.id}`;
+      setSelectedMap(prev => {
+        const next = { ...prev };
+        if (next[key]) {
+          delete next[key];
+        } else {
+          next[key] = { product, variant: null };
+        }
+        return next;
+      });
+    }
   };
 
-  const hasVariants = selectedProduct?.variants?.length > 0;
+  const toggleVariant = (product, variant, idx, e) => {
+    if (e) e.stopPropagation();
+    const key = `${product.id}__var__${idx}`;
+    setSelectedMap(prev => {
+      const next = { ...prev };
+      if (next[key]) {
+        delete next[key];
+      } else {
+        next[key] = { product, variant };
+      }
+      return next;
+    });
+  };
+
+  const toggleExpand = (productId, e) => {
+    e.stopPropagation();
+    setExpandedProductIds(prev => {
+      const next = new Set(prev);
+      if (next.has(productId)) next.delete(productId);
+      else next.add(productId);
+      return next;
+    });
+  };
+
+  const isProductSelected = (product) => {
+    if (product.variants && product.variants.length > 0) {
+      return product.variants.some((_, idx) => !!selectedMap[`${product.id}__var__${idx}`]);
+    }
+    return !!selectedMap[`prod_${product.id}`];
+  };
+
+  const isProductFullySelected = (product) => {
+    if (product.variants && product.variants.length > 0) {
+      return product.variants.every((_, idx) => !!selectedMap[`${product.id}__var__${idx}`]);
+    }
+    return !!selectedMap[`prod_${product.id}`];
+  };
+
+  const selectedCount = Object.keys(selectedMap).length;
+
+  const handleSelectAll = () => {
+    const allFilteredKeys = [];
+    filtered.forEach(p => {
+      if (p.variants && p.variants.length > 0) {
+        p.variants.forEach((v, idx) => {
+          allFilteredKeys.push({ key: `${p.id}__var__${idx}`, product: p, variant: v });
+        });
+      } else {
+        allFilteredKeys.push({ key: `prod_${p.id}`, product: p, variant: null });
+      }
+    });
+
+    const isAllCurrentSelected = allFilteredKeys.length > 0 && allFilteredKeys.every(item => !!selectedMap[item.key]);
+
+    setSelectedMap(prev => {
+      const next = { ...prev };
+      if (isAllCurrentSelected) {
+        allFilteredKeys.forEach(item => {
+          delete next[item.key];
+        });
+      } else {
+        allFilteredKeys.forEach(item => {
+          next[item.key] = { product: item.product, variant: item.variant };
+        });
+      }
+      return next;
+    });
+  };
+
+  const handleClearAll = () => {
+    setSelectedMap({});
+  };
+
+  const handleConfirm = () => {
+    const items = Object.values(selectedMap);
+    if (items.length === 0) return;
+    onSelect(items);
+  };
 
   return createPortal(
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 animate-fade-in">
-      <div onClick={onClose} className="absolute inset-0 bg-black/20 backdrop-blur-xs" />
-      <div className="relative bg-white rounded-3xl shadow-2xl border border-[#d2d2d7]/40 w-full max-w-xl flex flex-col max-h-[80vh] z-10 animate-scale-in overflow-hidden">
+      <div onClick={onClose} className="absolute inset-0 bg-black/25 backdrop-blur-xs" />
+      <div className="relative bg-white rounded-3xl shadow-2xl border border-[#d2d2d7]/50 w-full max-w-2xl flex flex-col max-h-[85vh] z-10 animate-scale-in overflow-hidden">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-[#e8e8ed] flex items-center justify-between flex-shrink-0">
+        <div className="px-6 py-4 border-b border-[#e8e8ed] flex items-center justify-between flex-shrink-0 bg-white">
           <div>
-            <h3 className="text-sm font-bold text-[#1d1d1f]">เลือกสินค้าจากระบบ PIM</h3>
-            <p className="text-xs text-[#555557] mt-0.5">ค้นหาแล้วกดยืนยันเพื่อเพิ่มรายการ</p>
+            <div className="flex items-center gap-2">
+              <h3 className="text-sm font-bold text-[#1d1d1f]">เลือกสินค้าจากระบบ PIM</h3>
+              <span className="text-[11px] font-bold bg-blue-50 text-[#0071e3] px-2.5 py-0.5 rounded-full border border-blue-100/80">
+                เลือกได้หลายรายการ
+              </span>
+            </div>
+            <p className="text-xs text-[#555557] mt-0.5">เลือกสินค้าที่ต้องการแล้วกดยืนยันเพื่อเพิ่มลงในเอกสารพร้อมกัน</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-[#f5f5f7] cursor-pointer"><X className="w-4 h-4" /></button>
+          <button onClick={onClose} className="p-2 rounded-xl hover:bg-[#f5f5f7] cursor-pointer text-[#86868b] hover:text-[#1d1d1f] transition-colors">
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
-        {/* Search */}
-        <div className="px-6 py-3 border-b border-[#f5f5f7] flex-shrink-0">
+        {/* Search & Bulk Bar */}
+        <div className="px-6 py-3 border-b border-[#f5f5f7] flex-shrink-0 bg-[#fafafa] space-y-2.5">
           <div className="relative">
-            <Search className="w-4 h-4 text-[#555557] absolute left-3 top-2.5" />
+            <Search className="w-4 h-4 text-[#86868b] absolute left-3 top-2.5" />
             <input
               autoFocus
               type="text"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="ค้นหาชื่อสินค้า, รหัส SKU หรือบาร์โค้ด..."
-              className="w-full pl-9 pr-4 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
+              placeholder="ค้นหาชื่อสินค้า, รหัส SKU, บาร์โค้ด, แบรนด์..."
+              className="w-full pl-9 pr-9 py-2 bg-white border border-[#d2d2d7] rounded-xl text-xs focus:outline-none focus:border-[#0071e3] focus:ring-1 focus:ring-[#0071e3] transition-all shadow-xs"
             />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-3 top-2.5 text-[#86868b] hover:text-[#1d1d1f]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between text-xs pt-0.5">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSelectAll}
+                className="px-3 py-1.5 bg-white border border-[#d2d2d7] hover:border-[#0071e3] hover:text-[#0071e3] rounded-lg font-bold transition-all cursor-pointer shadow-xs flex items-center gap-1.5 text-xs"
+              >
+                <Check className="w-3.5 h-3.5" />
+                เลือกทั้งหมด ({filtered.length})
+              </button>
+              {selectedCount > 0 && (
+                <button
+                  type="button"
+                  onClick={handleClearAll}
+                  className="px-3 py-1.5 text-red-600 hover:bg-red-50 rounded-lg font-bold transition-colors cursor-pointer text-xs"
+                >
+                  ล้างที่เลือก
+                </button>
+              )}
+            </div>
+
+            <div className="text-[#555557] font-medium text-xs">
+              พบ <span className="font-bold text-[#1d1d1f]">{filtered.length}</span> รายการ
+              {selectedCount > 0 && (
+                <span className="ml-2 px-2.5 py-0.5 bg-[#0071e3] text-white font-bold rounded-full text-xs">
+                  เลือกแล้ว {selectedCount}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Product List */}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto divide-y divide-[#f5f5f7] bg-white">
           {filtered.length === 0 ? (
-            <div className="py-12 text-center text-[#555557] text-sm">ไม่พบสินค้าที่ค้นหา</div>
-          ) : (
-            <div className="divide-y divide-[#f5f5f7]">
-              {filtered.map(product => (
-                <button
-                  key={product.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedProduct(product);
-                    setSelectedVariant(product.variants && product.variants.length > 0 ? product.variants[0] : null);
-                  }}
-                  className={`w-full flex items-center gap-3 px-6 py-3 text-left transition-colors cursor-pointer hover:bg-[#f5f5f7] ${selectedProduct?.id === product.id ? 'bg-blue-50' : ''}`}
-                >
-                  <div className="w-10 h-10 rounded-lg overflow-hidden bg-[#f5f5f7] flex-shrink-0">
-                    <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#1d1d1f] truncate">{product.name}</p>
-                    <p className="text-xs text-[#555557]">
-                      {product.code}
-                      {product.barcode && ` · บาร์โค้ด: ${product.barcode}`}
-                      {` · ราคา ${(product.retailPrice || 0).toLocaleString()} บาท`}
-                    </p>
-                  </div>
-                  {selectedProduct?.id === product.id && (
-                    <div className="w-4 h-4 rounded-full bg-[#0071e3] flex-shrink-0" />
-                  )}
-                </button>
-              ))}
+            <div className="py-16 text-center text-[#555557] text-xs">
+              <p className="font-bold text-sm text-[#1d1d1f] mb-1">ไม่พบสินค้าที่ค้นหา</p>
+              <p>ลองเปลี่ยนคำค้นหา หรือตรวจสอบชื่อสินค้า / รหัส SKU</p>
             </div>
+          ) : (
+            filtered.map(product => {
+              const hasVars = product.variants && product.variants.length > 0;
+              const isExpanded = expandedProductIds.has(product.id);
+              const isSelected = isProductSelected(product);
+              const isFullySelected = isProductFullySelected(product);
+
+              return (
+                <div key={product.id} className={`transition-colors ${isSelected ? 'bg-blue-50/40' : 'hover:bg-[#fafafa]'}`}>
+                  <div
+                    onClick={() => toggleProduct(product)}
+                    className="w-full flex items-center gap-3 px-6 py-3 text-left cursor-pointer select-none"
+                  >
+                    {/* Checkbox */}
+                    <div
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all flex-shrink-0 ${
+                        isFullySelected
+                          ? 'bg-[#0071e3] border-[#0071e3] text-white shadow-xs'
+                          : isSelected
+                          ? 'bg-blue-100 border-[#0071e3] text-[#0071e3]'
+                          : 'border-[#d2d2d7] bg-white hover:border-[#86868b]'
+                      }`}
+                    >
+                      {isFullySelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                      {isSelected && !isFullySelected && <div className="w-2 h-2 bg-[#0071e3] rounded-xs" />}
+                    </div>
+
+                    {/* Image */}
+                    <div className="w-11 h-11 rounded-xl overflow-hidden bg-[#f5f5f7] border border-[#e8e8ed] flex-shrink-0 flex items-center justify-center">
+                      {product.image ? (
+                        <img src={product.image} alt={product.name} className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] text-[#86868b]">ไม่มีรูป</span>
+                      )}
+                    </div>
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-[#1d1d1f] truncate">{product.name}</p>
+                        {product.brand && (
+                          <span className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded font-medium truncate max-w-[120px]">
+                            {product.brand}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-[#555557] mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                        <span className="font-mono">{product.code}</span>
+                        {product.barcode && <span>· บาร์โค้ด: {product.barcode}</span>}
+                        <span className="font-bold text-[#1d1d1f]">· {(product.retailPrice || 0).toLocaleString()} บาท</span>
+                      </p>
+                    </div>
+
+                    {/* Variant toggle button if variants exist */}
+                    {hasVars && (
+                      <button
+                        type="button"
+                        onClick={(e) => toggleExpand(product.id, e)}
+                        className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border flex items-center gap-1 transition-all cursor-pointer flex-shrink-0 ${
+                          isExpanded
+                            ? 'bg-blue-100 text-[#0071e3] border-blue-200'
+                            : 'bg-white text-[#555557] border-[#d2d2d7] hover:border-[#0071e3] hover:text-[#0071e3]'
+                        }`}
+                      >
+                        <span>{product.variants.length} รูปแบบ</span>
+                        <ChevronDown className={`w-3.5 h-3.5 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Expanded Variants List */}
+                  {hasVars && isExpanded && (
+                    <div className="px-6 py-2 bg-blue-50/20 border-t border-b border-blue-100/50 divide-y divide-blue-100/40 pl-14">
+                      {product.variants.map((v, vIdx) => {
+                        const varKey = `${product.id}__var__${vIdx}`;
+                        const isVarSelected = !!selectedMap[varKey];
+                        const varPrice = v.price ?? product.retailPrice ?? 0;
+                        const varLabel = v.options?.map(o => o.value).join(' / ') || v.sellerSku || `รูปแบบที่ ${vIdx + 1}`;
+
+                        return (
+                          <div
+                            key={vIdx}
+                            onClick={(e) => toggleVariant(product, v, vIdx, e)}
+                            className={`py-2 px-3 flex items-center justify-between rounded-lg cursor-pointer transition-colors ${
+                              isVarSelected ? 'bg-blue-100/70 font-semibold' : 'hover:bg-blue-50/50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                                  isVarSelected ? 'bg-[#0071e3] border-[#0071e3] text-white' : 'border-[#d2d2d7] bg-white'
+                                }`}
+                              >
+                                {isVarSelected && <Check className="w-3 h-3 stroke-[3]" />}
+                              </div>
+                              <span className="text-xs text-[#1d1d1f] truncate">{varLabel}</span>
+                              {v.sku && <span className="text-[10px] text-[#86868b] font-mono">({v.sku})</span>}
+                            </div>
+                            <span className="text-xs font-bold text-[#1d1d1f] flex-shrink-0 ml-2">
+                              {Number(varPrice).toLocaleString()} ฿
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
 
-        {/* Variant Selection */}
-        {selectedProduct && hasVariants && (
-          <div className="px-6 py-3 border-t border-[#f5f5f7] bg-blue-50/50 flex-shrink-0">
-            <p className="text-xs font-bold text-[#1d1d1f] mb-2 uppercase tracking-wider">เลือกรูปแบบ (Variant)</p>
-            <div className="flex flex-wrap gap-2">
-              {selectedProduct.variants.map((v, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  onClick={() => setSelectedVariant(v)}
-                  className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-all cursor-pointer ${selectedVariant === v ? 'bg-[#0071e3] text-white border-[#0071e3]' : 'bg-white text-[#1d1d1f] border-[#d2d2d7] hover:border-[#0071e3]'}`}
-                >
-                  {v.options?.map(o => o.value).join(' / ') || v.sellerSku}
-                  {v.price && ` · ${Number(v.price).toLocaleString()} ฿`}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Footer */}
-        <div className="px-6 py-4 border-t border-[#e8e8ed] flex gap-3 flex-shrink-0 bg-white">
-          <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full text-xs font-semibold hover:bg-[#f5f5f7] transition-colors cursor-pointer">ยกเลิก</button>
-          <button
-            type="button"
-            onClick={handleConfirm}
-            disabled={!selectedProduct}
-            className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full text-xs font-bold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            เพิ่มรายการ
-          </button>
+        <div className="px-6 py-4 border-t border-[#e8e8ed] flex items-center justify-between flex-shrink-0 bg-white gap-3 shadow-xs">
+          <div className="text-xs text-[#555557]">
+            {selectedCount > 0 ? (
+              <span>เลือกสินค้าแล้ว <strong className="text-[#0071e3] font-bold text-sm">{selectedCount}</strong> รายการ</span>
+            ) : (
+              <span className="text-[#86868b]">ยังไม่ได้เลือกสินค้า</span>
+            )}
+          </div>
+          <div className="flex gap-2.5">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-5 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full text-xs font-semibold hover:bg-[#f5f5f7] transition-colors cursor-pointer"
+            >
+              ยกเลิก
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={selectedCount === 0}
+              className="px-6 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shadow-sm flex items-center gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              {selectedCount > 0 ? `เพิ่ม ${selectedCount} รายการ` : 'เพิ่มรายการ'}
+            </button>
+          </div>
         </div>
       </div>
     </div>,
@@ -285,6 +569,7 @@ function CustomerPickerModal({ customers, onSelect, onClose }) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                 </svg>
               </button>
+
             ))
           )}
         </div>
@@ -297,6 +582,318 @@ function CustomerPickerModal({ customers, onSelect, onClose }) {
 const generateNewId = () => `qt-${Date.now()}`;
 const generateItemId = () => Date.now() + Math.floor(Math.random() * 1000);
 
+// ── AdminApprovedReport ──────────────────────────────────────────────────
+const AdminApprovedReport = ({ quotations, addActivityLog }) => {
+  const [search, setSearch] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [typeFilter, setTypeFilter] = useState('All');
+
+  const approvedQuotations = useMemo(() => quotations.filter(q => q.documentType !== 'product_proposal' && q.status === 'approved'), [quotations]);
+  const allProposals = useMemo(() => quotations.filter(q => q.documentType === 'product_proposal'), [quotations]);
+
+  const combinedRows = useMemo(() => {
+    const rows = [
+      ...approvedQuotations.map(q => ({ ...q, _type: 'quotation' })),
+      ...allProposals.map(q => ({ ...q, _type: 'proposal' })),
+    ];
+    return rows.sort((a, b) => {
+      const dateA = a.approvedDate || a.issuedDate || '';
+      const dateB = b.approvedDate || b.issuedDate || '';
+      return dateB.localeCompare(dateA);
+    });
+  }, [approvedQuotations, allProposals]);
+
+  const filteredRows = useMemo(() => {
+    const parseToDate = (dateStr) => {
+      if (!dateStr) return null;
+      try {
+        if (dateStr.includes('-')) {
+          const [y, m, d] = dateStr.split('-').map(Number);
+          return new Date(y, m - 1, d);
+        }
+        if (dateStr.includes('/')) {
+          const parts = dateStr.split('/').map(Number);
+          if (parts.length === 3) {
+            const d = parts[0], m = parts[1];
+            let y = parts[2];
+            if (y > 2400) y -= 543;
+            return new Date(y, m - 1, d);
+          }
+        }
+        const parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) return parsed;
+      } catch {
+        // ignore
+      }
+      return null;
+    };
+
+    const matchDateRange = (issuedDateStr) => {
+      if (!startDate && !endDate) return true;
+      const itemDate = parseToDate(issuedDateStr);
+      if (!itemDate) return false;
+      itemDate.setHours(0, 0, 0, 0);
+      if (startDate) {
+        const startDateObj = parseToDate(startDate);
+        if (startDateObj) {
+          startDateObj.setHours(0, 0, 0, 0);
+          if (itemDate < startDateObj) return false;
+        }
+      }
+      if (endDate) {
+        const endDateObj = parseToDate(endDate);
+        if (endDateObj) {
+          endDateObj.setHours(0, 0, 0, 0);
+          if (itemDate > endDateObj) return false;
+        }
+      }
+      return true;
+    };
+
+    return combinedRows.filter(q => {
+      if (typeFilter === 'quotation' && q._type !== 'quotation') return false;
+      if (typeFilter === 'product_proposal' && q._type !== 'proposal') return false;
+      const qNum = q.quotationNumber || q.id;
+      const ms = !search ||
+        qNum.toLowerCase().includes(search.toLowerCase()) ||
+        q.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        (q.customer?.companyName || '').toLowerCase().includes(search.toLowerCase()) ||
+        (q.salespersonName || '').toLowerCase().includes(search.toLowerCase());
+      const md = matchDateRange(q.issuedDate);
+      return ms && md;
+    });
+  }, [combinedRows, search, startDate, endDate, typeFilter]);
+
+  const handleExportExcel = async () => {
+    try {
+      const headers = ['ประเภท', 'เลขที่เอกสาร', 'ลูกค้า / ผู้สร้าง', 'บริษัท', 'พนักงาน', 'วันที่เอกสาร', 'วันที่อนุมัติ', 'ยอดรวม (บาท)', 'ผู้อนุมัติ / สถานะ'];
+      const rows = filteredRows.map(q => [
+        q._type === 'quotation' ? 'ใบเสนอราคา' : 'ใบเสนอสินค้า',
+        q.referenceNumber || q.quotationNumber || q.id,
+        q._type === 'quotation' ? (q.customer?.name || '-') : (q.salespersonName || '-'),
+        q._type === 'quotation' ? (q.customer?.companyName || '-') : '-',
+        q.salespersonName || '-',
+        q.issuedDate || '-',
+        q._type === 'quotation' ? (q.approvedDate ? new Date(q.approvedDate).toLocaleDateString('th-TH') : '-') : '-',
+        Number(q.totalAmount || 0),
+        q._type === 'quotation' ? `อนุมัติแล้ว${q.approvedBy ? ` (${q.approvedBy})` : ''}` : 'พร้อมใช้งาน',
+      ]);
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+      ws['!cols'] = [{ wch: 15 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 15 }, { wch: 18 }, { wch: 20 }];
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'รายงานเอกสารอนุมัติ');
+      const base64 = XLSX.write(wb, { type: 'base64', bookType: 'xlsx' });
+      const filename = `Approved_Report_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url; link.download = filename; link.style.display = 'none';
+      document.body.appendChild(link); link.click(); document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      if (addActivityLog) addActivityLog(`ดาวน์โหลดรายงานเอกสารอนุมัติ (${filteredRows.length} รายการ)`);
+    } catch (err) {
+      console.error(err);
+      alert('ไม่สามารถส่งออกไฟล์ Excel ได้');
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Filter Bar */}
+      <div className="bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+        <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
+          </div>
+
+          <div className="relative flex-1 min-w-[180px] md:max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="ค้นหาเลขที่เอกสาร, ลูกค้า หรือพนักงาน..."
+              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 text-zinc-700"
+            />
+            {search && (
+              <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 cursor-pointer">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={typeFilter}
+              onChange={e => setTypeFilter(e.target.value)}
+              className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+            >
+              <option value="All">เอกสารทุกประเภท</option>
+              <option value="quotation">📄 ใบเสนอราคา (อนุมัติแล้ว)</option>
+              <option value="product_proposal">📦 ใบเสนอสินค้า</option>
+            </select>
+
+            {/* Start Date */}
+            <div className="relative flex items-center">
+              <input
+                type={startDate ? 'date' : 'text'}
+                placeholder="จากวันที่..."
+                value={startDate}
+                onFocus={(e) => (e.target.type = 'date')}
+                onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                onChange={e => setStartDate(e.target.value)}
+                className="pl-3 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full sm:w-[130px]"
+              />
+              {startDate && (
+                <button type="button" onClick={() => setStartDate('')} className="absolute right-3 text-zinc-400 hover:text-zinc-600 cursor-pointer">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <span className="text-zinc-400 text-xs font-semibold select-none shrink-0 mx-0.5 self-center">ถึง</span>
+
+            {/* End Date */}
+            <div className="relative flex items-center">
+              <input
+                type={endDate ? 'date' : 'text'}
+                placeholder="ถึงวันที่..."
+                value={endDate}
+                onFocus={(e) => (e.target.type = 'date')}
+                onBlur={(e) => { if (!e.target.value) e.target.type = 'text'; }}
+                onChange={e => setEndDate(e.target.value)}
+                className="pl-3 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full sm:w-[130px]"
+              />
+              {endDate && (
+                <button type="button" onClick={() => setEndDate('')} className="absolute right-3 text-zinc-400 hover:text-zinc-600 cursor-pointer">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            <button
+              onClick={handleExportExcel}
+              className="group relative overflow-hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+              title="ส่งออกรายงาน Excel"
+            >
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <Download className="w-4 h-4" /> ส่งออก Excel
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Unified Table */}
+      <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xs overflow-hidden">
+        <div className="px-4 py-3.5 border-b border-[#e8e8ed] flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <span className="text-base">📋</span>
+            <div>
+              <h4 className="text-xs font-black text-[#1d1d1f] tracking-wide">รายการเอกสารที่อนุมัติ / พร้อมใช้งาน</h4>
+              <p className="text-[10px] text-[#555557] mt-0.5">
+                <span className="inline-flex items-center gap-1 mr-2"><span className="w-2 h-2 rounded-sm bg-blue-400 inline-block" />ใบเสนอราคาอนุมัติแล้ว</span>
+                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-violet-400 inline-block" />ใบเสนอสินค้า</span>
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+            {filteredRows.length.toLocaleString()} รายการ
+          </span>
+        </div>
+
+        {filteredRows.length === 0 ? (
+          <div className="py-14 text-center">
+            <div className="text-4xl mb-3">📭</div>
+            <p className="text-xs text-zinc-400 font-semibold">ไม่พบรายการเอกสาร</p>
+            <p className="text-[10px] text-zinc-300 mt-1">ลองปรับตัวกรองหรือค้นหาด้วยคำอื่น</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="bg-[#f5f5f7] border-b border-[#e8e8ed]">
+                  <th className="text-left px-4 py-2.5 font-black text-[10px] text-[#555557] uppercase tracking-widest">ประเภท</th>
+                  <th className="text-left px-4 py-2.5 font-black text-[10px] text-[#555557] uppercase tracking-widest">เลขที่เอกสาร</th>
+                  <th className="text-left px-4 py-2.5 font-black text-[10px] text-[#555557] uppercase tracking-widest">ลูกค้า / ผู้สร้าง</th>
+                  <th className="text-left px-4 py-2.5 font-black text-[10px] text-[#555557] uppercase tracking-widest hidden md:table-cell">พนักงาน</th>
+                  <th className="text-left px-4 py-2.5 font-black text-[10px] text-[#555557] uppercase tracking-widest hidden lg:table-cell">วันที่</th>
+                  <th className="text-left px-4 py-2.5 font-black text-[10px] text-[#555557] uppercase tracking-widest hidden xl:table-cell">สถานะ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f0f5]">
+                {filteredRows.map(q => {
+                  const isQ = q._type === 'quotation';
+                  return (
+                    <tr
+                      key={q.id}
+                      className={`transition-colors ${isQ ? 'hover:bg-blue-50/25' : 'hover:bg-violet-50/25'}`}
+                      style={{ borderLeft: `3px solid ${isQ ? '#60a5fa' : '#a78bfa'}` }}
+                    >
+                      <td className="px-4 py-3">
+                        {isQ ? (
+                          <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-blue-50 text-blue-700 border border-blue-100 uppercase tracking-wide whitespace-nowrap">
+                            ใบเสนอราคา
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center text-[9px] px-2 py-0.5 rounded-md font-bold bg-violet-50 text-violet-700 border border-violet-100 uppercase tracking-wide whitespace-nowrap">
+                            ใบเสนอสินค้า
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`font-bold font-mono ${isQ ? 'text-[#0071e3]' : 'text-violet-600'}`}>
+                          {q.quotationNumber || q.id}
+                        </span>
+                        {q.referenceNumber && q.referenceNumber !== q.quotationNumber && (
+                          <div className="text-[10px] text-zinc-400 mt-0.5">{q.referenceNumber}</div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isQ ? (
+                          <>
+                            <div className="font-semibold text-[#1d1d1f] truncate max-w-[160px]">{q.customer?.name || '-'}</div>
+                            <div className="text-[10px] text-zinc-400 truncate max-w-[160px]">{q.customer?.companyName || ''}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-semibold text-zinc-400">ไม่ระบุลูกค้า</div>
+                            <div className="text-[10px] text-zinc-400">ผู้สร้าง: {q.createdBy || '-'}</div>
+                          </>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell text-[#555557]">{q.salespersonName || '-'}</td>
+                      <td className="px-4 py-3 hidden lg:table-cell text-[#555557]">
+                        {formatDate(isQ ? (q.approvedDate || q.issuedDate) : q.issuedDate)}
+                      </td>
+
+                      <td className="px-4 py-3 hidden xl:table-cell">
+                        {isQ ? (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold border border-emerald-100">
+                            <CheckCircle className="w-2.5 h-2.5" /> อนุมัติแล้ว{q.approvedBy ? ` (${q.approvedBy})` : ''}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-violet-50 text-violet-600 border-violet-200">
+                            ✓ พร้อมใช้งาน
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+              {/* Removed tfoot grand total */}
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 // ── List Tab ───────────────────────────────────────────────────────────────
 const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) => {
   const [search, setSearch] = useState('');
@@ -305,9 +902,18 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
   const [dateFilter, setDateFilter] = useState('');
   const [hoveredRow, setHoveredRow] = useState(null);
 
+  const [sortBy, setSortBy] = useState(() => {
+    return localStorage.getItem('pim_quotation_list_sort_by') || 'newest';
+  });
+  const [isSortOpen, setIsSortOpen] = useState(false);
+
   const [adminListMode, setAdminListMode] = useState(() => {
     return localStorage.getItem('pim_quotation_admin_list_mode') || 'all';
   });
+
+  useEffect(() => {
+    localStorage.setItem('pim_quotation_list_sort_by', sortBy);
+  }, [sortBy]);
 
   useEffect(() => {
     localStorage.setItem('pim_quotation_admin_list_mode', adminListMode);
@@ -319,15 +925,22 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
   const matchDate = (issuedDateStr, filterDateStr) => {
     if (!filterDateStr) return true;
+    if (!issuedDateStr) return false;
     try {
       const [fYear, fMonth, fDay] = filterDateStr.split('-').map(Number);
-      const parts = issuedDateStr.split('/');
-      if (parts.length === 3) {
-        const d = Number(parts[0]);
-        const m = Number(parts[1]);
-        let y = Number(parts[2]);
-        if (y > 2400) y -= 543;
-        return d === fDay && m === fMonth && y === fYear;
+      if (issuedDateStr.includes('-')) {
+        const [y, m, d] = issuedDateStr.split('-').map(Number);
+        return y === fYear && m === fMonth && d === fDay;
+      }
+      if (issuedDateStr.includes('/')) {
+        const parts = issuedDateStr.split('/').map(Number);
+        if (parts.length === 3) {
+          const d = parts[0];
+          const m = parts[1];
+          let y = parts[2];
+          if (y > 2400) y -= 543;
+          return d === fDay && m === fMonth && y === fYear;
+        }
       }
     } catch (e) {
       console.error(e);
@@ -335,43 +948,57 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
     return false;
   };
 
-  const filtered = quotations.filter(q => {
-    const qNum = q.quotationNumber || q.id;
-    const matchSearch = !search ||
-      qNum.toLowerCase().includes(search.toLowerCase()) ||
-      q.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
-      (q.customer?.companyName || '').toLowerCase().includes(search.toLowerCase());
+  const filtered = useMemo(() => {
+    const res = quotations.filter(q => {
+      const qNum = q.quotationNumber || q.id;
+      const matchSearch = !search ||
+        qNum.toLowerCase().includes(search.toLowerCase()) ||
+        q.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
+        (q.customer?.companyName || '').toLowerCase().includes(search.toLowerCase());
 
-    const matchD = !dateFilter || matchDate(q.issuedDate, dateFilter);
+      const matchD = !dateFilter || matchDate(q.issuedDate, dateFilter);
 
-    if (currentUser?.role === 'admin' && adminListMode === 'pending') {
-      return matchSearch && q.status === 'sent' && q.documentType === 'quotation' && matchD;
-    }
+      if (currentUser?.role === 'admin' && adminListMode === 'pending') {
+        return matchSearch && q.status === 'sent' && q.documentType === 'quotation' && matchD;
+      }
 
-    if (currentUser?.role === 'admin' && adminListMode === 'mine') {
-      const creator = q.createdBy || '';
-      const salesName = q.salespersonName || '';
-      const isMine = creator === currentUser.username ||
-        salesName.toLowerCase().includes(currentUser.username.toLowerCase()) ||
-        (currentUser.name && salesName.toLowerCase().includes(currentUser.name.toLowerCase()));
+      if (currentUser?.role === 'admin' && adminListMode === 'mine') {
+        const creator = q.createdBy || '';
+        const salesName = q.salespersonName || '';
+        const isMine = creator === currentUser.username ||
+          salesName.toLowerCase().includes(currentUser.username.toLowerCase()) ||
+          (currentUser.name && salesName.toLowerCase().includes(currentUser.name.toLowerCase()));
+
+        const matchStatus = statusFilter === 'All' || q.status === statusFilter;
+        const matchDocType = docTypeFilter === 'All' || q.documentType === docTypeFilter;
+        return matchSearch && isMine && matchStatus && matchDocType && matchD;
+      }
+
+      // For admin viewing all documents in the system:
+      // Only show: approved quotations, or ready product proposals. Hide drafts, sent, and rejected items.
+      if (currentUser?.role === 'admin' && adminListMode === 'all') {
+        const isValidStatus = q.status === 'approved' || q.documentType === 'product_proposal';
+        if (!isValidStatus) return false;
+      }
 
       const matchStatus = statusFilter === 'All' || q.status === statusFilter;
       const matchDocType = docTypeFilter === 'All' || q.documentType === docTypeFilter;
-      return matchSearch && isMine && matchStatus && matchDocType && matchD;
-    }
 
-    // For admin viewing all documents in the system:
-    // Only show: approved, rejected, or product proposals. Hide drafts and pending approval items.
-    if (currentUser?.role === 'admin' && adminListMode === 'all') {
-      const isValidStatus = q.status === 'approved' || q.status === 'rejected' || q.documentType === 'product_proposal';
-      if (!isValidStatus) return false;
-    }
+      return matchSearch && matchStatus && matchDocType && matchD;
+    });
 
-    const matchStatus = statusFilter === 'All' || q.status === statusFilter;
-    const matchDocType = docTypeFilter === 'All' || q.documentType === docTypeFilter;
-
-    return matchSearch && matchStatus && matchDocType && matchD;
-  });
+    return res.sort((a, b) => {
+      const dateA = a.issuedDate || '';
+      const dateB = b.issuedDate || '';
+      let cmp = dateA.localeCompare(dateB);
+      if (cmp === 0) {
+        const idA = a.id || '';
+        const idB = b.id || '';
+        cmp = idA.localeCompare(idB);
+      }
+      return sortBy === 'newest' ? -cmp : cmp;
+    });
+  }, [quotations, search, dateFilter, currentUser, adminListMode, statusFilter, docTypeFilter, sortBy]);
 
   const handleExportExcel = async () => {
     try {
@@ -498,18 +1125,18 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
   return (
     <div className="space-y-4">
       {currentUser?.role === 'admin' && (
-        <div className="flex bg-[#f5f5f7] p-1 rounded-2xl border border-[#d2d2d7]/20 w-fit flex-wrap gap-1 sm:gap-0">
+        <div className="flex bg-[#f5f5f7] p-1 rounded-full border border-[#d2d2d7]/50 w-fit flex-wrap gap-1 sm:gap-0 shadow-inner">
           <button
             type="button"
             onClick={() => setAdminListMode('pending')}
-            className={`px-5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${adminListMode === 'pending'
-              ? 'bg-white text-[#0071e3] shadow-sm'
-              : 'text-[#555557] hover:text-[#1d1d1f]'
+            className={`px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer flex items-center gap-2 transform active:scale-95 ${adminListMode === 'pending'
+              ? 'bg-white text-[#0071e3] shadow-md border border-[#d2d2d7]/10'
+              : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/50'
               }`}
           >
             รายการรออนุมัติ
             {pendingCount > 0 && (
-              <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full">
+              <span className="bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse">
                 {pendingCount}
               </span>
             )}
@@ -517,27 +1144,24 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
           <button
             type="button"
             onClick={() => setAdminListMode('mine')}
-            className={`px-5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${adminListMode === 'mine'
-              ? 'bg-white text-[#0071e3] shadow-sm'
-              : 'text-[#555557] hover:text-[#1d1d1f]'
+            className={`px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer transform active:scale-95 ${adminListMode === 'mine'
+              ? 'bg-white text-[#0071e3] shadow-md border border-[#d2d2d7]/10'
+              : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/50'
               }`}
           >
             เอกสารของคุณ
           </button>
-          <button
-            type="button"
-            onClick={() => setAdminListMode('all')}
-            className={`px-5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${adminListMode === 'all'
-              ? 'bg-white text-[#0071e3] shadow-sm'
-              : 'text-[#555557] hover:text-[#1d1d1f]'
-              }`}
-          >
-            เอกสารทั้งหมดในระบบ
-          </button>
         </div>
       )}
 
-      {/* Search and Filters */}
+      {/* ถ้าอยู่ใน admin 'all' mode ให้ render AdminApprovedReport แทน */}
+      {currentUser?.role === 'admin' && adminListMode === 'all' && (
+        <AdminApprovedReport quotations={quotations} addActivityLog={addActivityLog} />
+      )}
+
+      {/* Search and Filters — ซ่อนเมื่ออยู่ใน admin 'all' mode */}
+      {!(currentUser?.role === 'admin' && adminListMode === 'all') && (
+      <>{/* Search and Filters */}
       <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
         <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
           <div className="flex items-center gap-2 shrink-0">
@@ -589,11 +1213,20 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
                   className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
                   disabled={docTypeFilter === 'product_proposal'}
                 >
-                  <option value="All">สถานะทั้งหมด</option>
-                  <option value="draft">แบบร่าง</option>
-                  <option value="sent">รออนุมัติ</option>
-                  <option value="approved">อนุมัติแล้ว</option>
-                  <option value="rejected">ไม่อนุมัติ</option>
+                  {currentUser?.role === 'admin' && adminListMode === 'all' ? (
+                    <>
+                      <option value="All">สถานะทั้งหมด</option>
+                      <option value="approved">อนุมัติแล้ว</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="All">สถานะทั้งหมด</option>
+                      <option value="draft">แบบร่าง</option>
+                      <option value="sent">รออนุมัติ</option>
+                      <option value="approved">อนุมัติแล้ว</option>
+                      <option value="rejected">ไม่อนุมัติ</option>
+                    </>
+                  )}
                 </select>
               </div>
             )}
@@ -636,20 +1269,85 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
           </div>
         </div>
       </div>
+      </> /* end of hidden-in-all-mode block */
+      )}
 
-      {/* List */}
+      {/* List — ซ่อนเมื่ออยู่ใน admin 'all' mode */}
+      {!(currentUser?.role === 'admin' && adminListMode === 'all') && (
+      <>{/* List */}
       {filtered.length === 0 ? (
         <div className="text-center py-12 text-xs text-zinc-400 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
           ไม่พบรายการเอกสารเสนอราคา/สินค้า
         </div>
       ) : (
         <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xs overflow-hidden">
-          <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex items-center justify-between">
+          <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <div className="flex items-center gap-3">
               <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายการเอกสารเสนอราคา</h4>
               <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
                 {filtered.length.toLocaleString()} รายการ
               </span>
+            </div>
+
+            {/* Sorting Dropdown */}
+            <div className="relative self-start sm:self-auto select-none">
+              <button
+                type="button"
+                onClick={() => setIsSortOpen(!isSortOpen)}
+                className="px-3.5 py-1.5 bg-[#f5f5f7] hover:bg-[#e8e8ed] border border-[#d2d2d7] rounded-xl text-xs font-bold text-[#1d1d1f] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 z-10"
+              >
+                <span>{sortBy === 'newest' ? 'ใหม่ที่สุด' : 'เก่าที่สุด'}</span>
+                <svg
+                  className={`w-3.5 h-3.5 text-[#555557] transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`}
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </button>
+
+              {isSortOpen && (
+                <>
+                  {/* Invisible overlay backdrop to close dropdown */}
+                  <div
+                    className="fixed inset-0 z-30 cursor-default"
+                    onClick={() => setIsSortOpen(false)}
+                  />
+                  {/* Dropdown Menu */}
+                  <div className="absolute right-0 mt-1.5 w-32 bg-white border border-[#d2d2d7]/85 rounded-xl shadow-lg py-1 z-40 animate-scale-in origin-top-right">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortBy('newest');
+                        setIsSortOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${
+                        sortBy === 'newest'
+                          ? 'text-[#0071e3] bg-[#0071e3]/5'
+                          : 'text-[#1d1d1f]'
+                      }`}
+                    >
+                      ใหม่ที่สุด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSortBy('oldest');
+                        setIsSortOpen(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${
+                        sortBy === 'oldest'
+                          ? 'text-[#0071e3] bg-[#0071e3]/5'
+                          : 'text-[#1d1d1f]'
+                      }`}
+                    >
+                      เก่าที่สุด
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
           <div className="divide-y divide-[#e8e8ed]">
@@ -687,7 +1385,15 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
                         ? 'เอกสารเสนอสินค้า (ไม่ระบุลูกค้า / บันทึกสำเร็จ)'
                         : `${q.customer?.name} · ${q.customer?.companyName || 'ลูกค้าทั่วไป'}`}
                     </div>
-                    <div className="text-[10px] text-[#aaa] mt-1">{q.issuedDate}</div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className="text-[10px] text-[#aaa]">{formatDate(q.issuedDate)}</span>
+                      {currentUser?.role === 'admin' && adminListMode === 'pending' && q.salespersonName && (
+                        <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          <Users className="w-2.5 h-2.5" />
+                          {q.salespersonName}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right flex flex-col items-end gap-1.5">
                     <div className="text-xs font-bold text-[#1d1d1f]">฿{fmt(q.totalAmount)}</div>
@@ -700,13 +1406,13 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
                         <Badge status={q.status} />
                       )}
 
-                      {(q.status !== 'approved' || q.documentType === 'product_proposal') && (
+                      {canDeleteDocument(q, currentUser) && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
                             onDelete(q);
                           }}
-                          className="p-1 text-red-400 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-100"
+                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer border border-transparent hover:border-red-200"
                           title="ลบเอกสาร"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -720,11 +1426,13 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
           </div>
         </div>
       )}
+      </> /* end list block */
+      )}
     </div>
   );
 };
 
-const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProposal, quotations = [] }) => {
+const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProposal, quotations = [], users = [] }) => {
   // Memoize unique customers list from past quotations
   const existingCustomers = useMemo(() => {
     const custMap = new Map();
@@ -736,9 +1444,15 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
             name: q.customer.name.trim(),
             companyName: (q.customer.companyName || '').trim(),
             phone: (q.customer.phone || '').trim(),
+            email: q.customer.email || '',
             taxId: (q.customer.taxId || '').trim(),
             address: (q.customer.address || '').trim(),
           });
+        } else {
+          const existing = custMap.get(key);
+          if (!existing.email && q.customer.email) {
+            existing.email = q.customer.email;
+          }
         }
       }
     });
@@ -758,6 +1472,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
         custName: editQt.customer?.name || '',
         custCompany: editQt.customer?.companyName || '',
         custPhone: editQt.customer?.phone || '',
+        custEmail: editQt.customer?.email || '',
         custTax: editQt.customer?.taxId || '',
         custAddr: editQt.customer?.address || '',
         salesName: editQt.salespersonName || '',
@@ -769,7 +1484,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
       };
     }
     return {
-      custName: '', custCompany: '', custPhone: '',
+      custName: '', custCompany: '', custPhone: '', custEmail: '',
       custTax: '', custAddr: '',
       salesName: currentUser?.name || currentUser?.username || '', salesPhone: '',
       projName: '', validDate: '', vatRate: '7', note: '',
@@ -784,7 +1499,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
     if (sourceProposal && sourceProposal.items && sourceProposal.items.length > 0) {
       return sourceProposal.items.map(it => ({ ...it, id: it.id || generateItemId() }));
     }
-    return [{ id: generateItemId(), productName: '', productCode: '', barcode: '', productImage: '', description: '', size: '', weight: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent', lineTotal: 0 }];
+    return [];
   });
 
   const [alert, setAlert] = useState(null);
@@ -793,7 +1508,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
 
   const setField = (k, v) => {
     setForm(f => ({ ...f, [k]: v }));
-    if (['custName', 'custCompany', 'custPhone', 'custTax', 'custAddr'].includes(k)) {
+    if (['custName', 'custCompany', 'custPhone', 'custEmail', 'custTax', 'custAddr'].includes(k)) {
       setSelectedCustName('');
     }
   };
@@ -806,6 +1521,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
         custName: '',
         custCompany: '',
         custPhone: '',
+        custEmail: '',
         custTax: '',
         custAddr: '',
       }));
@@ -816,6 +1532,7 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
         custName: cust.name,
         custCompany: cust.companyName,
         custPhone: cust.phone,
+        custEmail: cust.email || '',
         custTax: cust.taxId,
         custAddr: cust.address,
       }));
@@ -834,32 +1551,43 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
   const addItem = () => setItems(prev => [...prev, { id: generateItemId(), productName: '', productCode: '', barcode: '', productImage: '', description: '', size: '', weight: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent', lineTotal: 0 }]);
   const removeItem = (id) => { setItems(prev => prev.filter(it => it.id !== id)); };
 
-  const handleSelectProduct = (product, variant) => {
-    const price = variant?.price ?? product.retailPrice ?? 0;
-    const variantLabel = variant?.options?.map(o => o.value).join(' / ') ?? '';
-    const newItem = {
-      id: generateItemId(),
-      productName: variantLabel ? `${product.name} (${variantLabel})` : product.name,
-      productCode: variant?.sku ?? variant?.code ?? product.code ?? '',
-      productImage: variant?.image ?? product.image ?? '',
-      description: '',
-      unit: 'ชิ้น',
-      quantity: 1,
-      unitPrice: price,
-      discount: 0,
-      discountType: 'percent',
-      lineTotal: price,
-      barcode: variant?.barcode ?? product.barcode ?? '',
-      size: variant?.size ?? product.size ?? '',
-      weight: variant?.weight ?? product.weight ?? '',
-    };
+  const handleSelectProduct = (selectedInput, variantData) => {
+    let itemsToAdd = [];
+    if (Array.isArray(selectedInput)) {
+      itemsToAdd = selectedInput;
+    } else if (selectedInput && typeof selectedInput === 'object' && selectedInput.product) {
+      itemsToAdd = [selectedInput];
+    } else if (selectedInput) {
+      itemsToAdd = [{ product: selectedInput, variant: variantData }];
+    }
+
+    if (itemsToAdd.length === 0) return;
+
+    const newItems = itemsToAdd.map(({ product, variant }) => {
+      const price = variant?.price ?? product.retailPrice ?? 0;
+      const variantLabel = variant?.options?.map(o => o.value).join(' / ') ?? '';
+      return {
+        id: generateItemId(),
+        productName: variantLabel ? `${product.name} (${variantLabel})` : product.name,
+        productCode: variant?.sku ?? variant?.code ?? product.code ?? '',
+        productImage: variant?.image ?? product.image ?? '',
+        description: '',
+        unit: 'ชิ้น',
+        quantity: 1,
+        unitPrice: price,
+        discount: 0,
+        discountType: 'percent',
+        lineTotal: price,
+        barcode: variant?.barcode ?? product.barcode ?? '',
+        size: variant?.size ?? product.size ?? '',
+        weight: variant?.weight ?? product.weight ?? '',
+      };
+    });
 
     setItems(prev => {
-      const emptyIdx = prev.findIndex(it => !it.productName || it.productName.trim() === '');
-      if (emptyIdx !== -1) {
-        return prev.map((it, idx) => idx === emptyIdx ? { ...newItem, id: it.id } : it);
-      }
-      return [...prev, newItem];
+      // Filter out empty rows (where productName is not entered)
+      const existingFilled = prev.filter(it => it.productName && it.productName.trim() !== '');
+      return [...existingFilled, ...newItems];
     });
     setShowPicker(false);
   };
@@ -899,8 +1627,8 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
       // Track conversion origin
       sourceProposalId: sourceProposal ? (sourceProposal.quotationNumber || sourceProposal.id) : (editQt?.sourceProposalId || undefined),
       customer: docFormat === 'product_proposal'
-        ? { name: '', companyName: '', phone: '', taxId: '', address: '' }
-        : { name: form.custName, companyName: form.custCompany, phone: form.custPhone, taxId: form.custTax, address: form.custAddr },
+        ? { name: '', companyName: '', email: '', phone: '', taxId: '', address: '' }
+        : { name: form.custName, companyName: form.custCompany, email: form.custEmail || '', phone: form.custPhone, taxId: form.custTax, address: form.custAddr },
       salespersonName: form.salesName || currentUser?.name || currentUser?.username || '',
       salespersonPhone: docFormat === 'product_proposal' ? '' : form.salesPhone,
       projectName: docFormat === 'product_proposal' ? '' : form.projName,
@@ -973,10 +1701,10 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
       {/* Document Format Toggle — hidden when converting from proposal */}
       {!sourceProposal && (
         <label
-          className={`mb-6 flex items-center gap-4 rounded-2xl p-4 border cursor-pointer transition-all select-none ${docFormat === 'product_proposal'
-            ? 'bg-violet-50 border-violet-200'
-            : 'bg-white border-[#d2d2d7]/50'
-            } shadow-xs`}
+          className={`mb-6 flex items-center gap-4 rounded-2xl p-5 border-2 cursor-pointer transition-all duration-300 select-none ${docFormat === 'product_proposal'
+            ? 'bg-violet-50/80 border-violet-500 shadow-md shadow-violet-100/50 scale-[1.01]'
+            : 'bg-white border-[#d2d2d7]/80 hover:border-violet-300 hover:shadow-xs'
+            }`}
         >
           {/* Custom Checkbox */}
           <div className="relative flex-shrink-0">
@@ -986,13 +1714,13 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
               checked={docFormat === 'product_proposal'}
               onChange={e => setDocFormat(e.target.checked ? 'product_proposal' : 'quotation')}
             />
-            <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all ${docFormat === 'product_proposal'
-              ? 'bg-violet-600 border-violet-600'
-              : 'bg-white border-[#d2d2d7]'
+            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${docFormat === 'product_proposal'
+              ? 'bg-violet-600 border-violet-600 scale-110 shadow-xs'
+              : 'bg-white border-[#d2d2d7] hover:border-violet-400'
               }`}>
               {docFormat === 'product_proposal' && (
-                <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                <svg className="w-4 h-4 text-white" viewBox="0 0 12 12" fill="none">
+                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}
             </div>
@@ -1000,10 +1728,10 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
 
           {/* Label text */}
           <div className="flex-1 min-w-0">
-            <p className={`text-xs font-bold ${docFormat === 'product_proposal' ? 'text-violet-800' : 'text-[#1d1d1f]'}`}>
-              ใบเสนอสินค้า (ไม่ระบุผู้รับ / ผู้ขาย)
+            <p className={`text-sm sm:text-base font-bold transition-colors ${docFormat === 'product_proposal' ? 'text-violet-900' : 'text-[#1d1d1f]'}`}>
+              ใบเสนอสินค้า
             </p>
-            <p className={`text-[11px] mt-0.5 ${docFormat === 'product_proposal' ? 'text-violet-500' : 'text-[#aaa]'}`}>
+            <p className={`text-xs sm:text-sm mt-1 transition-colors ${docFormat === 'product_proposal' ? 'text-violet-600' : 'text-[#555557]'}`}>
               {docFormat === 'product_proposal'
                 ? 'ไม่แสดงข้อมูลลูกค้า, พนักงานขาย และราคารวม VAT'
                 : 'ติ๊กเพื่อสร้างใบเสนอสินค้าแบบไม่ระบุข้อมูลลูกค้า'
@@ -1012,9 +1740,9 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
           </div>
 
           {/* Right badge */}
-          <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border flex-shrink-0 transition-all ${docFormat === 'product_proposal'
-            ? 'bg-violet-100 text-violet-700 border-violet-200'
-            : 'bg-[#f5f5f7] text-[#aaa] border-[#e8e8ed]'
+          <span className={`text-xs font-bold px-3 py-1.5 rounded-full border flex-shrink-0 transition-all duration-300 ${docFormat === 'product_proposal'
+            ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
+            : 'bg-[#f5f5f7] text-[#555557] border-[#d2d2d7]/50'
             }`}>
             {docFormat === 'product_proposal' ? '✓ ใบเสนอสินค้า' : 'ใบเสนอราคา'}
           </span>
@@ -1088,7 +1816,38 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
               </div>
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div><label className={labelClass}>พนักงานขาย <span className="text-red-500">*</span></label><input className={inputClass} value={form.salesName} onChange={e => setField('salesName', e.target.value)} /></div>
+                  <div>
+                    <label className={labelClass}>พนักงานขาย <span className="text-red-500">*</span></label>
+                    <input
+                      className={inputClass}
+                      list="salesperson-datalist"
+                      value={form.salesName}
+                      onChange={e => {
+                        const val = e.target.value;
+                        const matchedUser = users.find(u => u.username.toLowerCase() === val.trim().toLowerCase());
+                        if (matchedUser) {
+                          setField('salesName', matchedUser.name);
+                        } else {
+                          setField('salesName', val);
+                        }
+                      }}
+                      onBlur={e => {
+                        const val = e.target.value;
+                        const matchedUser = users.find(u => u.username.toLowerCase() === val.trim().toLowerCase());
+                        if (matchedUser) {
+                          setField('salesName', matchedUser.name);
+                        }
+                      }}
+                      placeholder="พิมพ์ชื่อหรือรหัสพนักงาน..."
+                    />
+                    <datalist id="salesperson-datalist">
+                      {users.map(u => (
+                        <option key={u.username} value={u.name}>
+                          {u.username}
+                        </option>
+                      ))}
+                    </datalist>
+                  </div>
                   <div><label className={labelClass}>เบอร์ติดต่อ <span className="text-red-500">*</span></label><input className={inputClass} value={form.salesPhone} onChange={e => setField('salesPhone', e.target.value)} /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -1118,14 +1877,12 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
               <div className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wider flex items-center gap-2">
                 <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
                 รายการสินค้า
+                {items.length > 0 && (
+                  <span className="text-[10px] bg-blue-50 text-[#0071e3] px-2 py-0.5 rounded-full font-bold">
+                    {items.length} รายการ
+                  </span>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => setShowPicker(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-colors cursor-pointer shadow-xs"
-              >
-                <Plus className="w-3.5 h-3.5" /> เพิ่มข้อมูลสินค้าจากระบบ
-              </button>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
@@ -1156,146 +1913,175 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
                   )}
                 </thead>
                 <tbody className="divide-y divide-[#f5f5f7]">
-                  {items.map((it, idx) => (
-                    docFormat === 'product_proposal' ? (
-                      <tr key={it.id} className="hover:bg-[#fafafa]">
-                        <td className="p-3 text-center text-[#555557] font-medium">{idx + 1}</td>
-                        <td className="p-3">
-                          <input
-                            className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white font-mono"
-                            placeholder="รหัสสินค้า"
-                            value={it.productCode || ''}
-                            onChange={e => updateItem(it.id, 'productCode', e.target.value)}
-                          />
-                        </td>
-                        <td className="p-3">
-                          <input
-                            className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white font-mono"
-                            placeholder="บาร์โค้ด"
-                            value={it.barcode || ''}
-                            onChange={e => updateItem(it.id, 'barcode', e.target.value)}
-                          />
-                        </td>
-                        <td className="p-3 text-center">
-                          <div className="flex flex-col items-center gap-1">
-                            {it.productImage ? (
-                              <img src={it.productImage} className="w-8 h-8 rounded-lg object-cover border border-[#d2d2d7]/50 mx-auto" alt="" />
-                            ) : (
-                              <div className="w-8 h-8 rounded-lg bg-[#f5f5f7] border border-[#d2d2d7]/30 flex items-center justify-center text-[9px] text-[#aaa] mx-auto">ไม่มีรูป</div>
-                            )}
+                  {items.length === 0 ? (
+                    <tr>
+                      <td colSpan={docFormat === 'product_proposal' ? 9 : 8} className="py-12 text-center text-[#86868b]">
+                        <div className="flex flex-col items-center justify-center gap-2.5">
+                          <div className="w-12 h-12 rounded-2xl bg-[#f5f5f7] flex items-center justify-center text-[#86868b]">
+                            <Package className="w-6 h-6" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold text-[#1d1d1f]">ยังไม่มีรายการสินค้าในเอกสาร</p>
+                            <p className="text-[11px] text-[#86868b] mt-0.5">กดปุ่ม <strong className="text-[#0071e3]">"+ เพิ่มข้อมูลสินค้าจากระบบ"</strong> ด้านบนขวาเพื่อเลือกสินค้า</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setShowPicker(true)}
+                            className="mt-1 flex items-center gap-1.5 px-4 py-2 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+                          >
+                            <Plus className="w-3.5 h-3.5" /> เลือกสินค้าจากระบบ PIM
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : (
+                    items.map((it, idx) => (
+                      docFormat === 'product_proposal' ? (
+                        <tr key={it.id} className="hover:bg-[#fafafa]">
+                          <td className="p-3 text-center text-[#555557] font-medium">{idx + 1}</td>
+                          <td className="p-3">
                             <input
-                              className="w-16 text-[9px] text-[#555557] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:outline-none text-center truncate"
-                              placeholder="URL รูปภาพ"
-                              title={it.productImage || 'URL รูปภาพ'}
-                              value={it.productImage || ''}
-                              onChange={e => updateItem(it.id, 'productImage', e.target.value)}
+                              className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white font-mono"
+                              placeholder="รหัสสินค้า"
+                              value={it.productCode || ''}
+                              onChange={e => updateItem(it.id, 'productCode', e.target.value)}
                             />
-                          </div>
-                        </td>
-                        <td className="p-3">
-                          <input
-                            className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-0.5 rounded transition-all"
-                            placeholder="ชื่อสินค้า"
-                            value={it.productName || ''}
-                            onChange={e => updateItem(it.id, 'productName', e.target.value)}
-                          />
-                          <input
-                            className="mt-1 w-full text-[11px] text-[#555557] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-1 rounded transition-all placeholder-[#bbb]"
-                            placeholder="รายละเอียด"
-                            value={it.description || ''}
-                            onChange={e => updateItem(it.id, 'description', e.target.value)}
-                          />
-                        </td>
-                        <td className="p-3">
-                          <input
-                            className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white"
-                            placeholder="ขนาด"
-                            value={it.size || ''}
-                            onChange={e => updateItem(it.id, 'size', e.target.value)}
-                          />
-                        </td>
-                        <td className="p-3">
-                          <input
-                            className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white"
-                            placeholder="น้ำหนัก"
-                            value={it.weight || ''}
-                            onChange={e => updateItem(it.id, 'weight', e.target.value)}
-                          />
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="number"
-                            className="w-full text-right text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white"
-                            placeholder="ราคา"
-                            value={it.unitPrice}
-                            min={0}
-                            onChange={e => updateItem(it.id, 'unitPrice', +e.target.value)}
-                          />
-                        </td>
-                        <td className="p-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => removeItem(it.id)}
-                            className="p-1.5 text-[#d2d2d7] hover:text-red-655 rounded-lg hover:bg-red-50 transition-all cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ) : (
-                      <tr key={it.id} className="hover:bg-[#fafafa]">
-                        <td className="p-3 text-center text-[#555557] font-medium">{idx + 1}</td>
-                        <td className="p-3 min-w-[200px]">
-                          <div className="flex items-center gap-2 mb-1">
-                            {it.productImage && (
-                              <img src={it.productImage} className="w-8 h-8 rounded-lg object-cover border border-[#d2d2d7]/50" alt="" />
-                            )}
-                            <div className="flex-1">
-                              {it.productCode && (
-                                <div className="text-[9px] text-[#555557] uppercase font-bold tracking-wider mb-0.5">SKU: {it.productCode}</div>
+                          </td>
+                          <td className="p-3">
+                            <input
+                              className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white font-mono"
+                              placeholder="บาร์โค้ด"
+                              value={it.barcode || ''}
+                              onChange={e => updateItem(it.id, 'barcode', e.target.value)}
+                            />
+                          </td>
+                          <td className="p-3 text-center">
+                            <div className="flex flex-col items-center gap-1">
+                              {it.productImage ? (
+                                <img src={it.productImage} className="w-8 h-8 rounded-lg object-cover border border-[#d2d2d7]/50 mx-auto" alt="" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg bg-[#f5f5f7] border border-[#d2d2d7]/30 flex items-center justify-center text-[9px] text-[#aaa] mx-auto">ไม่มีรูป</div>
                               )}
-                              <input className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-0.5 rounded transition-all" placeholder="ชื่อสินค้า" value={it.productName} onChange={e => updateItem(it.id, 'productName', e.target.value)} />
+                              <input
+                                className="w-16 text-[9px] text-[#555557] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:outline-none text-center truncate"
+                                placeholder="URL รูปภาพ"
+                                title={it.productImage || 'URL รูปภาพ'}
+                                value={it.productImage || ''}
+                                onChange={e => updateItem(it.id, 'productImage', e.target.value)}
+                              />
                             </div>
-                          </div>
-                          <input className="mt-1 w-full text-[11px] text-[#555557] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-1 rounded transition-all placeholder-[#bbb]" placeholder="รายละเอียด" value={it.description || ''} onChange={e => updateItem(it.id, 'description', e.target.value)} />
-                        </td>
-                        <td className="p-3">
-                          <input type="number" className="w-full text-center text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white" value={it.quantity} min={1} onChange={e => updateItem(it.id, 'quantity', +e.target.value)} />
-                        </td>
-                        <td className="p-3">
-                          <input className="w-full text-center text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white" value={it.unit} onChange={e => updateItem(it.id, 'unit', e.target.value)} />
-                        </td>
-                        <td className="p-3">
-                          <input type="number" className="w-full text-right text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white" value={it.unitPrice} min={0} onChange={e => updateItem(it.id, 'unitPrice', +e.target.value)} />
-                        </td>
-                        <td className="p-3">
-                          <div className="flex gap-1 items-center">
-                            <input type="number" className="w-16 text-right text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-1.5 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white" value={it.discount} min={0} onChange={e => updateItem(it.id, 'discount', +e.target.value)} />
-                            <select className="text-[10px] bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-1 py-1.5 focus:outline-none cursor-pointer" value={it.discountType} onChange={e => updateItem(it.id, 'discountType', e.target.value)}>
-                              <option value="percent">%</option>
-                              <option value="amount">฿</option>
-                            </select>
-                          </div>
-                        </td>
-                        <td className="p-3 text-right font-bold text-[#1d1d1f] w-20">{fmt(it.lineTotal)}</td>
-                        <td className="p-3 text-center">
-                          <button
-                            type="button"
-                            onClick={() => removeItem(it.id)}
-                            className="p-1.5 text-[#d2d2d7] hover:text-red-650 rounded-lg hover:bg-red-50 transition-all cursor-pointer"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  ))}
+                          </td>
+                          <td className="p-3">
+                            <input
+                              className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-0.5 rounded transition-all"
+                              placeholder="ชื่อสินค้า"
+                              value={it.productName || ''}
+                              onChange={e => updateItem(it.id, 'productName', e.target.value)}
+                            />
+                            <input
+                              className="mt-1 w-full text-[11px] text-[#555557] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-1 rounded transition-all placeholder-[#bbb]"
+                              placeholder="รายละเอียด"
+                              value={it.description || ''}
+                              onChange={e => updateItem(it.id, 'description', e.target.value)}
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white"
+                              placeholder="ขนาด"
+                              value={it.size || ''}
+                              onChange={e => updateItem(it.id, 'size', e.target.value)}
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white"
+                              placeholder="น้ำหนัก"
+                              value={it.weight || ''}
+                              onChange={e => updateItem(it.id, 'weight', e.target.value)}
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              className="w-full text-right text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white"
+                              placeholder="ราคา"
+                              value={it.unitPrice}
+                              min={0}
+                              onChange={e => updateItem(it.id, 'unitPrice', +e.target.value)}
+                            />
+                          </td>
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeItem(it.id)}
+                              className="p-1.5 text-[#d2d2d7] hover:text-red-655 rounded-lg hover:bg-red-50 transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      ) : (
+                        <tr key={it.id} className="hover:bg-[#fafafa]">
+                          <td className="p-3 text-center text-[#555557] font-medium">{idx + 1}</td>
+                          <td className="p-3 min-w-[200px]">
+                            <div className="flex items-center gap-2 mb-1">
+                              {it.productImage && (
+                                <img src={it.productImage} className="w-8 h-8 rounded-lg object-cover border border-[#d2d2d7]/50" alt="" />
+                              )}
+                              <div className="flex-1">
+                                {it.productCode && (
+                                  <div className="text-[9px] text-[#555557] uppercase font-bold tracking-wider mb-0.5">SKU: {it.productCode}</div>
+                                )}
+                                <input className="w-full text-xs font-semibold text-[#1d1d1f] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-0.5 rounded transition-all" placeholder="ชื่อสินค้า" value={it.productName} onChange={e => updateItem(it.id, 'productName', e.target.value)} />
+                              </div>
+                            </div>
+                            <input className="mt-1 w-full text-[11px] text-[#555557] bg-transparent border-b border-transparent hover:border-[#d2d2d7] focus:border-[#0071e3] focus:bg-white focus:outline-none px-1.5 py-1 rounded transition-all placeholder-[#bbb]" placeholder="รายละเอียด" value={it.description || ''} onChange={e => updateItem(it.id, 'description', e.target.value)} />
+                          </td>
+                          <td className="p-3">
+                            <input type="number" className="w-full text-center text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white" value={it.quantity} min={1} onChange={e => updateItem(it.id, 'quantity', +e.target.value)} />
+                          </td>
+                          <td className="p-3">
+                            <input className="w-full text-center text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white" value={it.unit} onChange={e => updateItem(it.id, 'unit', e.target.value)} />
+                          </td>
+                          <td className="p-3">
+                            <input type="number" className="w-full text-right text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-2 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white" value={it.unitPrice} min={0} onChange={e => updateItem(it.id, 'unitPrice', +e.target.value)} />
+                          </td>
+                          <td className="p-3">
+                            <div className="flex gap-1 items-center">
+                              <input type="number" className="w-16 text-right text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-1.5 py-1.5 focus:outline-none focus:border-[#0071e3] focus:bg-white" value={it.discount} min={0} onChange={e => updateItem(it.id, 'discount', +e.target.value)} />
+                              <select className="text-[10px] bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-1 py-1.5 focus:outline-none cursor-pointer" value={it.discountType} onChange={e => updateItem(it.id, 'discountType', e.target.value)}>
+                                <option value="percent">%</option>
+                                <option value="amount">฿</option>
+                              </select>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right font-bold text-[#1d1d1f] w-20">{fmt(it.lineTotal)}</td>
+                          <td className="p-3 text-center">
+                            <button
+                              type="button"
+                              onClick={() => removeItem(it.id)}
+                              className="p-1.5 text-[#d2d2d7] hover:text-red-650 rounded-lg hover:bg-red-50 transition-all cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>
-            <button onClick={addItem} className="flex items-center gap-1.5 text-xs font-bold text-[#0071e3] hover:text-[#0077ed] bg-transparent border-none cursor-pointer py-2 mt-2">
-              <Plus className="w-3.5 h-3.5" /> เพิ่มรายการ
-            </button>
+            {items.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowPicker(true)}
+                className="flex items-center gap-1.5 text-xs font-bold text-[#0071e3] hover:text-[#0077ed] bg-transparent border-none cursor-pointer py-2 mt-2"
+              >
+                <Plus className="w-3.5 h-3.5" /> เพิ่มสินค้าจากระบบ PIM
+              </button>
+            )}
             {docFormat !== 'product_proposal' && (
               <div className="bg-[#f5f5f7] rounded-xl p-4 mt-4 space-y-2">
                 {[
@@ -1364,12 +2150,12 @@ const CreateTab = ({ onSave, onCancel, products, editQt, currentUser, sourceProp
                   cancelText: 'ยกเลิก',
                   onConfirm: () => {
                     setForm({
-                      custName: '', custCompany: '', custPhone: '',
+                      custName: '', custCompany: '', custPhone: '', custEmail: '',
                       custTax: '', custAddr: '',
                       salesName: currentUser?.name || currentUser?.username || '', salesPhone: '',
                       projName: '', validDate: '', vatRate: '7', note: '',
                     });
-                    setItems([{ id: generateItemId(), productName: '', productCode: '', barcode: '', productImage: '', description: '', size: '', weight: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent', lineTotal: 0 }]);
+                    setItems([]);
                   }
                 });
               }}
@@ -1427,12 +2213,10 @@ const PreviewTab = ({
 
 
   const canPrint = q.status === 'approved' || q.documentType === 'product_proposal';
-  const canEdit = q.documentType === 'product_proposal' || (
-    q.status !== 'approved' && (
-      currentUser?.role === 'admin' ||
-      (currentUser?.role === 'manager' && q.status !== 'approved') ||
-      (currentUser?.role === 'user' && (q.status === 'draft' || q.status === 'sent'))
-    )
+  const canEdit = currentUser?.role === 'admin' || (
+    (currentUser?.role === 'manager' || currentUser?.role === 'user') &&
+    isOwnDocument(q, currentUser) &&
+    (q.documentType === 'product_proposal' || q.status !== 'approved')
   );
 
   return (
@@ -1497,7 +2281,7 @@ const PreviewTab = ({
               <Edit2 className="w-3.5 h-3.5" /> แก้ไข
             </button>
           )}
-          {(q.status !== 'approved' || q.documentType === 'product_proposal') && (
+          {canDeleteDocument(q, currentUser) && (
             <button
               onClick={() => onDelete(q)}
               className="p-2 text-red-500 hover:bg-red-50 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-red-200"
@@ -1578,27 +2362,72 @@ const PreviewTab = ({
             </div>
           )}
 
-          <div className={`bg-[#f5f5f7]/40 rounded-xl p-4 border border-[#d2d2d7]/30 ${q.documentType === 'product_proposal' ? 'md:col-span-2' : ''}`}>
-            <div className="text-xs font-extrabold text-[#1d1d1f] border-b border-[#e8e8ed] pb-2 mb-3 uppercase tracking-wider flex items-center gap-2">
-              <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
-              รายละเอียดเอกสาร
-            </div>
-            <div className="space-y-2.5">
-              {[
-                ['ผู้ขาย', q.salespersonName],
-                ['เบอร์ติดต่อ', q.salespersonPhone || '-'],
-                ['ชื่อโปรเจกต์', q.projectName || '-'],
-                ['วันที่ออกเอกสาร', q.issuedDate],
-                ['ใช้ได้ถึงวันที่', q.validUntilDate || '-'],
-                ['VAT (%)', (q.vatRate ?? 7) + '%']
-              ].map(([l, v]) => (
-                <div key={l} className="flex gap-2 leading-relaxed">
-                  <span className="text-[#555557] font-semibold min-w-[90px]">{l}</span>
-                  <span className="text-black font-medium">{v}</span>
+          {q.documentType === 'product_proposal' ? (
+            <div className="bg-gradient-to-br from-violet-50/80 via-purple-50/30 to-white rounded-2xl p-6 border border-violet-200/70 md:col-span-2 shadow-xs space-y-4">
+              <div className="flex items-center justify-between border-b border-violet-150/70 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2 h-5 bg-gradient-to-b from-violet-600 to-purple-600 rounded-full shadow-xs"></div>
+                  <h3 className="text-sm font-extrabold text-violet-950 uppercase tracking-wider">
+                    รายละเอียดใบเสนอสินค้า (Product Proposal)
+                  </h3>
                 </div>
-              ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 lg:gap-5">
+                {/* 1. Salesperson */}
+                <div className="bg-white/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-violet-100/90 shadow-2xs hover:border-violet-300/60 transition-all duration-200">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
+                    ผู้นำเสนอ / ผู้จัดทำ
+                  </span>
+                  <span className="text-sm sm:text-base font-bold text-zinc-900 truncate block">
+                    {q.salespersonName || '-'}
+                  </span>
+                </div>
+
+                {/* 2. Issue Date */}
+                <div className="bg-white/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-violet-100/90 shadow-2xs hover:border-violet-300/60 transition-all duration-200">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
+                    วันที่จัดทำเอกสาร
+                  </span>
+                  <span className="text-sm sm:text-base font-bold text-zinc-900 block">
+                    {formatDate(q.issuedDate)}
+                  </span>
+                </div>
+
+                {/* 3. Items Count */}
+                <div className="bg-white/90 backdrop-blur-xs p-4 sm:p-5 rounded-2xl border border-violet-100/90 shadow-2xs hover:border-violet-300/60 transition-all duration-200">
+                  <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-1">
+                    จำนวนรายการสินค้า
+                  </span>
+                  <span className="text-sm sm:text-base font-black text-violet-700 block">
+                    {q.items?.length || 0} <span className="text-xs font-bold text-zinc-500">รายการ</span>
+                  </span>
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-[#f5f5f7]/40 rounded-xl p-4 border border-[#d2d2d7]/30">
+              <div className="text-xs font-extrabold text-[#1d1d1f] border-b border-[#e8e8ed] pb-2 mb-3 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-3.5 bg-blue-600 rounded-full"></span>
+                รายละเอียดเอกสาร
+              </div>
+              <div className="space-y-2.5">
+                {[
+                  ['ผู้ขาย', q.salespersonName],
+                  ['เบอร์ติดต่อ', q.salespersonPhone || '-'],
+                  ['ชื่อโปรเจกต์', q.projectName || '-'],
+                  ['วันที่ออกเอกสาร', formatDate(q.issuedDate)],
+                  ['ใช้ได้ถึงวันที่', formatDate(q.validUntilDate)],
+                  ['VAT (%)', (q.vatRate ?? 7) + '%']
+                ].map(([l, v]) => (
+                  <div key={l} className="flex gap-2 leading-relaxed">
+                    <span className="text-[#555557] font-semibold min-w-[90px]">{l}</span>
+                    <span className="text-black font-medium">{v}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Items table layout */}
@@ -1606,53 +2435,130 @@ const PreviewTab = ({
           <table className="w-full text-xs border-collapse">
             <thead>
               <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
-                {['ลำดับ', 'รูปภาพ', 'รหัสสินค้า', 'รายการสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'ส่วนลด', 'รวม'].map((h, i) => (
-                  <th
-                    key={i}
-                    className={`p-2.5 sm:p-3.5 font-black text-[10px] tracking-widest uppercase ${i === 0 || i === 1 || i === 4 || i === 5 ? 'text-center' : (i === 2 || i === 3 ? 'text-left' : 'text-right')
-                      }`}
-                  >
-                    {h}
-                  </th>
-                ))}
+                {q.documentType === 'product_proposal'
+                  ? ['ลำดับ', 'ภาพสินค้า', 'รหัสสินค้า', 'บาร์โค้ด', 'ชื่อสินค้า / รายการ', 'ขนาด', 'น้ำหนัก', 'ราคาจำหน่าย'].map((h, i) => (
+                      <th
+                        key={i}
+                        className={`p-2.5 sm:p-3.5 font-black text-[10px] tracking-widest uppercase ${
+                          i === 0 || i === 1 || i === 2 || i === 3 || i === 5 || i === 6
+                            ? 'text-center'
+                            : i === 4
+                            ? 'text-left'
+                            : 'text-right'
+                        }`}
+                      >
+                        {h}
+                      </th>
+                    ))
+                  : ['ลำดับ', 'รูปภาพ', 'รหัสสินค้า', 'รายการสินค้า', 'จำนวน', 'หน่วย', 'ราคา/หน่วย', 'ส่วนลด', 'รวม'].map((h, i) => (
+                      <th
+                        key={i}
+                        className={`p-2.5 sm:p-3.5 font-black text-[10px] tracking-widest uppercase ${
+                          i === 0 || i === 1 || i === 4 || i === 5
+                            ? 'text-center'
+                            : i === 2 || i === 3
+                            ? 'text-left'
+                            : 'text-right'
+                        }`}
+                      >
+                        {h}
+                      </th>
+                    ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f0f5]">
-              {q.items?.map((it, idx) => (
-                <tr key={it.id || idx} className="hover:bg-[#fafafa]/80 transition-colors">
-                  <td className="p-2 sm:p-3.5 text-center text-[#86868b] font-mono text-[10px]">{idx + 1}</td>
-                  <td className="p-2 sm:p-3.5 text-center">
-                    {it.productImage ? (
-                      <img
-                        src={it.productImage}
-                        className={`rounded-lg object-cover border border-[#d2d2d7]/50 mx-auto ${q.documentType === 'product_proposal' ? 'w-16 h-16' : 'w-8 h-8'
-                          }`}
-                        alt=""
-                      />
-                    ) : (
-                      <span className="text-[#ccc]">—</span>
-                    )}
-                  </td>
-                  <td className="p-2 sm:p-3.5 text-left font-mono font-bold text-zinc-700 text-[10px] sm:text-xs">
-                    {it.productCode ? (
-                      <span className="bg-[#f5f5f7] px-1.5 py-0.5 rounded-md">
-                        {it.productCode}
-                      </span>
-                    ) : '—'}
-                  </td>
-                  <td className="p-2 sm:p-3.5 text-left">
-                    <div className="font-semibold text-black leading-snug">{it.productName}</div>
-                    {it.description && <div className="text-[10px] text-[#86868b] mt-1 leading-relaxed">{it.description}</div>}
-                  </td>
-                  <td className="p-2 sm:p-3.5 text-center font-semibold text-black">{it.quantity}</td>
-                  <td className="p-2 sm:p-3.5 text-center text-[#555557] font-medium">{it.unit}</td>
-                  <td className="p-2 sm:p-3.5 text-right text-zinc-700 font-semibold">{fmt(it.unitPrice)}</td>
-                  <td className="p-2 sm:p-3.5 text-right text-red-500 font-semibold">
-                    {it.discount > 0 ? (it.discountType === 'percent' ? it.discount + '%' : fmt(it.discount)) : '0'}
-                  </td>
-                  <td className="p-2 sm:p-3.5 text-right font-black text-black">{fmt(it.lineTotal)}</td>
-                </tr>
-              ))}
+              {q.documentType === 'product_proposal' ? (
+                q.items?.map((it, idx) => (
+                  <tr key={it.id || idx} className="hover:bg-violet-50/30 transition-colors">
+                    <td className="p-2 sm:p-3.5 text-center text-[#86868b] font-mono text-[10px]">{idx + 1}</td>
+                    <td className="p-2 sm:p-3.5 text-center">
+                      {it.productImage ? (
+                        <img
+                          src={it.productImage}
+                          className="w-14 h-14 rounded-xl object-cover border border-violet-100 mx-auto shadow-2xs"
+                          alt=""
+                        />
+                      ) : (
+                        <div className="w-14 h-14 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center text-zinc-400 text-xs mx-auto">
+                          —
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-center font-mono font-bold text-zinc-700 text-[10px] sm:text-xs">
+                      {it.productCode ? (
+                        <span className="bg-zinc-100 text-zinc-800 px-2 py-0.5 rounded-md font-mono border border-zinc-200/50">
+                          {it.productCode}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="p-2 sm:p-3 text-center">
+                      {it.barcode ? (
+                        <div className="inline-flex flex-col items-center justify-center bg-white p-2 rounded-xl border border-zinc-200 shadow-2xs group hover:border-violet-400 hover:shadow-xs transition-all">
+                          <img
+                            src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(it.barcode)}&height=9&scale=3&includetext=false`}
+                            alt={it.barcode}
+                            className="h-7 max-w-[120px] object-contain select-none"
+                            loading="lazy"
+                          />
+                          <span className="font-mono text-[11px] font-black text-zinc-900 tracking-wider mt-1 bg-zinc-50 px-2 py-0.5 rounded border border-zinc-200/70">
+                            {it.barcode}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-zinc-300 font-mono text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-left">
+                      <div className="font-bold text-zinc-900 leading-snug text-xs sm:text-sm">{it.productName}</div>
+                      {it.description && <div className="text-[10.5px] text-[#86868b] mt-1 leading-relaxed">{it.description}</div>}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-center text-[#555557] font-medium text-xs">
+                      {it.size || '—'}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-center text-[#555557] font-medium text-xs">
+                      {it.weight || '—'}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-right font-black text-violet-900 text-xs sm:text-sm">
+                      ฿{fmt(it.unitPrice)}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                q.items?.map((it, idx) => (
+                  <tr key={it.id || idx} className="hover:bg-[#fafafa]/80 transition-colors">
+                    <td className="p-2 sm:p-3.5 text-center text-[#86868b] font-mono text-[10px]">{idx + 1}</td>
+                    <td className="p-2 sm:p-3.5 text-center">
+                      {it.productImage ? (
+                        <img
+                          src={it.productImage}
+                          className="w-8 h-8 rounded-lg object-cover border border-[#d2d2d7]/50 mx-auto"
+                          alt=""
+                        />
+                      ) : (
+                        <span className="text-[#ccc]">—</span>
+                      )}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-left font-mono font-bold text-zinc-700 text-[10px] sm:text-xs">
+                      {it.productCode ? (
+                        <span className="bg-[#f5f5f7] px-1.5 py-0.5 rounded-md">
+                          {it.productCode}
+                        </span>
+                      ) : '—'}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-left">
+                      <div className="font-semibold text-black leading-snug">{it.productName}</div>
+                      {it.description && <div className="text-[10px] text-[#86868b] mt-1 leading-relaxed">{it.description}</div>}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-center font-semibold text-black">{it.quantity}</td>
+                    <td className="p-2 sm:p-3.5 text-center text-[#555557] font-medium">{it.unit}</td>
+                    <td className="p-2 sm:p-3.5 text-right text-zinc-700 font-semibold">{fmt(it.unitPrice)}</td>
+                    <td className="p-2 sm:p-3.5 text-right text-red-500 font-semibold">
+                      {it.discount > 0 ? (it.discountType === 'percent' ? it.discount + '%' : fmt(it.discount)) : '0'}
+                    </td>
+                    <td className="p-2 sm:p-3.5 text-right font-black text-black">{fmt(it.lineTotal)}</td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -1694,6 +2600,7 @@ export default function QuotationManage({
   products = [],
   companyInfo = {},
   currentUser,
+  users = [],
   onSaveQuotation,
   onDeleteQuotation,
   addActivityLog,
@@ -1859,6 +2766,7 @@ export default function QuotationManage({
           currentUser={currentUser}
           sourceProposal={convertProposal}
           quotations={quotations}
+          users={users}
         />
       </div>
     );
@@ -1904,8 +2812,20 @@ export default function QuotationManage({
           )}
           <div>
             <div className="flex items-center gap-2 mb-1">
-              <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">QUOTATION MANAGEMENT</span>
+              <div className={`w-1 h-5 rounded-full ${
+                (tab === 'preview' && selectedQt?.documentType === 'product_proposal')
+                  ? 'bg-gradient-to-b from-violet-600 to-purple-400'
+                  : 'bg-gradient-to-b from-[#0071e3] to-[#00c2ff]'
+              }`} />
+              <span className={`text-[10px] font-black uppercase tracking-[0.2em] ${
+                (tab === 'preview' && selectedQt?.documentType === 'product_proposal')
+                  ? 'text-violet-600'
+                  : 'text-[#0071e3]'
+              }`}>
+                {(tab === 'preview' && selectedQt?.documentType === 'product_proposal')
+                  ? 'PRODUCT PROPOSAL'
+                  : 'QUOTATION MANAGEMENT'}
+              </span>
             </div>
             <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">{headerTitle}</h1>
           </div>

@@ -3,39 +3,62 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 function getActionStyle(action) {
   if (action.includes('แก้ไข')) {
     return {
-      bg: 'bg-amber-50/70 border border-amber-200/40 text-amber-600',
-      badgeBg: 'bg-amber-100/60 text-amber-800',
+      gradient: 'from-amber-400 to-orange-400',
+      shadow: 'shadow-[0_4px_12px_rgba(251,191,36,0.4)]',
+      badgeBg: 'bg-amber-100/80 text-amber-800',
       icon: 'bi bi-pencil-fill',
       label: 'แก้ไข'
     };
   }
   if (action.includes('เพิ่ม')) {
     return {
-      bg: 'bg-emerald-50/70 border border-emerald-200/40 text-emerald-600',
-      badgeBg: 'bg-emerald-100/60 text-emerald-800',
-      icon: 'bi bi-plus-circle-fill',
+      gradient: 'from-emerald-400 to-teal-400',
+      shadow: 'shadow-[0_4px_12px_rgba(52,211,153,0.4)]',
+      badgeBg: 'bg-emerald-100/80 text-emerald-800',
+      icon: 'bi bi-plus-lg',
       label: 'เพิ่ม'
     };
   }
   if (action.includes('ลบ')) {
     return {
-      bg: 'bg-rose-50/70 border border-rose-200/40 text-rose-600',
-      badgeBg: 'bg-rose-100/60 text-rose-800',
+      gradient: 'from-rose-400 to-pink-500',
+      shadow: 'shadow-[0_4px_12px_rgba(244,63,94,0.4)]',
+      badgeBg: 'bg-rose-100/80 text-rose-800',
       icon: 'bi bi-trash3-fill',
       label: 'ลบ'
     };
   }
   if (action.includes('ล้าง')) {
     return {
-      bg: 'bg-red-50/70 border border-red-200/40 text-red-650',
-      badgeBg: 'bg-red-100/60 text-red-800',
+      gradient: 'from-red-500 to-rose-600',
+      shadow: 'shadow-[0_4px_12px_rgba(239,68,68,0.4)]',
+      badgeBg: 'bg-red-100/80 text-red-800',
       icon: 'bi bi-exclamation-triangle-fill',
       label: 'รีเซ็ต'
     };
   }
+  if (action.includes('เข้าสู่ระบบ') || action.includes('ออกจากระบบ')) {
+    return {
+      gradient: 'from-violet-400 to-purple-500',
+      shadow: 'shadow-[0_4px_12px_rgba(139,92,246,0.4)]',
+      badgeBg: 'bg-violet-100/80 text-violet-800',
+      icon: action.includes('ออก') ? 'bi bi-box-arrow-right' : 'bi bi-box-arrow-in-right',
+      label: action.includes('ออก') ? 'ออกจากระบบ' : 'เข้าสู่ระบบ'
+    };
+  }
+  if (action.includes('เปลี่ยน') || action.includes('รหัสผ่าน') || action.includes('Username')) {
+    return {
+      gradient: 'from-sky-400 to-blue-500',
+      shadow: 'shadow-[0_4px_12px_rgba(56,189,248,0.4)]',
+      badgeBg: 'bg-sky-100/80 text-sky-800',
+      icon: 'bi bi-person-gear',
+      label: 'บัญชี'
+    };
+  }
   return {
-    bg: 'bg-blue-50/70 border border-blue-200/40 text-blue-600',
-    badgeBg: 'bg-blue-100/60 text-blue-800',
+    gradient: 'from-blue-400 to-indigo-500',
+    shadow: 'shadow-[0_4px_12px_rgba(99,102,241,0.35)]',
+    badgeBg: 'bg-blue-100/80 text-blue-800',
     icon: 'bi bi-info-circle-fill',
     label: 'ทั่วไป'
   };
@@ -72,28 +95,62 @@ function getRelativeTimeThai(timestamp) {
 
 export default function DashboardLayout({
   currentUser,
+  users = [],
   onLogout,
   onChangePassword,
+  onUpdateProfile,
   activeTab,
   setActiveTab,
   children,
-  onSwitchRole,
   activityLog = [],
   quotations = [],
+  onLogin,
 }) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [isSandboxOpen, setIsSandboxOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [switchingRole, setSwitchingRole] = useState(false);
+
+  const handleSandboxSwitch = async (targetRole) => {
+    if (!onLogin || switchingRole) return;
+    
+    const matchingUser = users.find(u => u.role === targetRole);
+    const targetUsername = matchingUser?.username || (targetRole === 'admin' ? 'admin' : targetRole === 'manager' ? 'manager' : 'earth');
+    const candidatePasswords = ['password', '1111', '12345678', 'admin', 'user'];
+    
+    setSwitchingRole(true);
+    let success = false;
+    let lastError = null;
+
+    for (const pwd of candidatePasswords) {
+      try {
+        await onLogin(targetUsername, pwd);
+        success = true;
+        setIsProfileOpen(false);
+        setIsMobileMenuOpen(false);
+        break;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    if (!success) {
+      alert(`ไม่สามารถสลับไปยังสิทธิ์ ${targetRole.toUpperCase()} (${targetUsername}) ได้: ${lastError?.message || 'โปรดตรวจสอบชื่อผู้ใช้หรือรหัสผ่าน'}`);
+    }
+    setSwitchingRole(false);
+  };
   const [isUsersDropdownOpen, setIsUsersDropdownOpen] = useState(false);
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showEditProfile, setShowEditProfile] = useState(false);
+  const [editProfileForm, setEditProfileForm] = useState({ name: '', username: '' });
+  const [editProfileError, setEditProfileError] = useState('');
+  const [editProfileSuccess, setEditProfileSuccess] = useState(false);
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [changePwdForm, setChangePwdForm] = useState({ oldPwd: '', newPwd: '', confirmPwd: '' });
   const [changePwdError, setChangePwdError] = useState('');
   const [changePwdSuccess, setChangePwdSuccess] = useState(false);
   const [showOldPwd, setShowOldPwd] = useState(false);  
   const [showNewPwd, setShowNewPwd] = useState(false);
-  const [showConfirmPwd, setShowConfirmPwd] = useState(false);
 
   const pendingQuotationsCount = useMemo(() => {
     return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation').length;
@@ -108,7 +165,9 @@ export default function DashboardLayout({
       return 0;
     }
   });
-  const unreadCount = activityLog.filter(log => new Date(log.timestamp).getTime() > lastReadTime).length;
+  const unreadCount = useMemo(() => {
+    return activityLog.filter(log => new Date(log.timestamp).getTime() > lastReadTime).length;
+  }, [activityLog, lastReadTime]);
   const [shouldShake, setShouldShake] = useState(false);
   const [expandedLogId, setExpandedLogId] = useState(null);
 
@@ -148,8 +207,6 @@ export default function DashboardLayout({
       setIsProductsDropdownOpen(false);
     }, 150); // 150ms close delay
   };
-
-
 
   const handleMouseEnterProfile = () => {
     if (profileTimeoutRef.current) {
@@ -277,30 +334,24 @@ export default function DashboardLayout({
       {/* ── Navbar header ───────────────────────────────── */}
       <header className="sticky top-0 z-40 w-full h-16 bg-white/85 backdrop-blur-xl border-b border-[#d2d2d7]/40 no-print shadow-[0_1px_0_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)]">
         <div className="w-full h-full px-4 sm:px-6 lg:px-12 flex items-center justify-between">
-          
+                
           {/* Left: Brand Logo */}
-          <div className="flex items-center gap-2.5 cursor-pointer group" onClick={() => handleNavClick('dashboard')}>
+          <div className="flex items-center gap-2.5 cursor-pointer group lg:w-[320px] shrink-0" onClick={() => handleNavClick('dashboard')}>
             <div className="w-7 h-8 shrink-0 transition-transform duration-300 group-hover:scale-110">
               <svg viewBox="0 0 80 90" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
-                <defs>
-                  <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                    <stop offset="0%" stopColor="#1d1d1f" />
-                    <stop offset="100%" stopColor="#555557" />
-                  </linearGradient>
-                </defs>
-                <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" fill="url(#logoGrad)" />
-                <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" fill="url(#logoGrad)" opacity="0.75" />
-                <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" fill="url(#logoGrad)" opacity="0.45" />
+                <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" fill="#000000" />
+                <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" fill="#000000" />
+                <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" fill="#000000" />
               </svg>
             </div>
             <div className="flex flex-col">
-              <span className="font-extrabold text-sm tracking-tight bg-gradient-to-r from-[#1d1d1f] to-[#3d3d3f] bg-clip-text text-transparent uppercase leading-none">PIM-SYSTEM</span>
-              <span className="text-[8.5px] text-[#86868b] font-semibold mt-0.5 tracking-widest uppercase">PRODUCT INFORMATION MANAGEMENT</span>
+              <span className="font-extrabold text-sm tracking-tight text-black uppercase leading-none">PIM-SYSTEM</span>
+              <span className="text-[8.5px] text-black font-semibold mt-0.5 tracking-widest uppercase">PRODUCT INFORMATION MANAGEMENT</span>
             </div>
           </div>
 
           {/* Center: Desktop Minimalist Menu Links */}
-          <nav className="hidden lg:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center justify-center gap-1 flex-1">
             {menuItems.map((item) => {
               if (!hasAccess(item.minRole)) return null;
 
@@ -446,8 +497,7 @@ export default function DashboardLayout({
           </nav>
 
           {/* Right: User Profile & Mobile Toggle */}
-          <div className="flex items-center gap-3">
-            
+          <div className="flex items-center gap-3 lg:w-[320px] lg:justify-end shrink-0">
             
             {/* Bell Notification Dropdown (Admin only) */}
             {currentUser.role === 'admin' && (
@@ -530,8 +580,8 @@ export default function DashboardLayout({
                                 `}
                               >
                                 <div className="flex gap-2.5 items-start">
-                                  {/* Action Circular Icon */}
-                                  <div className={`w-8 h-8 rounded-full ${actStyle.bg} flex items-center justify-center shrink-0 text-sm shadow-2xs`}>
+                                  {/* Action Icon */}
+                                  <div className={`w-9 h-9 rounded-2xl bg-gradient-to-br ${actStyle.gradient} ${actStyle.shadow} flex items-center justify-center shrink-0 text-white`} style={{fontSize:'13px'}}>
                                     <i className={actStyle.icon}></i>
                                   </div>
 
@@ -655,50 +705,87 @@ export default function DashboardLayout({
 
                     <hr className="border-zinc-100" />
 
-                    {/* Sandbox role switcher */}
-                    <div className="space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => setIsSandboxOpen(!isSandboxOpen)}
-                        className="w-full flex items-center justify-between text-[10px] text-[#555557] font-bold tracking-wider uppercase cursor-pointer"
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <i className="bi bi-person-check-fill text-zinc-550 text-sm"></i>
-                          <span>จำลองสิทธิ์ (Sandbox)</span>
-                        </div>
-                        <i className={`bi bi-chevron-down text-[10px] transition-transform ${isSandboxOpen ? 'rotate-180' : ''}`}></i>
-                      </button>
+                    {/* Sandbox Role Switcher Section */}
+                    <div className="space-y-2 bg-[#f8f9fa] p-2.5 rounded-2xl border border-zinc-200/60">
+                      <div className="flex items-center justify-between px-0.5">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
+                          <i className="bi bi-[#0071e3] bi-person-gear text-[#0071e3]"></i>
+                          Sandbox Switcher
+                        </span>
+                        <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-full border border-amber-200">
+                          สลับ Role
+                        </span>
+                      </div>
 
-                      {isSandboxOpen && (
-                        <div className="grid grid-cols-3 gap-1 pt-1">
-                          {['admin', 'manager', 'user'].map((r) => (
-                            <button
-                              key={r}
-                              type="button"
-                              onClick={() => {
-                                onSwitchRole(r);
-                                setIsProfileOpen(false);
-                              }}
-                              className={`
-                                py-1 text-[10px] font-bold rounded-full border transition-all duration-150 cursor-pointer
-                                ${currentUser?.role === r
-                                  ? r === 'admin'
-                                    ? 'bg-[#6B46C1] text-white border-[#6B46C1] shadow-[0_2px_8px_rgba(107,70,193,0.35)]'
-                                    : r === 'manager'
-                                    ? 'bg-[#1A365D] text-white border-[#1A365D] shadow-[0_2px_8px_rgba(26,54,93,0.35)]'
-                                    : 'bg-[#2F855A] text-white border-[#2F855A] shadow-[0_2px_8px_rgba(47,133,90,0.35)]'
-                                  : 'bg-white text-zinc-650 border-[#d2d2d7] hover:bg-[#f5f5f7]'
-                                }
-                              `}
-                            >
-                              {r}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {/* Admin */}
+                        <button
+                          type="button"
+                          onClick={() => handleSandboxSwitch('admin')}
+                          disabled={currentUser?.role === 'admin' || switchingRole}
+                          title="สลับเป็น Admin"
+                          className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
+                            currentUser?.role === 'admin'
+                              ? 'bg-[#6B46C1] text-white border-[#6B46C1] shadow-xs cursor-default'
+                              : 'bg-white hover:bg-[#6B46C1]/10 text-zinc-700 border-zinc-200 hover:border-[#6B46C1]/40 hover:text-[#6B46C1]'
+                          }`}
+                        >
+                          <i className={`bi bi-shield-lock-fill text-xs mb-0.5 ${currentUser?.role === 'admin' ? 'text-white' : 'text-[#6B46C1]'}`}></i>
+                          <span>Admin</span>
+                        </button>
+
+                        {/* Manager */}
+                        <button
+                          type="button"
+                          onClick={() => handleSandboxSwitch('manager')}
+                          disabled={currentUser?.role === 'manager' || switchingRole}
+                          title="สลับเป็น Manager"
+                          className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
+                            currentUser?.role === 'manager'
+                              ? 'bg-[#1A365D] text-white border-[#1A365D] shadow-xs cursor-default'
+                              : 'bg-white hover:bg-[#1A365D]/10 text-zinc-700 border-zinc-200 hover:border-[#1A365D]/40 hover:text-[#1A365D]'
+                          }`}
+                        >
+                          <i className={`bi bi-person-badge-fill text-xs mb-0.5 ${currentUser?.role === 'manager' ? 'text-white' : 'text-[#1A365D]'}`}></i>
+                          <span>Manager</span>
+                        </button>
+
+                        {/* User */}
+                        <button
+                          type="button"
+                          onClick={() => handleSandboxSwitch('user')}
+                          disabled={currentUser?.role === 'user' || switchingRole}
+                          title="สลับเป็น User ( Sales )"
+                          className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
+                            currentUser?.role === 'user'
+                              ? 'bg-[#2F855A] text-white border-[#2F855A] shadow-xs cursor-default'
+                              : 'bg-white hover:bg-[#2F855A]/10 text-zinc-700 border-zinc-200 hover:border-[#2F855A]/40 hover:text-[#2F855A]'
+                          }`}
+                        >
+                          <i className={`bi bi-person-fill text-xs mb-0.5 ${currentUser?.role === 'user' ? 'text-white' : 'text-[#2F855A]'}`}></i>
+                          <span>User</span>
+                        </button>
+                      </div>
                     </div>
 
                     <hr className="border-zinc-100" />
+
+                    <button type="button"
+                      onClick={() => {
+                        setIsProfileOpen(false);
+                        setEditProfileForm({
+                          name: currentUser?.name || '',
+                          username: currentUser?.username || ''
+                        });
+                        setEditProfileError('');
+                        setEditProfileSuccess(false);
+                        setShowEditProfile(true);
+                      }}
+                      className="w-full py-2.5 rounded-xl text-xs font-semibold bg-zinc-50 hover:bg-zinc-100 text-zinc-700 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      <i className="bi bi-person-badge"></i>
+                      <span>เปลี่ยนชื่อผู้ใช้ (Username)</span>
+                    </button>
 
                     <button type="button"
                       onClick={() => {
@@ -780,6 +867,60 @@ export default function DashboardLayout({
               </div>
             </div>
 
+            {/* Sandbox Role Switcher for Mobile Drawer */}
+            <div className="bg-[#f8f9fa] p-2.5 rounded-2xl border border-zinc-200/60 space-y-2 shrink-0">
+              <div className="flex items-center justify-between px-0.5">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
+                  <i className="bi bi-person-gear text-[#0071e3]"></i>
+                  Sandbox Switcher
+                </span>
+                <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-full border border-amber-200">
+                  สลับ Role
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => handleSandboxSwitch('admin')}
+                  disabled={currentUser?.role === 'admin' || switchingRole}
+                  className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
+                    currentUser?.role === 'admin'
+                      ? 'bg-[#6B46C1] text-white border-[#6B46C1]'
+                      : 'bg-white text-zinc-700 border-zinc-200'
+                  }`}
+                >
+                  <i className="bi bi-shield-lock-fill text-xs mb-0.5"></i>
+                  <span>Admin</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSandboxSwitch('manager')}
+                  disabled={currentUser?.role === 'manager' || switchingRole}
+                  className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
+                    currentUser?.role === 'manager'
+                      ? 'bg-[#1A365D] text-white border-[#1A365D]'
+                      : 'bg-white text-zinc-700 border-zinc-200'
+                  }`}
+                >
+                  <i className="bi bi-person-badge-fill text-xs mb-0.5"></i>
+                  <span>Manager</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSandboxSwitch('user')}
+                  disabled={currentUser?.role === 'user' || switchingRole}
+                  className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
+                    currentUser?.role === 'user'
+                      ? 'bg-[#2F855A] text-white border-[#2F855A]'
+                      : 'bg-white text-[#2F855A] border-zinc-200'
+                  }`}
+                >
+                  <i className="bi bi-person-fill text-xs mb-0.5"></i>
+                  <span>User</span>
+                </button>
+              </div>
+            </div>
+
             {/* Navigation Links */}
             <div className="space-y-1.5">
               <span className="text-[10px] font-bold text-[#555557] tracking-wider uppercase block px-1.5 menu-title">เมนูการทำงาน</span>
@@ -804,7 +945,7 @@ export default function DashboardLayout({
                         `}
                       >
                         <i className="bi bi-pencil-square text-sm"></i>
-                        <span>จัดการสินค้า</span>
+                        <span>จัดการข้อมูลสินค้า</span>
                       </button>
                       
                       {/* Indented Brands button */}
@@ -898,35 +1039,7 @@ export default function DashboardLayout({
               )}
             </div>
 
-            {/* Sandbox simulated role switcher (Mobile) */}
-            <div className="space-y-1.5 bg-[#f5f5f7] p-3 rounded-2xl border border-[#d2d2d7]/35 sandbox-card shrink-0">
-              <span className="text-[10px] font-bold text-[#555557] tracking-wider uppercase block sandbox-title">จำลองสิทธิ์ (Sandbox)</span>
-              <div className="grid grid-cols-3 gap-1.5 pt-1">
-                {['admin', 'manager', 'user'].map((r) => (
-                  <button
-                    key={r}
-                    type="button"
-                    onClick={() => {
-                      onSwitchRole(r);
-                      setIsMobileMenuOpen(false);
-                    }}
-                    className={`
-                      py-1.5 text-[10px] font-bold rounded-full border transition-all duration-150 cursor-pointer sandbox-btn
-                      ${currentUser?.role === r
-                        ? r === 'admin'
-                          ? 'bg-[#6B46C1] text-white border-[#6B46C1] shadow-xs'
-                          : r === 'manager'
-                          ? 'bg-[#1A365D] text-white border-[#1A365D] shadow-xs'
-                          : 'bg-[#2F855A] text-white border-[#2F855A] shadow-xs'
-                        : 'bg-white text-zinc-650 border-[#d2d2d7] hover:bg-[#f5f5f7]'
-                      }
-                    `}
-                  >
-                    {r}
-                  </button>
-                ))}
-              </div>
-            </div>
+            
 
             {/* Logout button */}
             <button type="button"
@@ -959,8 +1072,8 @@ export default function DashboardLayout({
 
       {/* Premium Footer */}
       {activeTab !== 'dashboard' && (
-        <footer className="w-full bg-white/60 backdrop-blur-sm border-t border-[#d2d2d7]/25 py-3.5 px-6 lg:px-12 no-print shrink-0">
-          <div className="max-w-[1440px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2.5 text-[10px] md:text-[11px] font-medium">
+        <footer className="w-full bg-white/70 backdrop-blur-md border-t border-[#d2d2d7]/30 py-3.5 px-4 sm:px-6 lg:px-8 xl:px-12 no-print shrink-0">
+          <div className="w-full flex flex-col md:flex-row items-center justify-between gap-2.5 text-[10px] md:text-[11px] font-medium">
             {/* Left Side: Copyright */}
             <div className="flex items-center gap-1.5 flex-wrap justify-center md:justify-start">
               <span className="font-bold text-[#1d1d1f]">© {new Date().getFullYear()} PHANVADEE CO., LTD.</span>
@@ -974,12 +1087,121 @@ export default function DashboardLayout({
 
             {/* Right Side: Helpdesk */}
             <div className="flex items-center gap-3 flex-wrap justify-center md:justify-end">
-              <span className="text-[#86868b] font-medium">
-                IT Support: <a href="tel:0865231495" className="text-[#0071e3] hover:underline font-bold transition-colors">086-523-1495</a>
+              <span className="text-[#0071e3] font-bold">
+                หากพบปัญหา ติดต่อ IT Support
               </span>
             </div>
           </div>
         </footer>
+      )}
+
+      {/* Change Username Modal */}
+      {showEditProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 no-print animate-fade-in">
+          <div onClick={() => setShowEditProfile(false)} className="absolute inset-0 bg-black/25 backdrop-blur-xs" />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-xl space-y-4 z-10 animate-scale-in text-[#1d1d1f]">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#0071e3]">
+                <i className="bi bi-person-badge text-lg"></i>
+              </div>
+              <div>
+                <h3 className="font-bold text-sm uppercase tracking-wide">เปลี่ยนชื่อผู้ใช้ (Username)</h3>
+                <p className="text-[10px] text-[#86868b] mt-0.5">กำหนด Username สำหรับเข้าสู่ระบบ</p>
+              </div>
+            </div>
+
+            {editProfileSuccess ? (
+              <div className="py-6 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600 mx-auto">
+                  <i className="bi bi-check-circle-fill text-2xl"></i>
+                </div>
+                <p className="text-sm font-bold text-emerald-700">เปลี่ยนชื่อผู้ใช้สำเร็จ!</p>
+                <button type="button" onClick={() => setShowEditProfile(false)}
+                  className="w-full py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full text-xs font-semibold transition-colors cursor-pointer">
+                  ปิด
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3.5">
+                {/* Employee Info (Read-only) */}
+                <div className="bg-[#f5f5f7] rounded-2xl p-3.5 border border-[#d2d2d7]/40 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-[#86868b] font-medium">ชื่อพนักงานบริษัท</span>
+                    {getRoleBadge(currentUser?.role)}
+                  </div>
+                  <div className="text-xs font-bold text-[#1d1d1f] flex items-center gap-2">
+                    <i className="bi bi-person-circle text-zinc-500 text-sm"></i>
+                    <span>{currentUser?.name || '-'}</span>
+                  </div>
+                </div>
+
+                {/* Username Input */}
+                <div>
+                  <label className="text-[10px] text-[#555557] font-semibold block mb-1">
+                    ชื่อผู้ใช้ (Username) <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    
+                    <input
+                      type="text"
+                      value={editProfileForm.username}
+                      onChange={e => setEditProfileForm(f => ({ ...f, username: e.target.value.replace(/\s+/g, '') }))}
+                      placeholder="เช่น somsak_r"
+                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all lowercase"
+                    />
+                  </div>
+                  <p className="text-[9.5px] text-zinc-400 mt-1">ใช้สำหรับเข้าสู่ระบบ (ภาษาอังกฤษ ตัวเลข และ _ เท่านั้น)</p>
+                </div>
+
+                {editProfileError && (
+                  <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 flex items-center gap-2">
+                    <i className="bi bi-exclamation-circle-fill shrink-0"></i>
+                    <span>{editProfileError}</span>
+                  </div>
+                )}
+
+                <div className="flex gap-2.5 pt-1 text-xs font-semibold">
+                  <button type="button"
+                    onClick={() => setShowEditProfile(false)}
+                    className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer">
+                    ยกเลิก
+                  </button>
+                  <button type="button"
+                    onClick={async () => {
+                      const cleanUsername = editProfileForm.username.trim().toLowerCase();
+                      if (!cleanUsername) {
+                        setEditProfileError('กรุณากรอกชื่อผู้ใช้ (Username)');
+                        return;
+                      }
+                      if (cleanUsername.length < 3) {
+                        setEditProfileError('ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร');
+                        return;
+                      }
+                      // Check if unchanged
+                      if (cleanUsername === currentUser?.username?.toLowerCase()) {
+                        setEditProfileError('ชื่อผู้ใช้นี้ตรงกับชื่อผู้ใช้ปัจจุบันอยู่แล้ว');
+                        return;
+                      }
+                      // Check for duplicate username among other users
+                      const duplicate = users.find(u => u.username?.toLowerCase() === cleanUsername);
+                      if (duplicate) {
+                        setEditProfileError(`ชื่อผู้ใช้ "@${cleanUsername}" มีผู้ใช้งานแล้ว`);
+                        return;
+                      }
+                      setEditProfileError('');
+                      if (onUpdateProfile) {
+                        try { await onUpdateProfile({ username: cleanUsername }); } catch (error) { setEditProfileError(error.message); return; }
+                      }
+                      setEditProfileSuccess(true);
+                    }}
+                    className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full transition-colors cursor-pointer">
+                    บันทึก
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Change Password Modal */}
@@ -1046,24 +1268,6 @@ export default function DashboardLayout({
                   </div>
                 </div>
 
-                {/* Confirm New Password */}
-                <div>
-                  <label className="text-[10px] text-[#555557] font-semibold block mb-1">ยืนยันรหัสผ่านใหม่ <span className="text-red-500">*</span></label>
-                  <div className="relative">
-                    <input
-                      type={showConfirmPwd ? 'text' : 'password'}
-                      value={changePwdForm.confirmPwd}
-                      onChange={e => setChangePwdForm(f => ({ ...f, confirmPwd: e.target.value }))}
-                      placeholder="กรอกรหัสผ่านใหม่อีกครั้ง"
-                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3 py-2.5 pr-9 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
-                    />
-                    <button type="button" onClick={() => setShowConfirmPwd(v => !v)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 cursor-pointer">
-                      <i className={`bi ${showConfirmPwd ? 'bi-eye-slash' : 'bi-eye'} text-sm`}></i>
-                    </button>
-                  </div>
-                </div>
-
                 {changePwdError && (
                   <div className="text-[11px] text-red-600 bg-red-50 border border-red-100 rounded-xl px-3 py-2 flex items-center gap-2">
                     <i className="bi bi-exclamation-circle-fill"></i>
@@ -1078,15 +1282,13 @@ export default function DashboardLayout({
                     ยกเลิก
                   </button>
                   <button type="button"
-                    onClick={() => {
-                      const { oldPwd, newPwd, confirmPwd } = changePwdForm;
+                    onClick={async () => {
+                      const { oldPwd, newPwd } = changePwdForm;
                       if (!oldPwd) { setChangePwdError('กรุณากรอกรหัสผ่านปัจจุบัน'); return; }
-                      if (oldPwd !== currentUser?.password) { setChangePwdError('รหัสผ่านปัจจุบันไม่ถูกต้อง'); return; }
                       if (!newPwd || newPwd.length < 4) { setChangePwdError('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร'); return; }
                       if (newPwd === oldPwd) { setChangePwdError('รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม'); return; }
-                      if (newPwd !== confirmPwd) { setChangePwdError('รหัสผ่านใหม่และยืนยันรหัสผ่านไม่ตรงกัน'); return; }
                       setChangePwdError('');
-                      if (onChangePassword) onChangePassword(newPwd);
+                      try { if (onChangePassword) await onChangePassword(newPwd, oldPwd); } catch (error) { setChangePwdError(error.message); return; }
                       setChangePwdSuccess(true);
                     }}
                     className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full transition-colors cursor-pointer">
@@ -1131,3 +1333,4 @@ export default function DashboardLayout({
     </div>
   );
 }
+

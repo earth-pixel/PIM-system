@@ -1,23 +1,22 @@
 import ExcelJS from 'exceljs';
 import { parseWeightToKg } from './marketplaceIO.js';
 
-
 const COL = {
-  name:    { header: 'ชื่อสินค้า', width: 36, value: (p) => p.name || '' },
-  image:   { header: 'รูปภาพสินค้า1', width: 40, value: (p) => p.image || '' },
-  fda:     { header: 'TH_FDA License - หมายเลขใบอนุญาต', width: 26, value: (p) => p.fdaNumber || '' },
-  brand:   { header: 'ยี่ห้อ', width: 18, value: (p) => (p.brand?.trim() || 'Unbranded') },
-  hairType:{ header: 'ประเภทเส้นผม', width: 18, value: (p) => p.hairType || '' },
-  stylingLevel: { header: 'ระดับการจัดทรง', width: 18, value: (p) => p.stylingLevel || '' },
-  hairBenefit:  { header: 'ประโยชน์เพื่อการดูแลเส้นผม', width: 24, value: (p) => p.hairBenefit || '' },
-  productForm:  { header: 'รูปแบบของผลิตภัณฑ์', width: 20, value: (p) => p.productForm || '' },
-  dyeType:      { header: 'ประเภทสีย้อมผม', width: 18, value: (p) => p.hairColorType || '' },
-  weight:  { header: 'น้ำหนัก แพคเกจ (กก)', width: 18, numFmt: '0.000', value: (p) => parseWeightToKg(p.weight) },
-  stock:   { header: 'จำนวน', width: 12, numFmt: '0', value: () => 0 },
-  price:   { header: 'ราคา', width: 14, numFmt: '#,##0.00', value: (p) => Number(p.retailPrice) || 0 },
-  length:  { header: 'ความยาว แพคเกจ (ซม)', width: 18, numFmt: '0.##', value: (p) => (p.packageLength ? Number(p.packageLength) : '') },
-  width_:  { header: 'ความกว้าง แพคเกจ (ซม)', width: 18, numFmt: '0.##', value: (p) => (p.packageWidth ? Number(p.packageWidth) : '') },
-  height:  { header: 'ความสูง แพคเกจ (ซม)', width: 18, numFmt: '0.##', value: (p) => (p.packageHeight ? Number(p.packageHeight) : '') },
+  name:    { header: 'ชื่อสินค้า', req: 'บังคับการกรอกข้อมูล', desc: 'ระบุชื่อสินค้าภาษาไทยหรืออังกฤษ', width: 36, value: (p) => p.name || '' },
+  image:   { header: 'รูปภาพสินค้า1', req: 'บังคับการกรอกข้อมูล', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้าหลัก', width: 40, value: (p) => p.image || '' },
+  fda:     { header: 'หมายเลขใบอนุญาต', req: 'บังคับการกรอกข้อมูล', desc: 'เลขที่ใบรับแจ้ง อย.', width: 26, value: (p) => p.fdaNumber || '' },
+  brand:   { header: 'ยี่ห้อ', req: 'บังคับการกรอกข้อมูล', desc: 'ยี่ห้อสินค้าตามระบบ Lazada', width: 18, value: (p) => (p.brand?.trim() || 'Unbranded') },
+  hairType:{ header: 'ประเภทเส้นผม', req: 'ไม่บังคับ', desc: 'คุณลักษณะประเภทเส้นผม', width: 18, value: (p) => p.hairType || '' },
+  stylingLevel: { header: 'ระดับการจัดทรง', req: 'ไม่บังคับ', desc: 'ระดับความแข็ง/จัดทรง', width: 18, value: (p) => p.stylingLevel || '' },
+  hairBenefit:  { header: 'ประโยชน์เพื่อการดูแลเส้นผม', req: 'ไม่บังคับ', desc: 'สรรพคุณการดูแล', width: 24, value: (p) => p.hairBenefit || '' },
+  productForm:  { header: 'รูปแบบของผลิตภัณฑ์', req: 'ไม่บังคับ', desc: 'เจล/ครีม/สเปรย์/เซรั่ม', width: 20, value: (p) => p.productForm || '' },
+  dyeType:      { header: 'ประเภทสีย้อมผม', req: 'ไม่บังคับ', desc: 'ประเภทของสีย้อม', width: 18, value: (p) => p.hairColorType || '' },
+  weight:  { header: 'น้ำหนัก แพคเกจ (กก)', req: 'บังคับการกรอกข้อมูล', desc: 'น้ำหนักรวมกล่อง (กก.)', width: 18, numFmt: '0.000', value: (p) => parseWeightToKg(p.weight) },
+  stock:   { header: 'จำนวน', req: 'บังคับการกรอกข้อมูล', desc: 'จำนวนสต็อกที่มีจำหน่าย', width: 12, numFmt: '0', value: () => 0 },
+  price:   { header: 'ราคา', req: 'บังคับการกรอกข้อมูล', desc: 'ราคาขายปลีก (บาท)', width: 14, numFmt: '#,##0.00', value: (p) => Number(p.retailPrice) || 0 },
+  length:  { header: 'ความยาว แพคเกจ (ซม)', req: 'ไม่บังคับ', desc: 'ขนาดความยาวกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageLength ? Number(p.packageLength) : '') },
+  width_:  { header: 'ความกว้าง แพคเกจ (ซม)', req: 'ไม่บังคับ', desc: 'ขนาดความกว้างกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageWidth ? Number(p.packageWidth) : '') },
+  height:  { header: 'ความสูง แพคเกจ (ซม)', req: 'ไม่บังคับ', desc: 'ขนาดความสูงกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageHeight ? Number(p.packageHeight) : '') },
 };
 
 // Required columns per category, in the order Lazada lists them.
@@ -32,23 +31,15 @@ export const LAZADA_MANDATORY_COLUMNS = {
 
 const LAZADA_CATEGORIES = Object.keys(LAZADA_MANDATORY_COLUMNS);
 
-
-/**
- * Maps a PIM product to the Lazada worksheet it belongs in.
- * Falls back to `defaultSheet` when the category can't be resolved.
- */
 function resolveSheet(product, defaultSheet) {
   const cat = (product.category || '').trim();
 
-  // Already a Lazada sheet name
   if (LAZADA_MANDATORY_COLUMNS[cat]) return cat;
 
-  // Map from full PIM category names (new format)
   if (cat.startsWith('Grooming') || cat.includes('จัดแต่งทรงผม')) return 'ผลิตภัณฑ์จัดแต่งทรงผม';
   if (cat.startsWith('Chemical') || cat.includes('เคมีภัณฑ์') || cat.includes('เปลี่ยนสีผม')) return 'ผลิตภัณฑ์เปลี่ยนสีผม';
   if (cat.startsWith('Hair Treatment') || cat.includes('บำรุงเส้นผม')) return 'ครีมบำรุงผม';
 
-  // Legacy short names
   if (cat === 'Styling') return 'ผลิตภัณฑ์จัดแต่งทรงผม';
   if (cat === 'Hair Color') return 'ผลิตภัณฑ์เปลี่ยนสีผม';
   if (cat === 'Treatment') return 'ครีมบำรุงผม';
@@ -56,32 +47,15 @@ function resolveSheet(product, defaultSheet) {
   return defaultSheet;
 }
 
-// ---------------------------------------------------------------------------
-// Exports products into a Lazada mandatory-columns workbook.
-// ---------------------------------------------------------------------------
 export async function exportToLazadaMandatory(products = [], options = {}) {
   const {
     headersOnly = false,
-    keepEmptySheets = false, // Set to false by default as requested (อันไหนไม่มีเอาออก)
+    keepEmptySheets = false,
     defaultSheet = 'ครีมบำรุงผม',
   } = options;
 
-  // Fetch the real Lazada template from the public/แพลตฟอร์ม folder
-  const response = await fetch('/แพลตฟอร์ม/Lazada_advancedPublish7636export1781678299435_0617-14-38-19.xlsx?t=' + Date.now());
-  if (!response.ok) throw new Error('Failed to fetch Lazada template file');
-  const buffer = await response.arrayBuffer();
-
   const workbook = new ExcelJS.Workbook();
-  await workbook.xlsx.load(buffer);
 
-  // Delete INDEX and สถานะ sheets
-  const sheetsToDelete = ['INDEX', 'สถานะ', 'สถานะ_hide'];
-  sheetsToDelete.forEach(name => {
-    const ws = workbook.getWorksheet(name);
-    if (ws) workbook.removeWorksheet(ws.id);
-  });
-
-  // Bucket products by target sheet.
   const buckets = Object.fromEntries(LAZADA_CATEGORIES.map((c) => [c, []]));
   if (!headersOnly) {
     products.forEach((p) => {
@@ -92,135 +66,117 @@ export async function exportToLazadaMandatory(products = [], options = {}) {
 
   LAZADA_CATEGORIES.forEach((category) => {
     const rows = buckets[category] || [];
-    const sheet = workbook.getWorksheet(category);
-    const hideSheet = workbook.getWorksheet(category + '_hide');
-
-    if (!sheet || !hideSheet) return;
-
     if (!headersOnly && !keepEmptySheets && rows.length === 0) {
-      workbook.removeWorksheet(sheet.id);
-      workbook.removeWorksheet(hideSheet.id);
       return;
     }
 
-    const colCount = sheet.columnCount;
-    const headerRow = sheet.getRow(1);
-    const reqRow = sheet.getRow(2);
+    const sheet = workbook.addWorksheet(category);
+    const cols = LAZADA_MANDATORY_COLUMNS[category] || [];
 
-    // ------------------------------------------------------------------
-    // 1. Read mandatory flags FIRST, before any row/col modifications
-    //    Also keep system columns (Group No, catId) regardless of status
-    // ------------------------------------------------------------------
-    const systemCols = new Set(['catId', 'SellerSKU']);
-    const colsToDelete = []; // collect col indices to delete (right-to-left later)
+    // Construct headers list (with SellerSKU)
+    const colDefs = [...cols];
+    if (!colDefs.some(c => c.header === 'SellerSKU')) {
+      colDefs.push({ header: 'SellerSKU', req: 'บังคับการกรอกข้อมูล', desc: 'รหัสสินค้า SKU ของผู้ขาย', width: 20, value: (p) => p.code || '' });
+    }
 
-    for (let c = 1; c <= colCount; c++) {
-      const headerVal = String(headerRow.getCell(c).value || '').trim();
-      const reqVal = String(reqRow.getCell(c).value || '').trim();
+    // Row 1: Official Lazada Field Headers
+    const row1 = sheet.addRow(colDefs.map(c => c.header));
+    row1.height = 26;
+    row1.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF004B87' } };
+      cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFF' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FF003366' } },
+        bottom: { style: 'medium', color: { argb: 'FF003366' } },
+        left: { style: 'thin', color: { argb: 'FF003366' } },
+        right: { style: 'thin', color: { argb: 'FF003366' } }
+      };
+    });
+
+    // Row 2: Mandatory Flags (บังคับการกรอกข้อมูล / ไม่บังคับ)
+    const row2 = sheet.addRow(colDefs.map(c => c.req));
+    row2.height = 20;
+    row2.eachCell((cell, colIndex) => {
+      const reqVal = colDefs[colIndex - 1]?.req;
       const isMandatory = reqVal === 'บังคับการกรอกข้อมูล';
-      const isSystem = systemCols.has(headerVal);
-      const isGroupNo = headerVal === 'Group No';
-      if (isGroupNo || (!isMandatory && !isSystem)) {
-        colsToDelete.push(c);
-      }
-    }
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: isMandatory ? 'FFFFF0F0' : 'FFE6F0FA' } };
+      cell.font = { name: 'Segoe UI', size: 9, bold: true, color: { argb: isMandatory ? 'FFCC0000' : 'FF004B87' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+      cell.border = {
+        top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        bottom: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
+        right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+      };
+    });
 
-    // ------------------------------------------------------------------
-    // 2. Build colMap from the ORIGINAL column positions (before deletion)
-    // ------------------------------------------------------------------
-    const colMap = {};
-    for (let c = 1; c <= colCount; c++) {
-      const headerVal = headerRow.getCell(c).value;
-      if (headerVal) colMap[String(headerVal).trim()] = c;
-    }
+    // Row 3: Description / Field Guidance
+    const row3 = sheet.addRow(colDefs.map(c => c.desc || ''));
+    row3.height = 20;
+    row3.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF9F9F9' } };
+      cell.font = { name: 'Segoe UI', size: 9, italic: true, color: { argb: 'FF666666' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'left' };
+    });
 
-    // ------------------------------------------------------------------
-    // 3. Clean existing data rows (keep header rows 1-4)
-    // ------------------------------------------------------------------
-    while (sheet.rowCount >= 5) sheet.spliceRows(sheet.rowCount, 1);
-    while (hideSheet.rowCount >= 6) hideSheet.spliceRows(hideSheet.rowCount, 1);
+    // Row 4: Example / Formatting row
+    const row4 = sheet.addRow(colDefs.map(c => `ตัวอย่าง: ${c.header}`));
+    row4.height = 18;
+    row4.eachCell((cell) => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } };
+      cell.font = { name: 'Segoe UI', size: 8, color: { argb: 'FF999999' } };
+      cell.alignment = { vertical: 'middle', horizontal: 'center' };
+    });
 
-    // ------------------------------------------------------------------
-    // 4. Populate product data
-    // ------------------------------------------------------------------
+    // Row 5+: Product Data Rows
     if (!headersOnly) {
-      rows.forEach((p, idx) => {
-        const displayRowIdx = 5 + idx;
-        const hideRowIdx = 6 + idx;
+      rows.forEach((p) => {
+        const rowValues = colDefs.map(c => {
+          if (c.header === 'จำนวน') {
+            if (options.stockMap && options.stockMap[p.id] !== undefined) {
+              return Number(options.stockMap[p.id]) || 0;
+            }
+            if (options.stock !== undefined) {
+              return Number(options.stock) || 0;
+            }
+            return 0;
+          }
+          return c.value(p);
+        });
 
-        const displayRow = sheet.getRow(displayRowIdx);
-        const hideRow = hideSheet.getRow(hideRowIdx);
-
-        displayRow.height = 20;
-        hideRow.height = 20;
-
-        const setVal = (key, val) => {
-          const col = colMap[key];
-          if (col === undefined) return;
-          const cell = displayRow.getCell(col);
-          cell.value = val;
+        const dataRow = sheet.addRow(rowValues);
+        dataRow.height = 20;
+        dataRow.eachCell((cell, colNumber) => {
+          const colDef = colDefs[colNumber - 1];
+          if (colDef && colDef.numFmt) {
+            cell.numFmt = colDef.numFmt;
+          }
           cell.font = { name: 'Segoe UI', size: 10 };
           cell.alignment = { vertical: 'middle' };
-          const hideCell = hideRow.getCell(col);
-          hideCell.value = val;
-          hideCell.font = { name: 'Segoe UI', size: 10 };
-          hideCell.alignment = { vertical: 'middle' };
-        };
-
-        setVal('ชื่อสินค้า', p.name || '');
-        setVal('รูปภาพสินค้า1', p.image || '');
-        setVal('TH_FDA License - หมายเลขใบอนุญาต', p.fdaNumber || '');
-        setVal('ยี่ห้อ', p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded');
-        setVal('ประเภทเส้นผม', p.hairType || '');
-        setVal('ระดับการจัดทรง', p.stylingLevel || '');
-        setVal('ประโยชน์เพื่อการดูแลเส้นผม', p.hairBenefit || '');
-        setVal('รูปแบบของผลิตภัณฑ์', p.productForm || '');
-        setVal('ประเภทสีย้อมผม', p.hairColorType || '');
-        const weightKg = parseWeightToKg(p.weight);
-        if (weightKg > 0) setVal('น้ำหนัก แพคเกจ (กก)', weightKg);
-        let stockVal = 0;
-        if (options.stockMap && options.stockMap[p.id] !== undefined) {
-          stockVal = Number(options.stockMap[p.id]) || 0;
-        } else if (options.stock !== undefined) {
-          stockVal = Number(options.stock) || 0;
-        }
-        setVal('จำนวน', stockVal);
-        setVal('ราคา', Number(p.retailPrice) || 0);
-        if (p.packageLength) setVal('ความยาว แพคเกจ (ซม)', Number(p.packageLength));
-        if (p.packageWidth) setVal('ความกว้าง แพคเกจ (ซม)', Number(p.packageWidth));
-        if (p.packageHeight) setVal('ความสูง แพคเกจ (ซม)', Number(p.packageHeight));
-        setVal('SellerSKU', p.code || '');
-
-        displayRow.commit();
-        hideRow.commit();
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+            bottom: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+            left: { style: 'thin', color: { argb: 'FFE5E5E5' } },
+            right: { style: 'thin', color: { argb: 'FFE5E5E5' } }
+          };
+        });
       });
     }
 
-    // ------------------------------------------------------------------
-    // 5. Delete optional columns right-to-left (so indices stay valid)
-    // ------------------------------------------------------------------
-    for (let i = colsToDelete.length - 1; i >= 0; i--) {
-      const c = colsToDelete[i];
-      sheet.spliceColumns(c, 1);
-      hideSheet.spliceColumns(c, 1);
-    }
+    // Set Column Widths
+    colDefs.forEach((c, idx) => {
+      sheet.getColumn(idx + 1).width = c.width || 20;
+    });
 
-    // ------------------------------------------------------------------
-    // 6. Clear helper rows 2, 3, 4 content (keep structure for Lazada)
-    // ------------------------------------------------------------------
-    sheet.getRow(2).hidden = true;
-    sheet.getRow(3).hidden = true;
-    sheet.getRow(4).hidden = true;
-    const finalColCount = sheet.columnCount;
-    for (let c = 1; c <= finalColCount; c++) {
-      sheet.getRow(2).getCell(c).value = '';
-      sheet.getRow(3).getCell(c).value = '';
-      sheet.getRow(4).getCell(c).value = '';
-      hideSheet.getRow(2).getCell(c).value = '';
-      hideSheet.getRow(3).getCell(c).value = '';
-      hideSheet.getRow(4).getCell(c).value = '';
-    }
+    sheet.views = [{ state: 'frozen', ySplit: 4 }];
   });
+
+  if (workbook.worksheets.length === 0) {
+    const defaultWs = workbook.addWorksheet(defaultSheet);
+    const cols = LAZADA_MANDATORY_COLUMNS[defaultSheet] || [];
+    defaultWs.addRow(cols.map(c => c.header));
+  }
 
   return workbook.xlsx.writeBuffer();
 }

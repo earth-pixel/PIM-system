@@ -4,9 +4,6 @@ import { exportToLazadaMandatory } from './lazadaTemplate';
 import { exportToShopeeMandatory } from './shopeeTemplate';
 import { exportToTiktokMandatory } from './tiktokTemplate';
 
-
-
-
 // ─────────────────────────────────────────────
 // Helper: download Excel file
 // ─────────────────────────────────────────────
@@ -71,7 +68,7 @@ export async function exportLazada(products, options = {}) {
   const timeStr = now.toTimeString().slice(0, 8).replace(/:/g, '-');
   const timestamp = `${dateStr}_${timeStr}`;
   try {
-    const buffer = await exportToLazadaMandatory(products, options);
+    const buffer = await exportToLazadaMandatory(products, { ...options, keepEmptySheets: true });
     const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -118,6 +115,7 @@ export async function exportTikTok(products, options = {}) {
   }
 }
 
+
 // ─────────────────────────────────────────────
 // 4. GENERAL EXCEL / GOOGLE SHEETS EXPORT
 // ─────────────────────────────────────────────
@@ -128,14 +126,18 @@ export function exportToExcel(products) {
     'ชื่อสินค้า',
     'แบรนด์',
     'หมวดหมู่',
-    'ราคาส่ง (บาท)',
-    'ราคาปลีก (บาท)',
-    'สถานะ',
-    'รายละเอียด',
+    'หมวดหมู่ย่อย',
+    'ราคาขายส่ง (บาท)',
+    'ราคาขายปลีก (บาท)',
+    'ค่าฝา (บาท)',
+    'สถานะใช้งาน',
     'ขนาด',
     'น้ำหนัก',
     'หมายเลข อย.',
     'หมายเลข มอก.',
+    'รายละเอียดสินค้า',
+    'จุดเด่นสินค้า',
+    'วิธีใช้',
     'วันที่ลงทะเบียน'
   ];
 
@@ -145,19 +147,23 @@ export function exportToExcel(products) {
     'ชื่อสินค้า': product.name,
     'แบรนด์': product.brand || '',
     'หมวดหมู่': product.category || '',
-    'ราคาส่ง (บาท)': product.wholesalePrice || 0,
-    'ราคาปลีก (บาท)': product.retailPrice || 0,
-    'สถานะ': product.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
-    'รายละเอียด': product.description || '',
+    'หมวดหมู่ย่อย': product.subCategory || '',
+    'ราคาขายส่ง (บาท)': product.wholesalePrice || 0,
+    'ราคาขายปลีก (บาท)': product.retailPrice || 0,
+    'ค่าฝา (บาท)': product.capFee || 0,
+    'สถานะใช้งาน': product.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
     'ขนาด': product.size || '',
     'น้ำหนัก': product.weight || '',
     'หมายเลข อย.': product.fdaNumber || '',
     'หมายเลข มอก.': product.tisiNumber || '',
+    'รายละเอียดสินค้า': product.description || '',
+    'จุดเด่นสินค้า': product.highlights || '',
+    'วิธีใช้': product.howToUse || '',
     'วันที่ลงทะเบียน': product.createdAt || ''
   }));
 
   const ws = XLSX.utils.json_to_sheet(rows, { header: headers });
-  applyColumnWidths(ws, [15, 15, 35, 15, 15, 15, 15, 12, 50, 12, 12, 18, 18, 18]);
+  applyColumnWidths(ws, [18, 18, 35, 18, 35, 16, 16, 12, 14, 12, 12, 18, 18, 50, 35, 35, 18]);
 
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'สินค้าในคลัง');
@@ -165,3 +171,4 @@ export function exportToExcel(products) {
   const timestamp = new Date().toLocaleDateString('sv-SE');
   downloadWorkbook(wb, `PIM_products_export_${timestamp}.xlsx`);
 }
+

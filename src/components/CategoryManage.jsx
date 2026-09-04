@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
 
-export default function CategoryManage({ categories, products, onAddCategory, onEditCategory, onDeleteCategory, currentUser }) {
+export default function CategoryManage({ categories, subcategories = {}, products, onAddCategory, onEditCategory, onDeleteCategory, onAddSubCategory, onEditSubCategory, onDeleteSubCategory, currentUser }) {
   const [newCategory, setNewCategory] = useState('');
   const [errorMsg, setErrorMsg]   = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -14,8 +14,29 @@ export default function CategoryManage({ categories, products, onAddCategory, on
   const [deleteProductCount, setDeleteProductCount] = useState(0);
   const [alertPopup, setAlertPopup] = useState(null);
 
+  // Subcategory management state
+  const [activeSubModalCat, setActiveSubModalCat] = useState(null);
+  const [newSubName, setNewSubName] = useState('');
+  const [subErrorMsg, setSubErrorMsg] = useState('');
+  const [editingSub, setEditingSub] = useState({ category: null, oldName: '', name: '' });
+
+  const categoryProductCounts = useMemo(() => {
+    const counts = {};
+    categories.forEach(c => {
+      counts[c] = 0;
+    });
+    products.forEach(p => {
+      if (counts[p.category] !== undefined) {
+        counts[p.category]++;
+      } else {
+        counts[p.category] = 1;
+      }
+    });
+    return counts;
+  }, [categories, products]);
+
   useEffect(() => {
-    if (isModalOpen || isEditModalOpen || categoryToDelete || alertPopup) {
+    if (isModalOpen || isEditModalOpen || categoryToDelete || alertPopup || activeSubModalCat || editingSub.category) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -23,7 +44,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isModalOpen, isEditModalOpen, categoryToDelete, alertPopup]);
+  }, [isModalOpen, isEditModalOpen, categoryToDelete, alertPopup, activeSubModalCat, editingSub]);
 
   const handleStartEdit = (catName) => {
     if (currentUser?.role !== 'admin') return;
@@ -33,7 +54,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
     setIsEditModalOpen(true);
   };
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -54,15 +75,15 @@ export default function CategoryManage({ categories, products, onAddCategory, on
       return;
     }
 
+    try { await onEditCategory(targetEditCategory, newName); } catch (error) { setErrorMsg(error.message); return; }
     setIsEditModalOpen(false);
     setAlertPopup({
       type: 'success',
       title: 'แก้ไขหมวดหมู่สำเร็จ!',
       message: `แก้ไขหมวดหมู่สินค้าจาก "${targetEditCategory}" เป็น "${newName}" เรียบร้อยแล้ว!`,
-      action: () => onEditCategory(targetEditCategory, newName)
     });
   };
-
+  
   const handleDeleteClick = (catName, productCount) => {
     if (currentUser.role !== 'admin') return;
     if (productCount > 0 && currentUser.role !== 'admin') {
@@ -73,7 +94,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
     setCategoryToDelete(catName);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -89,14 +110,42 @@ export default function CategoryManage({ categories, products, onAddCategory, on
       return;
     }
 
+    try { await onAddCategory(catName); } catch (error) { setErrorMsg(error.message); return; }
     setIsModalOpen(false);
     setNewCategory('');
     setAlertPopup({
       type: 'success',
       title: 'เพิ่มหมวดหมู่สำเร็จ!',
       message: `เพิ่มหมวดหมู่สินค้า "${catName}" เรียบร้อยแล้ว!`,
-      action: () => onAddCategory(catName)
     });
+  };
+
+  const handleAddSubSubmit = async (e) => {
+    e.preventDefault();
+    setSubErrorMsg('');
+    const name = newSubName.trim();
+    if (!name) { setSubErrorMsg('กรุณากรอกชื่อหมวดหมู่ย่อย'); return; }
+    const currentList = subcategories[activeSubModalCat] || [];
+    if (currentList.some(s => s.toLowerCase() === name.toLowerCase())) {
+      setSubErrorMsg(`หมวดหมู่ย่อย "${name}" มีแล้วใน ${activeSubModalCat}`);
+      return;
+    }
+    try {
+      if (onAddSubCategory) await onAddSubCategory(activeSubModalCat, name);
+      setActiveSubModalCat(null);
+      setNewSubName('');
+    } catch (err) { setSubErrorMsg(err.message); }
+  };
+
+  const handleEditSubSubmit = async (e) => {
+    e.preventDefault();
+    setSubErrorMsg('');
+    const name = editingSub.name.trim();
+    if (!name) { setSubErrorMsg('กรุณากรอกชื่อหมวดหมู่ย่อย'); return; }
+    try {
+      if (onEditSubCategory) await onEditSubCategory(editingSub.category, editingSub.oldName, name);
+      setEditingSub({ category: null, oldName: '', name: '' });
+    } catch (err) { setSubErrorMsg(err.message); }
   };
 
   return (
@@ -131,7 +180,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
       <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs overflow-hidden">
         <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายชื่อหมวดหมู่</h4>
+            <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายชื่อหมวดหมู่และหมวดหมู่ย่อย</h4>
             <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
               {categories.length.toLocaleString()} หมวดหมู่
             </span>
@@ -143,14 +192,16 @@ export default function CategoryManage({ categories, products, onAddCategory, on
             <thead>
               <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
                 <th className="p-2 sm:p-3.5 text-center w-16">ลำดับ</th>
-                <th className="p-2 sm:p-3.5">หมวดหมู่สินค้า</th>
-                <th className="p-2 sm:p-3.5 text-center">สินค้าที่เปิดใช้งาน</th>
+                <th className="p-2 sm:p-3.5 w-1/4">หมวดหมู่หลัก</th>
+                <th className="p-2 sm:p-3.5">หมวดหมู่ย่อย (Sub-categories)</th>
+                <th className="p-2 sm:p-3.5 text-center w-36">สินค้าที่เปิดใช้งาน</th>
                 {currentUser?.role === 'admin' && <th className="p-2 sm:p-3.5 text-center w-28">การจัดการ</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f0f5]">
               {categories.map((cat, index) => {
-                const productCount = products.filter(p => p.category === cat).length;
+                const productCount = categoryProductCounts[cat] || 0;
+                const subs = subcategories[cat] || [];
                 return (
                   <tr
                     key={cat}
@@ -163,7 +214,41 @@ export default function CategoryManage({ categories, products, onAddCategory, on
                     }`}
                   >
                     <td className="p-2 sm:p-3.5 text-center font-mono text-[#86868b] text-[10px]">{index + 1}</td>
-                    <td className="p-2 sm:p-3.5 font-semibold text-[#1d1d1f] leading-snug">{cat}</td>
+                    <td className="p-2 sm:p-3.5 font-bold text-[#1d1d1f] leading-snug">{cat}</td>
+                    <td className="p-2 sm:p-3.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {subs.length === 0 ? (
+                          <span className="text-xs text-zinc-400 font-normal italic">ไม่มีหมวดหมู่ย่อย</span>
+                        ) : (
+                          subs.map(sub => (
+                            <span key={sub} className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-[#0071e3] border border-blue-200/60 rounded-lg text-xs font-semibold group/chip">
+                              <span>{sub}</span>
+                              {currentUser?.role === 'admin' && (
+                                <div className="flex items-center gap-0.5 opacity-60 group-hover/chip:opacity-100 transition-opacity">
+                                  <button type="button" onClick={() => setEditingSub({ category: cat, oldName: sub, name: sub })} className="p-0.5 hover:text-blue-900 cursor-pointer" title="แก้ไข">
+                                    <Edit className="w-3 h-3" />
+                                  </button>
+                                  <button type="button" onClick={() => { if (confirm(`ยืนยันการลบหมวดหมู่ย่อย "${sub}" ในหมวดหมู่ "${cat}"?`)) onDeleteSubCategory?.(cat, sub); }} className="p-0.5 hover:text-red-650 cursor-pointer" title="ลบ">
+                                    <Trash2 className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
+                            </span>
+                          ))
+                        )}
+                        {currentUser?.role === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => { setActiveSubModalCat(cat); setNewSubName(''); setSubErrorMsg(''); }}
+                            className="inline-flex items-center gap-1 px-2 py-1 bg-zinc-100 hover:bg-blue-50 hover:text-[#0071e3] text-zinc-600 rounded-lg text-xs font-semibold transition-colors cursor-pointer border border-dashed border-zinc-300 hover:border-blue-300"
+                            title="เพิ่มหมวดหมู่ย่อย"
+                          >
+                            <Plus className="w-3 h-3" />
+                            <span className="text-[11px]">เพิ่มย่อย</span>
+                          </button>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-2 sm:p-3.5 text-center text-[#555557] font-medium">
                       <span className="font-semibold text-black">
                         {productCount}
@@ -177,7 +262,7 @@ export default function CategoryManage({ categories, products, onAddCategory, on
                             type="button"
                             onClick={() => handleStartEdit(cat)}
                             className="p-1.5 text-[#0071e3] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                            title="แก้ไขชื่อหมวดหมู่"
+                            title="แก้ไขชื่อหมวดหมู่หลัก"
                           >
                             <Edit className="w-4 h-4" />
                           </button>
@@ -354,14 +439,14 @@ export default function CategoryManage({ categories, products, onAddCategory, on
                 ยกเลิก
               </button>
               <button type="button"
-                onClick={() => {
+                onClick={async () => {
                   const deletedName = categoryToDelete;
+                  try { await onDeleteCategory(deletedName); } catch (error) { setAlertPopup({ type: 'error', title: 'ลบไม่สำเร็จ', message: error.message }); return; }
                   setCategoryToDelete(null);
                   setAlertPopup({
                     type: 'success',
                     title: 'ลบหมวดหมู่สำเร็จ!',
                     message: `ลบหมวดหมู่สินค้า "${deletedName}" ออกจากระบบเรียบร้อยแล้ว!`,
-                    action: () => onDeleteCategory(deletedName)
                   });
                 }}
                 className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors cursor-pointer"
@@ -378,7 +463,6 @@ export default function CategoryManage({ categories, products, onAddCategory, on
       {alertPopup && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs animate-fade-in no-print">
           <div onClick={() => {
-            if (alertPopup.action) alertPopup.action();
             setAlertPopup(null);
           }} className="absolute inset-0" />
           <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-xs w-full p-6 shadow-xl space-y-4 z-10 animate-scale-in text-[#1d1d1f] text-center">
@@ -400,7 +484,6 @@ export default function CategoryManage({ categories, products, onAddCategory, on
             <div className="pt-2 text-xs font-semibold">
               <button type="button"
                 onClick={() => {
-                  if (alertPopup.action) alertPopup.action();
                   setAlertPopup(null);
                 }}
                 className={`w-full py-2.5 rounded-full text-white transition-colors cursor-pointer shadow-xs ${
@@ -412,6 +495,57 @@ export default function CategoryManage({ categories, products, onAddCategory, on
                 ตกลง
               </button>
             </div>
+          </div>
+        </div>,
+        document.body
+      )}
+      {/* Add Subcategory Modal */}
+      {activeSubModalCat && createPortal(
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xl max-w-md w-full flex flex-col overflow-hidden animate-scale-in">
+            <div className="px-6 py-4 border-b border-[#e8e8ed] flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-[#1d1d1f] tracking-wide uppercase">เพิ่มหมวดหมู่ย่อยใน "{activeSubModalCat}"</h3>
+              <button type="button" onClick={() => setActiveSubModalCat(null)} className="p-1 rounded-lg text-[#555557] hover:bg-[#f5f5f7] cursor-pointer">
+                <Plus className="w-5 h-5 rotate-45" />
+              </button>
+            </div>
+            <form onSubmit={handleAddSubSubmit} className="p-6 space-y-4">
+              {subErrorMsg && <div className="p-3 text-xs bg-red-50 text-red-600 rounded-xl">{subErrorMsg}</div>}
+              <div>
+                <label className="form-label">ชื่อหมวดหมู่ย่อย <span className="text-red-500">*</span></label>
+                <input type="text" value={newSubName} onChange={e => setNewSubName(e.target.value)} placeholder="เช่น แว็กซ์, เจล, สีถาวร..." className="form-input" autoFocus />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setActiveSubModalCat(null)} className="flex-1 py-2.5 border border-[#d2d2d7] rounded-xl text-sm font-semibold hover:bg-[#f5f5f7]">ยกเลิก</button>
+                <button type="submit" className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5"><Save className="w-4 h-4" />บันทึก</button>
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Edit Subcategory Modal */}
+      {editingSub.category && createPortal(
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xl max-w-md w-full flex flex-col overflow-hidden animate-scale-in">
+            <div className="px-6 py-4 border-b border-[#e8e8ed] flex items-center justify-between">
+              <h3 className="text-base font-extrabold text-[#1d1d1f] tracking-wide uppercase">แก้ไขหมวดหมู่ย่อยใน "{editingSub.category}"</h3>
+              <button type="button" onClick={() => setEditingSub({ category: null, oldName: '', name: '' })} className="p-1 rounded-lg text-[#555557] hover:bg-[#f5f5f7] cursor-pointer">
+                <Plus className="w-5 h-5 rotate-45" />
+              </button>
+            </div>
+            <form onSubmit={handleEditSubSubmit} className="p-6 space-y-4">
+              {subErrorMsg && <div className="p-3 text-xs bg-red-50 text-red-600 rounded-xl">{subErrorMsg}</div>}
+              <div>
+                <label className="form-label">ชื่อหมวดหมู่ย่อย <span className="text-red-500">*</span></label>
+                <input type="text" value={editingSub.name} onChange={e => setEditingSub({ ...editingSub, name: e.target.value })} className="form-input" autoFocus />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setEditingSub({ category: null, oldName: '', name: '' })} className="flex-1 py-2.5 border border-[#d2d2d7] rounded-xl text-sm font-semibold hover:bg-[#f5f5f7]">ยกเลิก</button>
+                <button type="submit" className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-sm font-semibold rounded-xl flex items-center justify-center gap-1.5"><Save className="w-4 h-4" />บันทึก</button>
+              </div>
+            </form>
           </div>
         </div>,
         document.body

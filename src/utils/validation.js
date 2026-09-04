@@ -1,0 +1,73 @@
+export const normalizeCode = value => String(value ?? '').trim().toLowerCase();
+export const ownsDocument = (document, user) => Boolean(user && document.createdBy && document.createdBy === user.username);
+
+export function parseNumericCell(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  if (!/^-?(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d+)?$/.test(text)) return NaN;
+  return Number(text.replaceAll(',', ''));
+}
+
+export function validateProduct(product) {
+  const required = { code: 'SKU', name: 'ชื่อสินค้า', barcode: 'บาร์โค้ด', brand: 'แบรนด์', category: 'หมวดหมู่', weight: 'น้ำหนัก', size: 'ขนาด', description: 'รายละเอียด', highlights: 'จุดเด่น', howToUse: 'วิธีใช้', image: 'รูปภาพ', fdaNumber: 'เลข อย.', tisiNumber: 'เลข มอก.' };
+  const errors = Object.entries(required).filter(([key]) => typeof product[key] !== 'string' || !product[key].trim()).map(([, label]) => `กรุณาระบุ${label}เป็นข้อความ`);
+  for (const key of ['retailPrice', 'wholesalePrice', 'capFee']) {
+    const value = product[key];
+    if (value === '' || value == null || !Number.isFinite(Number(value)) || Number(value) < 0 || (key === 'retailPrice' && Number(value) === 0)) errors.push(`${key}: ราคาไม่ถูกต้อง`);
+  }
+  for (const key of ['packageLength', 'packageWidth', 'packageHeight', 'stock']) {
+    const value = product[key];
+    if (value != null && value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) errors.push(`${key}: ต้องเป็นตัวเลขไม่ติดลบ`);
+  }
+  if (product.status && !['Active', 'Inactive'].includes(product.status)) errors.push('สถานะสินค้าไม่ถูกต้อง');
+  const image = String(product.image ?? '');
+  if (image && !/^(https?:\/\/|data:image\/(?:png|jpeg|webp|gif);base64,|\/?[^:\\]+\.(?:png|jpe?g|webp|gif)(?:\?.*)?$)/i.test(image)) errors.push('รูปภาพต้องเป็น URL หรือพาธรูปที่เว็บเข้าถึงได้');
+  if (image.startsWith('data:') && image.length > 2 * 1024 * 1024 * 4 / 3 + 100) errors.push('รูปภาพต้องไม่เกิน 2 MB');
+  return errors;
+}
+
+export function findHeaderRow(worksheet, getValue) {
+  let found = null;
+  worksheet.eachRow(row => {
+    if (found) return;
+    const values = new Set();
+    row.eachCell(cell => { const text = getValue(cell).trim(); if (text) values.add(text); });
+    if (values.size >= 3) found = row;
+  });
+  return found;
+}
+
+export function mergeImportedProducts(existing, incoming) {
+  const codes = new Set();
+  return incoming.reduce((result, product) => {
+    const code = normalizeCode(product.code);
+    if (!code || codes.has(code)) throw new Error(`SKU ซ้ำหรือว่างในไฟล์: ${product.code || '-'}`);
+    codes.add(code);
+    const index = result.findIndex(p => normalizeCode(p.code) === code);
+    const clean = Object.fromEntries(Object.entries(product).filter(([key]) => !key.startsWith('_')));
+    if (index < 0) result.push({ ...clean, id: crypto.randomUUID() });
+    else result[index] = { ...result[index], ...clean, id: result[index].id, code: result[index].code, createdAt: result[index].createdAt };
+    return result;
+  }, [...existing]);
+}
+
+const roundMoney = value => Math.round((value + Number.EPSILON) * 100) / 100;
+export function calculateQuotation(quotation) {
+  const proposal = quotation.documentType === 'product_proposal';
+  if (!Array.isArray(quotation.items) || (!quotation.items.length && quotation.status !== 'draft')) throw new Error('กรุณาเพิ่มรายการสินค้า');
+  const items = quotation.items.map((item, index) => {
+    const quantity = Number(item.quantity), unitPrice = Number(item.unitPrice), discount = Number(item.discount ?? 0);
+    if (typeof item.productName !== 'string' || !item.productName.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0 || !Number.isFinite(discount) || discount < 0) throw new Error(`รายการที่ ${index + 1}: ชื่อ จำนวน ราคา หรือส่วนลดไม่ถูกต้อง`);
+    if (!['percent', 'amount', 'fixed'].includes(item.discountType)) throw new Error('รูปแบบส่วนลดไม่ถูกต้อง');
+    const gross = quantity * unitPrice;
+    if (!Number.isFinite(gross) || discount > (item.discountType === 'percent' ? 100 : gross)) throw new Error(`รายการที่ ${index + 1}: ส่วนลดต้องไม่เกินยอดสินค้า`);
+    const lineTotal = roundMoney(item.discountType === 'percent' ? gross * (1 - discount / 100) : gross - discount);
+    return { ...item, quantity, unitPrice, discount, lineTotal };
+  });
+  const vatRate = proposal ? 0 : Number(quotation.vatRate ?? 7);
+  if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) throw new Error('อัตราภาษีไม่ถูกต้อง');
+  const subtotal = roundMoney(items.reduce((sum, item) => sum + item.lineTotal, 0));
+  const vatAmount = roundMoney(subtotal * vatRate / 100);
+  if (!Number.isSafeInteger(Math.round((subtotal + vatAmount) * 100))) throw new Error('ยอดเอกสารเกินขอบเขตที่รองรับ');
+  return { ...quotation, items, vatRate, subtotal, vatAmount, totalAmount: roundMoney(subtotal + vatAmount) };
+}

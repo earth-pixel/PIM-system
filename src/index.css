@@ -10,21 +10,55 @@
   --animate-pulse-ring: pulse-ring 2.2s ease-out infinite;
 
   @keyframes shake {
-    0%, 100% { transform: translateX(0); }
-    20%, 60% { transform: translateX(-6px); }
-    40%, 80% { transform: translateX(6px); }
+
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+
+    20%,
+    60% {
+      transform: translateX(-6px);
+    }
+
+    40%,
+    80% {
+      transform: translateX(6px);
+    }
   }
+
   @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
   }
+
   @keyframes scale-in {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+    from {
+      transform: scale(0.95);
+      opacity: 0;
+    }
+
+    to {
+      transform: scale(1);
+      opacity: 1;
+    }
   }
+
   @keyframes pulse-ring {
-    0% { transform: scale(0.55); opacity: 0.85; }
-    100% { transform: scale(1.6); opacity: 0; }
+    0% {
+      transform: scale(0.55);
+      opacity: 0.85;
+    }
+
+    100% {
+      transform: scale(1.6);
+      opacity: 0;
+    }
   }
 }
 
@@ -309,73 +343,308 @@ textarea {
     padding: 1.5px 5px !important;
   }
 
-  /* ลำดับ */
-  th:nth-child(1),
-  td:nth-child(1) {
-    width: 6% !important;
-    text-align: center !important;
-  }
-
-  /* รหัสสินค้า */
-  th:nth-child(2),
-  td:nth-child(2) {
-    width: 14% !important;
-    text-align: left !important;
-  }
-
-  /* ชื่อสินค้า */
-  th:nth-child(3),
-  td:nth-child(3) {
-    width: 30% !important;
-    text-align: left !important;
-  }
-
-  /* แบรนด์ */
-  th:nth-child(4),
-  td:nth-child(4) {
-    width: 12% !important;
-    text-align: left !important;
-  }
-
-  /* หมวดหมู่ */
-  th:nth-child(5),
-  td:nth-child(5) {
-    width: 12% !important;
-    text-align: left !important;
-  }
-
-  /* ราคาขายส่ง */
-  th:nth-child(6),
-  td:nth-child(6) {
-    width: 8% !important;
-    text-align: right !important;
-  }
-
-  /* ราคาขายปลีก */
-  th:nth-child(7),
-  td:nth-child(7) {
-    width: 8% !important;
-    text-align: right !important;
-  }
-
-  /* ค่าฝา */
-  th:nth-child(8),
-  td:nth-child(8) {
-    width: 5% !important;
-    text-align: right !important;
-  }
-
-  /* สถานะ */
-  th:nth-child(9),
-  td:nth-child(9) {
+  /* ─── Product Report Table — Scoped Print Styles ─── */
+  .product-report-table th:nth-child(1),
+  .product-report-table td:nth-child(1) {
     width: 5% !important;
     text-align: center !important;
   }
-  
+  .product-report-table th:nth-child(2),
+  .product-report-table td:nth-child(2) {
+    width: 13% !important;
+    text-align: left !important;
+  }
+  .product-report-table th:nth-child(3),
+  .product-report-table td:nth-child(3) {
+    width: 25% !important;
+    text-align: left !important;
+  }
+  .product-report-table th:nth-child(4),
+  .product-report-table td:nth-child(4) {
+    width: 10% !important;
+    text-align: left !important;
+  }
+  .product-report-table th:nth-child(5),
+  .product-report-table td:nth-child(5) {
+    width: 11% !important;
+    text-align: left !important;
+  }
+  .product-report-table th:nth-child(6),
+  .product-report-table td:nth-child(6) {
+    width: 11% !important;
+    text-align: left !important;
+  }
+  .product-report-table th:nth-child(7),
+  .product-report-table td:nth-child(7) {
+    width: 8% !important;
+    text-align: right !important;
+  }
+  .product-report-table th:nth-child(8),
+  .product-report-table td:nth-child(8) {
+    width: 8% !important;
+    text-align: right !important;
+  }
+  .product-report-table th:nth-child(9),
+  .product-report-table td:nth-child(9) {
+    width: 5% !important;
+    text-align: right !important;
+  }
+  .product-report-table th:nth-child(10),
+  .product-report-table td:nth-child(10) {
+    width: 4% !important;
+    text-align: center !important;
+  }
+
   /* Prevent scroll constraints on the activity log list during print */
   .max-h-\[60vh\] {
     max-width: none !important;
     overflow: visible !important;
+  }
+
+  /* ─── Quotation Report Table — Scoped Print Styles ─── */
+  .quotation-report-table {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Hide status column in print (all are approved) */
+  .print-hide-col {
+    display: none !important;
+  }
+
+  /* Show print-only summary footer */
+  .quotation-report-table tfoot.print-only {
+    display: table-footer-group !important;
+  }
+
+  .quotation-report-table tfoot td {
+    padding: 6px 4px !important;
+    font-size: 9px !important;
+    border-top: 2px solid #000 !important;
+  }
+
+  /* Quotation table column widths — optimized for A4 portrait without status col */
+  .quotation-report-table table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+
+  .quotation-report-table th,
+  .quotation-report-table td {
+    padding: 6px 5px !important;
+    font-size: 9px !important;
+    word-break: break-word !important;
+    white-space: normal !important;
+    vertical-align: top !important;
+    border-bottom: 0.5px solid #e5e5e5 !important;
+  }
+
+  .quotation-report-table thead tr {
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .quotation-report-table thead th {
+    font-size: 8px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    padding: 8px 5px !important;
+    border-bottom: 1.5px solid #333 !important;
+    color: #333 !important;
+  }
+
+  /* Zebra stripe for print */
+  .quotation-report-table tbody tr:nth-child(even) {
+    background-color: #fafafa !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Column 1: # (ลำดับ) */
+  .quotation-report-table th:nth-child(1),
+  .quotation-report-table td:nth-child(1) {
+    width: 5% !important;
+    text-align: center !important;
+  }
+
+  /* Column 2: เลขที่เอกสาร */
+  .quotation-report-table th:nth-child(2),
+  .quotation-report-table td:nth-child(2) {
+    width: 17% !important;
+  }
+
+  /* Column 3: วันที่ */
+  .quotation-report-table th:nth-child(3),
+  .quotation-report-table td:nth-child(3) {
+    width: 10% !important;
+  }
+
+  /* Column 4: ลูกค้า */
+  .quotation-report-table th:nth-child(4),
+  .quotation-report-table td:nth-child(4) {
+    width: 16% !important;
+  }
+
+  /* Column 5: ผู้สร้าง / พนักงานขาย */
+  .quotation-report-table th:nth-child(5),
+  .quotation-report-table td:nth-child(5) {
+    width: 13% !important;
+  }
+
+  /* Column 6: สถานะ — HIDDEN via print-hide-col */
+
+  /* Column 7 (visual 6): รายการสินค้า */
+  .quotation-report-table th:nth-child(7),
+  .quotation-report-table td:nth-child(7) {
+    width: 22% !important;
+  }
+
+  /* Column 8 (visual 7): ก่อนภาษี */
+  .quotation-report-table th:nth-child(8),
+  .quotation-report-table td:nth-child(8) {
+    width: 9% !important;
+    text-align: right !important;
+  }
+
+  /* Column 9 (visual 8): ยอดรวมสุทธิ */
+  .quotation-report-table th:nth-child(9),
+  .quotation-report-table td:nth-child(9) {
+    width: 8% !important;
+    text-align: right !important;
+    font-weight: 800 !important;
+  }
+
+  /* Document number badge — simpler in print */
+  .quotation-report-table td:nth-child(2) span {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    color: #000 !important;
+  }
+
+  /* Product list items count */
+  .quotation-report-table td span.block {
+    font-size: 7.5px !important;
+    color: #888 !important;
+  }
+
+  /* ─── Product Proposal Report Table — Scoped Print Styles ─── */
+  .proposal-report-table {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    overflow: visible !important;
+  }
+
+  .proposal-report-table tfoot.print-only {
+    display: table-footer-group !important;
+  }
+
+  .proposal-report-table tfoot td {
+    padding: 6px 4px !important;
+    font-size: 9px !important;
+    border-top: 2px solid #000 !important;
+  }
+
+  .proposal-report-table table {
+    width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+  }
+
+  .proposal-report-table th,
+  .proposal-report-table td {
+    padding: 6px 5px !important;
+    font-size: 9px !important;
+    word-break: break-word !important;
+    white-space: normal !important;
+    vertical-align: top !important;
+    border-bottom: 0.5px solid #e5e5e5 !important;
+  }
+
+  .proposal-report-table thead tr {
+    background-color: #f0f0f0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  .proposal-report-table thead th {
+    font-size: 8px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.05em !important;
+    padding: 8px 5px !important;
+    border-bottom: 1.5px solid #333 !important;
+    color: #333 !important;
+  }
+
+  .proposal-report-table tbody tr:nth-child(even) {
+    background-color: #fafafa !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Column 1: # (ลำดับ) */
+  .proposal-report-table th:nth-child(1),
+  .proposal-report-table td:nth-child(1) {
+    width: 5% !important;
+    text-align: center !important;
+  }
+
+  /* Column 2: เลขที่เอกสาร */
+  .proposal-report-table th:nth-child(2),
+  .proposal-report-table td:nth-child(2) {
+    width: 18% !important;
+  }
+
+  /* Column 3: วันที่ */
+  .proposal-report-table th:nth-child(3),
+  .proposal-report-table td:nth-child(3) {
+    width: 12% !important;
+  }
+
+  /* Column 4: ผู้สร้าง */
+  .proposal-report-table th:nth-child(4),
+  .proposal-report-table td:nth-child(4) {
+    width: 16% !important;
+  }
+
+  /* Column 5: สินค้า */
+  .proposal-report-table th:nth-child(5),
+  .proposal-report-table td:nth-child(5) {
+    width: 33% !important;
+  }
+
+  /* Column 6: จำนวน */
+  .proposal-report-table th:nth-child(6),
+  .proposal-report-table td:nth-child(6) {
+    width: 6% !important;
+    text-align: right !important;
+  }
+
+  /* Column 7: มูลค่ารวม */
+  .proposal-report-table th:nth-child(7),
+  .proposal-report-table td:nth-child(7) {
+    width: 10% !important;
+    text-align: right !important;
+    font-weight: 800 !important;
+  }
+
+  /* Document number badge in print */
+  .proposal-report-table td:nth-child(2) span {
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    color: #000 !important;
   }
 }
 
@@ -444,13 +713,35 @@ textarea {
 
 /* ─── Bell Shake Animation ───────────────────────────────────── */
 @keyframes bell-shake {
-  0%, 100% { transform: rotate(0); }
-  15% { transform: rotate(15deg); }
-  30% { transform: rotate(-12deg); }
-  45% { transform: rotate(10deg); }
-  60% { transform: rotate(-8deg); }
-  75% { transform: rotate(4deg); }
-  90% { transform: rotate(-2deg); }
+
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+
+  15% {
+    transform: rotate(15deg);
+  }
+
+  30% {
+    transform: rotate(-12deg);
+  }
+
+  45% {
+    transform: rotate(10deg);
+  }
+
+  60% {
+    transform: rotate(-8deg);
+  }
+
+  75% {
+    transform: rotate(4deg);
+  }
+
+  90% {
+    transform: rotate(-2deg);
+  }
 }
 
 .animate-bell-shake {
@@ -462,9 +753,11 @@ textarea {
   0% {
     box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.6);
   }
+
   70% {
     box-shadow: 0 0 0 8px rgba(225, 29, 72, 0);
   }
+
   100% {
     box-shadow: 0 0 0 0 rgba(225, 29, 72, 0);
   }
@@ -478,13 +771,16 @@ textarea {
 .notification-scrollbar::-webkit-scrollbar {
   width: 4px;
 }
+
 .notification-scrollbar::-webkit-scrollbar-track {
   background: transparent;
 }
+
 .notification-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.1);
   border-radius: 99px;
 }
+
 .notification-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.2);
 }
@@ -572,6 +868,7 @@ textarea {
   .mobile-drawer .sandbox-title {
     font-size: 8px !important;
   }
+
   .mobile-drawer .sandbox-btn {
     padding: 0.25rem 0 !important;
     font-size: 8px !important;
@@ -624,7 +921,12 @@ textarea {
   .text-zinc-850,
   .text-zinc-900,
   .text-zinc-950,
-  h1, h2, h3, h4, h5, h6 {
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
     color: #ffffff !important;
   }
 
@@ -669,10 +971,10 @@ textarea {
   }
 
   /* Standardize table and layout grid separators */
-  .divide-\[\#f5f5f7\] > *,
-  .divide-\[\#e8e8ed\] > *,
-  .divide-\[\#e2e8f0\] > *,
-  .divide-zinc-150 > * {
+  .divide-\[\#f5f5f7\]>*,
+  .divide-\[\#e8e8ed\]>*,
+  .divide-\[\#e2e8f0\]>*,
+  .divide-zinc-150>* {
     border-color: #2c2c2e !important;
   }
 
@@ -758,6 +1060,7 @@ textarea {
   .bg-blue-50\/60 {
     background-color: rgba(0, 113, 227, 0.15) !important;
   }
+
   .hover\:bg-blue-50:hover,
   .group-hover\:bg-blue-100\/50:hover {
     background-color: rgba(0, 113, 227, 0.25) !important;
@@ -767,6 +1070,7 @@ textarea {
   .bg-red-50\/60 {
     background-color: rgba(225, 29, 72, 0.15) !important;
   }
+
   .hover\:bg-red-50:hover {
     background-color: rgba(225, 29, 72, 0.25) !important;
   }
@@ -775,6 +1079,7 @@ textarea {
   .bg-rose-50\/60 {
     background-color: rgba(244, 63, 94, 0.15) !important;
   }
+
   .hover\:bg-rose-50:hover,
   .hover\:bg-rose-100:hover {
     background-color: rgba(244, 63, 94, 0.25) !important;
@@ -784,6 +1089,7 @@ textarea {
   .bg-amber-50\/60 {
     background-color: rgba(217, 119, 6, 0.15) !important;
   }
+
   .hover\:bg-amber-50:hover,
   .group-hover\:bg-amber-100\/50:hover {
     background-color: rgba(217, 119, 6, 0.25) !important;
@@ -793,6 +1099,7 @@ textarea {
   .bg-emerald-50\/60 {
     background-color: rgba(16, 185, 129, 0.15) !important;
   }
+
   .hover\:bg-emerald-50:hover,
   .group-hover\:bg-emerald-100\/50:hover {
     background-color: rgba(16, 185, 129, 0.25) !important;
@@ -802,6 +1109,7 @@ textarea {
   .bg-purple-50\/60 {
     background-color: rgba(139, 92, 246, 0.15) !important;
   }
+
   .hover\:bg-purple-50:hover,
   .group-hover\:bg-purple-100\/50:hover {
     background-color: rgba(139, 92, 246, 0.25) !important;
@@ -811,13 +1119,16 @@ textarea {
   .text-blue-600 {
     color: #60a5fa !important;
   }
+
   .text-red-600,
   .text-red-650 {
     color: #f87171 !important;
   }
+
   .text-rose-600 {
     color: #fb7185 !important;
   }
+
   .text-emerald-600 {
     color: #34d399 !important;
   }
@@ -870,6 +1181,7 @@ textarea {
   ::-webkit-scrollbar-thumb {
     background: #424245;
   }
+
   ::-webkit-scrollbar-thumb:hover {
     background: #555557;
   }
@@ -888,13 +1200,13 @@ textarea {
   #logoGrad stop:first-child {
     stop-color: #ffffff !important;
   }
+
   #logoGrad stop:last-child {
     stop-color: #a1a1a6 !important;
   }
 
   header span.font-extrabold {
     background: none !important;
-    -webkit-background-clip: unset !important;
     -webkit-text-fill-color: unset !important;
     color: #ffffff !important;
   }
@@ -907,18 +1219,23 @@ textarea {
   .hover\:text-\[\#1d1d1f\]:hover {
     color: #ffffff !important;
   }
+
   .hover\:bg-zinc-100\/80:hover {
     background-color: rgba(255, 255, 255, 0.08) !important;
   }
+
   .hover\:text-black:hover {
     color: #ffffff !important;
   }
+
   .hover\:bg-white:hover {
     background-color: #1c1c1e !important;
   }
+
   .hover\:border-\[\#d2d2d7\]:hover {
     border-color: #2c2c2e !important;
   }
+
   .group:hover .group-hover\:text-black {
     color: #ffffff !important;
   }
@@ -927,23 +1244,84 @@ textarea {
   .from-emerald-50\/80 {
     --tw-gradient-from: rgba(16, 185, 129, 0.08) !important;
   }
+
   .to-teal-50\/40 {
     --tw-gradient-to: rgba(20, 184, 166, 0.04) !important;
   }
+
   .from-zinc-50\/80 {
     --tw-gradient-from: rgba(156, 163, 175, 0.08) !important;
   }
+
   .to-slate-50\/40 {
     --tw-gradient-to: rgba(148, 163, 184, 0.04) !important;
   }
+
   .border-emerald-200\/60 {
     border-color: rgba(16, 185, 129, 0.2) !important;
   }
+
   .border-zinc-200\/60 {
     border-color: rgba(156, 163, 175, 0.2) !important;
   }
+
   .bg-emerald-100 {
     background-color: rgba(16, 185, 129, 0.15) !important;
+  }
+
+  /* Specific light pastel gradients overrides for Report KPI cards in Dark Mode */
+  .from-violet-50 {
+    background: #161618 !important;
+    border-color: rgba(139, 92, 246, 0.3) !important;
+  }
+
+  .from-blue-50,
+  .from-blue-50\/80 {
+    background: #161618 !important;
+    border-color: rgba(59, 130, 246, 0.3) !important;
+  }
+
+  .from-emerald-50,
+  .from-emerald-100\/90 {
+    background: #161618 !important;
+    border-color: rgba(16, 185, 129, 0.3) !important;
+  }
+
+  .from-amber-100,
+  .from-amber-100\/90 {
+    background: #161618 !important;
+    border-color: rgba(245, 158, 11, 0.3) !important;
+  }
+
+  .from-zinc-200,
+  .from-zinc-200\/90 {
+    background: #161618 !important;
+    border-color: rgba(113, 113, 122, 0.3) !important;
+  }
+
+  /* Document number badge overrides in Dark Mode */
+  .bg-violet-50,
+  .bg-violet-50\/60 {
+    background-color: rgba(139, 92, 246, 0.15) !important;
+  }
+
+  .border-violet-100 {
+    border-color: rgba(139, 92, 246, 0.25) !important;
+  }
+
+  .text-violet-700 {
+    color: #a78bfa !important;
+  }
+
+  /* Active tab text overrides in Dark Mode to ensure high readability */
+  .bg-white.text-\[\#0071e3\],
+  .bg-white.text-violet-600 {
+    color: #60a5fa !important;
+  }
+
+  /* Hide the bright decorative top-right glow shapes in KPI cards in Dark Mode */
+  .absolute.top-0.right-0.w-24.h-24.bg-gradient-to-bl.rounded-bl-\[3rem\] {
+    display: none !important;
   }
 }
 
@@ -985,14 +1363,12 @@ textarea {
   left: -150%;
   width: 200%;
   height: 200%;
-  background: linear-gradient(
-    to right,
-    rgba(255, 255, 255, 0) 0%,
-    rgba(255, 255, 255, 0) 30%,
-    rgba(255, 255, 255, 0.3) 50%,
-    rgba(255, 255, 255, 0) 70%,
-    rgba(255, 255, 255, 0) 100%
-  );
+  background: linear-gradient(to right,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0) 30%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0) 70%,
+      rgba(255, 255, 255, 0) 100%);
   transform: rotate(-30deg);
   transition: left 0.75s cubic-bezier(0.16, 1, 0.3, 1);
   pointer-events: none;
@@ -1002,4 +1378,3 @@ textarea {
 .premium-card-shine:hover::after {
   left: 150%;
 }
-

@@ -1,0 +1,343 @@
+import { Buffer } from 'node:buffer';
+import process from 'node:process';
+import express from 'express';
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
+import { createStore, keys, publicDB, publicUser, revision } from './store.js';
+import { validateProduct, normalizeCode, ownsDocument, calculateQuotation } from '../src/utils/validation.js';
+
+const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const digest = value => createHash('sha256').update(value).digest('hex');
+const validId = id => (typeof id === 'string' && id.length > 0 && id.length <= 200) || (typeof id === 'number' && Number.isSafeInteger(id));
+const hashPassword = password => {
+  const salt = randomBytes(16).toString('hex');
+  return `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;
+};
+function passwordMatches(user, password) {
+  if (typeof password !== 'string' || password.length > 256) return false;
+  if (!user.passwordHash) return typeof user.password === 'string' && timingSafeEqual(Buffer.from(digest(user.password)), Buffer.from(digest(password)));
+  const [salt, encoded] = user.passwordHash.split(':');
+  const expected = Buffer.from(encoded, 'hex');
+  return expected.length === 64 && timingSafeEqual(expected, scryptSync(password, salt, 64));
+}
+const canRead = (q, user) => user.role === 'admin' || ownsDocument(q, user) || q.status === 'approved';
+function visibleDB(db, user) {
+  const result = publicDB(db);
+  result.quotations = result.quotations.filter(q => canRead(q, user));
+  if (user.role !== 'admin') result.activityLog = [];
+  return result;
+}
+function appendLog(db, user, action, details = null) {
+  db.activityLog = [{ id: randomUUID(), userName: user.name || user.username, userRole: user.role, action, details, timestamp: new Date().toISOString() }, ...(db.activityLog || [])].slice(0, 200);
+}
+function logCollectionChange(db, user, key, before) {
+  const labels = { products: 'สินค้า', users: 'ผู้ใช้', quotations: 'เอกสาร', brands: 'แบรนด์', categories: 'หมวดหมู่', subcategories: 'หมวดหมู่ย่อย', activityLog: 'ประวัติการดำเนินงาน' };
+  const after = db[key] || (key === 'subcategories' ? {} : []);
+  if (!Array.isArray(after)) {
+    appendLog(db, user, `บันทึก${labels[key] || key}`, { type: key });
+    return;
+  }
+  const identity = value => typeof value === 'object' ? value.id : value;
+  const changes = [];
+  for (const value of after) {
+    const previous = Array.isArray(before) ? before.find(old => identity(old) === identity(value)) : undefined;
+    if (same(previous, value)) continue;
+    const name = typeof value === 'object' ? value.quotationNumber || value.code || value.username || value.id : value;
+    if (!previous) changes.push({ field: String(name), before: '-', after: 'เพิ่มใหม่' });
+    else if (typeof value === 'object') {
+      for (const field of ['name', 'code', 'username', 'role', 'brand', 'category', 'retailPrice', 'wholesalePrice', 'capFee', 'stock', 'status', 'totalAmount']) {
+        if (!same(previous[field], value[field])) changes.push({ field: `${name}: ${field}`, before: String(previous[field] ?? '-'), after: String(value[field] ?? '-') });
+      }
+      if (previous.image !== value.image) changes.push({ field: `${name}: รูปภาพ`, before: '(รูปเดิม)', after: '(รูปใหม่)' });
+      if (previous.passwordHash !== value.passwordHash) changes.push({ field: `${name}: รหัสผ่าน`, before: '********', after: 'เปลี่ยนรหัสผ่าน' });
+    }
+  }
+  if (Array.isArray(before)) {
+    for (const value of before) if (!after.some(newValue => identity(newValue) === identity(value))) changes.push({ field: String(typeof value === 'object' ? value.quotationNumber || value.code || value.username || value.id : value), before: 'มีข้อมูล', after: 'ลบแล้ว' });
+  }
+  appendLog(db, user, `บันทึก${labels[key] || key}`, { type: key, changes: changes.slice(0, 200) });
+}
+function rememberQuotationNumbers(db) {
+  db._quotationSequences ||= {};
+  for (const q of db.quotations || []) {
+    const match = /^QT-(\d{8})-(\d+)$/.exec(q.quotationNumber || '');
+    if (match) db._quotationSequences[match[1]] = Math.max(db._quotationSequences[match[1]] || 0, Number(match[2]));
+  }
+}
+function checkVersion(db, key, expected) {
+  // Disabled version conflict check per user request
+}
+function normalizeUsers(incoming, db, caller) {
+  const old = db.users || [];
+  const names = new Set(), ids = new Set();
+  const result = incoming.map(raw => {
+    if (!raw || typeof raw !== 'object') fail(400, 'ข้อมูลผู้ใช้ไม่ถูกต้อง');
+    const before = old.find(u => raw.id ? u.id === raw.id : u.username === raw.username);
+    const username = normalizeCode(raw.username);
+    if (typeof raw.username !== 'string' || !username || typeof raw.name !== 'string' || !raw.name.trim() || !['admin', 'manager', 'user'].includes(raw.role) || names.has(username)) fail(400, 'ชื่อผู้ใช้ซ้ำหรือข้อมูลไม่ครบถ้วน');
+    names.add(username);
+    const candidate = { ...before, id: before?.id || randomUUID(), username, name: raw.name.trim(), role: raw.role, createdAt: before ? before.createdAt : new Date().toISOString() };
+    if (ids.has(candidate.id)) fail(400, 'รหัสผู้ใช้ซ้ำ');
+    ids.add(candidate.id);
+    const changed = !before || !same(publicUser(before), publicUser(candidate)) || Boolean(raw.password);
+    if (changed && caller.role !== 'admin') {
+      const self = before?.id === caller.id;
+      if (self ? candidate.role !== before.role : !(caller.role === 'manager' && (!before || before.role === 'user') && candidate.role === 'user')) fail(403, 'ไม่มีสิทธิ์แก้ไขผู้ใช้นี้');
+      if (self && raw.password) fail(400, 'กรุณาเปลี่ยนรหัสผ่านจากเมนูบัญชี โดยยืนยันรหัสผ่านปัจจุบัน');
+    }
+    if (raw.password) {
+      if (typeof raw.password !== 'string' || raw.password.length < 8 || raw.password.length > 256) fail(400, 'รหัสผ่านใหม่ต้องมี 8–256 ตัวอักษร');
+      candidate.passwordHash = hashPassword(raw.password);
+    } else if (!before) fail(400, 'กรุณาระบุรหัสผ่านผู้ใช้ใหม่');
+    delete candidate.password;
+    return candidate;
+  });
+  const removed = old.filter(u => !result.some(v => v.id === u.id));
+  if (removed.length && caller.role !== 'admin') fail(403, 'เฉพาะ Admin เท่านั้นที่ลบผู้ใช้ได้');
+  if (removed.some(u => u.id === caller.id)) fail(400, 'ไม่สามารถลบบัญชีที่กำลังใช้งาน');
+  if (!result.some(u => u.role === 'admin')) fail(400, 'ระบบต้องมี Admin อย่างน้อยหนึ่งบัญชี');
+  for (const user of result) {
+    const before = old.find(u => u.id === user.id);
+    if (before && before.username !== user.username) db.quotations = (db.quotations || []).map(q => q.createdBy === before.username ? { ...q, createdBy: user.username } : q);
+  }
+  return result;
+}
+function normalizeQuotations(incoming, db, user) {
+  rememberQuotationNumbers(db);
+  const old = db.quotations || [];
+  const ids = new Set();
+  const visible = old.filter(q => canRead(q, user));
+  for (const removed of visible.filter(q => !incoming.some(n => n.id === q.id))) {
+    if (removed.status === 'sent') fail(400, 'ไม่สามารถลบเอกสารที่รออนุมัติ');
+    if (user.role !== 'admin' && (!ownsDocument(removed, user) || (removed.documentType !== 'product_proposal' && removed.status === 'approved'))) fail(403, 'ไม่มีสิทธิ์ลบเอกสารนี้');
+  }
+  const hidden = old.filter(q => !canRead(q, user));
+  const numbers = new Set(old.map(q => q.quotationNumber));
+  const result = incoming.map(raw => {
+    if (!raw || !validId(raw.id) || ids.has(raw.id)) fail(400, 'รหัสเอกสารซ้ำหรือไม่ถูกต้อง');
+    ids.add(raw.id);
+    const before = old.find(q => q.id === raw.id);
+    if (before && !canRead(before, user)) fail(403, 'ไม่มีสิทธิ์เข้าถึงเอกสาร');
+    if (before && same(before, raw)) return before;
+    if (before && user.role !== 'admin' && (!ownsDocument(before, user) || (before.documentType !== 'product_proposal' && before.status === 'approved'))) fail(403, 'ไม่มีสิทธิ์แก้ไขเอกสารนี้');
+    const type = raw.documentType || 'quotation';
+    if (!['quotation', 'product_proposal'].includes(type) || !['draft', 'sent', 'approved', 'rejected'].includes(raw.status)) fail(400, 'ประเภทหรือสถานะเอกสารไม่ถูกต้อง');
+    if (before && before.documentType !== type) fail(400, 'ไม่สามารถเปลี่ยนประเภทเอกสารเดิม');
+    if (type === 'quotation' && ['approved', 'rejected'].includes(raw.status) && user.role !== 'admin') fail(403, 'เฉพาะ Admin ที่อนุมัติหรือปฏิเสธใบเสนอราคาได้');
+    if (type === 'quotation' && raw.status === 'rejected' && before?.status !== 'sent') fail(400, 'ปฏิเสธได้เฉพาะเอกสารที่รออนุมัติ');
+    const issuedDate = before?.issuedDate || new Date().toLocaleDateString('sv-SE');
+    if (type === 'quotation' && raw.status !== 'draft') {
+      for (const key of ['name', 'companyName', 'phone', 'taxId', 'address']) if (!String(raw.customer?.[key] || '').trim()) fail(400, 'กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน');
+      for (const key of ['salespersonName', 'salespersonPhone', 'projectName']) if (!String(raw[key] || '').trim()) fail(400, 'กรุณากรอกข้อมูลพนักงานขายและโครงการ');
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw.validUntilDate || '') || !Number.isFinite(Date.parse(raw.validUntilDate)) || new Date(raw.validUntilDate).toISOString().slice(0, 10) !== raw.validUntilDate || raw.validUntilDate < issuedDate) fail(400, 'วันหมดอายุต้องเป็นวันที่จริงและไม่ก่อนวันออกเอกสาร');
+    }
+    let quotationNumber = before?.quotationNumber;
+    if (!quotationNumber) {
+      const day = issuedDate.replaceAll('-', '');
+      db._quotationSequences ||= {};
+      let sequence = Math.max(db._quotationSequences[day] || 0, ...old.filter(q => q.quotationNumber?.startsWith(`QT-${day}-`)).map(q => Number(q.quotationNumber.split('-').at(-1)) || 0));
+      do { quotationNumber = `QT-${day}-${String(++sequence).padStart(4, '0')}`; } while (numbers.has(quotationNumber));
+      db._quotationSequences[day] = sequence;
+      numbers.add(quotationNumber);
+    }
+    let calculated;
+    try { calculated = calculateQuotation({ ...raw, documentType: type }); }
+    catch (error) { fail(400, error.message); }
+    return { ...calculated, quotationNumber, issuedDate, createdBy: before?.createdBy || user.username, approvedBy: raw.status === 'approved' ? user.name || user.username : undefined, approvedDate: raw.status === 'approved' ? new Date().toISOString() : undefined, customerAcceptedAt: before?.customerAcceptedAt };
+  });
+  return [...result, ...hidden];
+}
+
+export function createApi(dbPath) {
+  // An Express sub-app also supplies req/res helpers when mounted in Vite Connect.
+  const api = express();
+  const store = createStore(dbPath);
+  const sessions = new Map(), loginAttempts = new Map();
+  const cookieName = 'pim_session';
+  api.use(express.json({ limit: '50mb' }));
+  api.use((req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    const origin = process.env.PIM_PUBLIC_ORIGIN || `${req.protocol}://${req.get('host')}`;
+    if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin && req.headers.origin !== origin) return res.status(403).json({ error: 'ไม่อนุญาตคำขอจากเว็บไซต์อื่น' });
+    next();
+  });
+  const tokenFrom = req => (req.headers.cookie || '').split(';').map(s => s.trim()).find(s => s.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1);
+  const auth = (req, res, next) => {
+    const token = tokenFrom(req), session = sessions.get(token);
+    const user = session && store.read().users?.find(u => u.id === session.userId);
+    if (!user || session.expires < Date.now() || session.credentials !== user.passwordHash) { sessions.delete(token); return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบอีกครั้ง' }); }
+    req.user = user;
+    req.session = session;
+    next();
+  };
+  const cookieOptions = req => ({ httpOnly: true, sameSite: 'strict', secure: req.secure || Boolean(process.env.PIM_PUBLIC_ORIGIN?.startsWith('https://')), path: '/', maxAge: 8 * 60 * 60 * 1000 });
+  api.post('/auth/login', (req, res) => {
+    const ip = req.socket.remoteAddress;
+    const now = Date.now();
+    for (const [key, value] of loginAttempts) if (value.until < now) loginAttempts.delete(key);
+    const attempts = loginAttempts.get(ip) || { count: 0, until: now + 15 * 60 * 1000 };
+    if (++attempts.count > 10) fail(429, 'เข้าสู่ระบบผิดหลายครั้ง กรุณารอ 15 นาที');
+    loginAttempts.set(ip, attempts);
+    const username = normalizeCode(req.body?.username);
+    const db = store.read(), candidate = db.users?.find(u => normalizeCode(u.username) === username);
+    if (!candidate || !passwordMatches(candidate, req.body?.password)) fail(401, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+    const user = store.transact(current => {
+      const matching = current.users.find(u => normalizeCode(u.username) === username);
+      if (!matching || !passwordMatches(matching, req.body.password)) fail(401, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+      for (const entry of current.users) {
+        entry.id ||= randomUUID();
+        if (!entry.passwordHash && typeof entry.password === 'string') entry.passwordHash = hashPassword(entry.password);
+        delete entry.password;
+      }
+      return matching;
+    });
+    loginAttempts.delete(ip);
+    for (const [token, session] of sessions) if (session.expires < now) sessions.delete(token);
+    const token = randomBytes(32).toString('hex');
+    sessions.set(token, { userId: user.id, credentials: user.passwordHash, expires: now + 8 * 60 * 60 * 1000 });
+    res.cookie(cookieName, token, cookieOptions(req)).json({ user: publicUser(user) });
+  });
+  api.post('/auth/logout', (req, res) => { sessions.delete(tokenFrom(req)); res.clearCookie(cookieName, { path: '/' }).json({ success: true }); });
+  api.get('/auth/session', auth, (req, res) => res.json({ user: publicUser(req.user) }));
+  api.post('/auth/password', auth, (req, res) => {
+    const { oldPassword, newPassword } = req.body || {};
+    if (!passwordMatches(req.user, oldPassword)) fail(400, 'รหัสผ่านปัจจุบันไม่ถูกต้อง');
+    if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 256) fail(400, 'รหัสผ่านใหม่ต้องมี 8–256 ตัวอักษร');
+    const hash = hashPassword(newPassword);
+    const db = store.transact(db => { const user = db.users.find(u => u.id === req.user.id); user.passwordHash = hash; delete user.password; appendLog(db, user, 'เปลี่ยนรหัสผ่าน'); return db; });
+    req.session.credentials = hash;
+    res.json({ success: true, ...visibleDB(db, db.users.find(u => u.id === req.user.id)) });
+  });
+  const shareFingerprint = q => revision({ ...q, customerAcceptedAt: undefined });
+  function resolveShare(db, token) {
+    if (!/^[a-f0-9]{64}$/.test(token || '')) fail(404, 'ลิงก์ไม่ถูกต้อง');
+    const share = db._shares?.[digest(token)];
+    const q = share && db.quotations?.find(q => q.id === share.id);
+    if (!q || share.expires < Date.now() || q.status !== 'approved' || share.version !== shareFingerprint(q) || (q.validUntilDate && q.validUntilDate < new Date().toLocaleDateString('sv-SE'))) fail(410, 'ลิงก์หมดอายุ เอกสารถูกแก้ไข หรือยกเลิกแล้ว');
+    return q;
+  }
+  api.get('/public/quotations/:token', (req, res) => res.json({ quotation: resolveShare(store.read(), req.params.token) }));
+  api.post('/public/quotations/:token/accept', (req, res) => {
+    const quotation = store.transact(db => {
+      const q = resolveShare(db, req.params.token);
+      if (!q.customerAcceptedAt) { q.customerAcceptedAt = new Date().toISOString(); appendLog(db, { name: q.customer?.name || 'ลูกค้าจากลิงก์', role: 'customer' }, `ลูกค้ายอมรับเอกสาร ${q.quotationNumber}`); }
+      return q;
+    });
+    res.json({ success: true, quotation });
+  });
+  api.use(auth);
+  api.get('/db', (req, res) => res.json(visibleDB(store.read(), req.user)));
+  api.post('/catalog/:key', (req, res) => {
+    if (req.user.role !== 'admin') fail(403, 'เฉพาะ Admin เท่านั้น');
+    const key = req.params.key;
+    if (!['brands', 'categories'].includes(key)) fail(404, 'ไม่พบรายการ');
+    const { oldName, newName } = req.body || {};
+    const result = store.transact(db => {
+      if (!db[key].includes(oldName)) fail(409, 'ชื่อเดิมถูกเปลี่ยนแล้ว กรุณาโหลดข้อมูลล่าสุด');
+      const field = key === 'brands' ? 'brand' : 'category';
+      if (newName === null) {
+        if (db.products.some(p => p[field] === oldName)) fail(400, 'ยังมีสินค้าใช้ชื่อนี้อยู่ กรุณาเปลี่ยนสินค้าไปใช้ชื่ออื่นก่อนลบ');
+        db[key] = db[key].filter(name => name !== oldName);
+        if (key === 'categories' && db.subcategories) delete db.subcategories[oldName];
+      } else {
+        if (typeof newName !== 'string' || !newName.trim() || db[key].some(name => name !== oldName && normalizeCode(name) === normalizeCode(newName))) fail(400, 'ชื่อใหม่ซ้ำหรือไม่ถูกต้อง');
+        db[key] = db[key].map(name => name === oldName ? newName.trim() : name);
+        db.products = db.products.map(p => p[field] === oldName ? { ...p, [field]: newName.trim() } : p);
+        if (key === 'categories' && db.subcategories && db.subcategories[oldName]) {
+          db.subcategories[newName.trim()] = db.subcategories[oldName];
+          delete db.subcategories[oldName];
+        }
+      }
+      appendLog(db, req.user, `แก้ไข ${key}: ${oldName}`);
+      return db;
+    });
+    res.json({ success: true, ...visibleDB(result, req.user) });
+  });
+  api.post('/db/save', (req, res) => {
+    const { key, data, expectedRevision } = req.body || {};
+    if (!keys.includes(key) || (key !== 'subcategories' && !Array.isArray(data))) fail(400, 'รูปแบบข้อมูลไม่ถูกต้อง');
+    const result = store.transact(db => {
+      checkVersion(db, key, expectedRevision);
+      const before = db[key] || [];
+      if (['brands', 'categories', 'subcategories', 'activityLog'].includes(key) && req.user.role !== 'admin') fail(403, 'เฉพาะ Admin เท่านั้น');
+      if (key === 'products') {
+        if (!['admin', 'manager'].includes(req.user.role)) fail(403, 'ไม่มีสิทธิ์แก้ไขสินค้า');
+        if (data.some(product => !product || !validId(product.id))) fail(400, 'รหัสรายการสินค้าไม่ถูกต้อง');
+        if (req.user.role !== 'admin' && db.products.some(p => !data.some(n => n.id === p.id))) fail(403, 'เฉพาะ Admin ที่ลบสินค้าได้');
+        const codes = new Set(), ids = new Set();
+        for (const product of data) {
+          if (!product || !validId(product.id) || ids.has(product.id)) fail(400, 'รหัสรายการสินค้าซ้ำหรือว่าง');
+          ids.add(product.id);
+          const code = normalizeCode(product.code);
+          if (!code || codes.has(code)) fail(400, `SKU ซ้ำหรือว่าง: ${product.code || '-'}`);
+          codes.add(code);
+          const before = db.products.find(p => p.id === product.id);
+          if (!same(before, product)) { const errors = validateProduct(product); if (errors.length) fail(400, `${product.code}: ${errors.join(', ')}`); }
+        }
+        db.products = data;
+        db.brands = [...new Set([...(db.brands || []), ...data.map(p => p.brand).filter(Boolean)])];
+        db.categories = [...new Set([...(db.categories || []), ...data.map(p => p.category).filter(Boolean)])];
+      } else if (key === 'subcategories') {
+        if (!data || typeof data !== 'object' || Array.isArray(data)) fail(400, 'ข้อมูลหมวดหมู่ย่อยไม่ถูกต้อง');
+        db.subcategories = data;
+      } else if (key === 'users') db.users = normalizeUsers(data, db, req.user);
+      else if (key === 'quotations') db.quotations = normalizeQuotations(data, db, req.user);
+      else if (key === 'activityLog') {
+        if (data.length > 1) fail(400, 'ประวัติแก้ไขย้อนหลังไม่ได้');
+        db.activityLog = [];
+      } else {
+        if (data.some(v => typeof v !== 'string' || !v.trim()) || new Set(data.map(normalizeCode)).size !== data.length) fail(400, 'ชื่อซ้ำหรือไม่ถูกต้อง');
+        db[key] = data.map(v => v.trim());
+      }
+      logCollectionChange(db, req.user, key, before);
+      return db;
+    });
+    const updatedUser = result.users.find(u => u.id === req.user.id);
+    // Explicit password changes revoke every existing session, including this one.
+    res.json({ success: true, ...visibleDB(result, updatedUser || req.user), user: updatedUser ? publicUser(updatedUser) : undefined });
+  });
+  api.post('/db/activityLog/append', (req, res) => {
+    const action = req.body?.entry?.action;
+    if (typeof action !== 'string' || !action.trim() || action.length > 4000) fail(400, 'ข้อความประวัติไม่ถูกต้อง');
+    const db = store.transact(db => { appendLog(db, req.user, action); return db; });
+    res.json({ success: true, ...visibleDB(db, req.user) });
+  });
+  api.post('/quotations/archive-delete', (req, res) => {
+    if (req.user.role !== 'admin') fail(403, 'เฉพาะ Admin เท่านั้นที่ลบเอกสารเก่าได้');
+    const { ids } = req.body || {};
+    if (!Array.isArray(ids) || !ids.length || ids.length > 10000) fail(400, 'กรุณาเลือกเอกสาร');
+    const skipped = [];
+    const result = store.transact(db => {
+      rememberQuotationNumbers(db);
+      const deleted = new Set();
+      for (const id of new Set(ids)) {
+        const q = db.quotations.find(q => String(q.id) === String(id));
+        if (!q || q.status === 'sent') skipped.push({ id, reason: q ? 'เอกสารกำลังรออนุมัติ' : 'ไม่พบเอกสาร' });
+        else deleted.add(q.id);
+      }
+      if (!deleted.size) fail(400, 'ไม่มีเอกสารที่ลบได้');
+      db.quotations = db.quotations.filter(q => !deleted.has(q.id));
+      appendLog(db, req.user, `ลบเอกสารเก่า ${deleted.size} รายการ`);
+      return { db, count: deleted.size };
+    });
+    res.json({ success: true, ...visibleDB(result.db, req.user), deletedCount: result.count, skippedCount: skipped.length, skipped });
+  });
+  api.post('/quotations/:id/share', (req, res) => {
+    const token = randomBytes(32).toString('hex');
+    store.transact(db => {
+      const q = db.quotations.find(q => String(q.id) === req.params.id);
+      if (!q || !canRead(q, req.user)) fail(404, 'ไม่พบเอกสาร');
+      if (q.status !== 'approved' || (q.validUntilDate && q.validUntilDate < new Date().toLocaleDateString('sv-SE'))) fail(400, 'แชร์ได้เฉพาะเอกสารอนุมัติที่ยังไม่หมดอายุ');
+      db._shares ||= {};
+      for (const [key, value] of Object.entries(db._shares)) if (value.expires < Date.now()) delete db._shares[key];
+      db._shares[digest(token)] = { id: q.id, version: shareFingerprint(q), expires: Date.now() + 7 * 86400000 };
+    });
+    res.json({ token });
+  });
+  // Unknown API routes continue to the authenticated export/download handlers.
+  api.use((error, req, res, next) => {
+    if (res.headersSent) return next(error);
+    res.status(error.status || 500).json({ error: error.status ? error.message : 'บันทึกหรืออ่านข้อมูลไม่สำเร็จ กรุณาลองใหม่' });
+  });
+  return api;
+}

@@ -1,5 +1,6 @@
 
 import ExcelJS from 'exceljs';
+import { exportToLazadaMandatory } from './lazadaTemplate.js';
 
 const LAZADA_SHEETS = [
   'ผลิตภัณฑ์จัดแต่งทรงผม',
@@ -319,38 +320,9 @@ export async function exportToShopeeCustom(products) {
   return wb.xlsx.writeBuffer();
 }
 
-export async function exportToLazadaCustom(products) {
-  const wb = new ExcelJS.Workbook();
-  const sheet = wb.addWorksheet('Lazada Export');
-  sheet.columns = [
-    { header: 'รหัสสินค้า (SKU)', key: 'code', width: 18 },
-    { header: 'ชื่อสินค้า', key: 'name', width: 36 },
-    { header: 'คำอธิบายหลัก', key: 'desc', width: 40 },
-    { header: 'รูปภาพสินค้า1', key: 'image', width: 40 },
-    { header: 'ยี่ห้อ', key: 'brand', width: 18 },
-    { header: 'น้ำหนัก แพคเกจ (กก)', key: 'weight', width: 18 },
-    { header: 'จำนวน', key: 'stock', width: 14 },
-    { header: 'ราคา', key: 'price', width: 14 },
-    { header: 'ความยาว แพคเกจ (ซม)', key: 'length', width: 18 },
-    { header: 'ความกว้าง แพคเกจ (ซม)', key: 'width', width: 18 },
-    { header: 'ความสูง แพคเกจ (ซม)', key: 'height', width: 18 },
-  ];
-  products.forEach((p) => {
-    sheet.addRow({
-      code: p.code || '',
-      name: p.name,
-      desc: buildDesc(p),
-      image: p.image || '',
-      brand: p.brand?.trim() || 'Unbranded',
-      weight: parseWeightToKg(p.weight),
-      stock: Number(p.stock) || 0,
-      price: Number(p.retailPrice) || 0,
-      length: p.packageLength ? Number(p.packageLength) : '',
-      width: p.packageWidth ? Number(p.packageWidth) : '',
-      height: p.packageHeight ? Number(p.packageHeight) : '',
-    });
-  });
-  return wb.xlsx.writeBuffer();
+// exportToLazadaCustom → ใช้ lazadaTemplate.js ซึ่งมี multi-sheet + style + คอลัมน์ตามหมวดหมู่ครบแล้ว
+export async function exportToLazadaCustom(products, options = {}) {
+  return exportToLazadaMandatory(products, options);
 }
 
 export async function exportToTiktokCustom(products) {

@@ -1,16 +1,44 @@
-# React + Vite
+# PIM system
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+ระบบจัดการสินค้าและเอกสาร React + Vite พร้อม Express API ใช้ฐานข้อมูล `ข้อมูล/db.json`
 
-Currently, two official plugins are available:
+## เริ่มใช้งาน
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- พัฒนา: `npm run dev`
+- สร้าง frontend: `npm run build`
+- รัน production หลัง build: `npm start` (พอร์ตเริ่มต้น 3000)
+- ทดสอบ: `npm test`
+- ตรวจโค้ด: `npm run lint`
 
-## React Compiler
+`npm run preview` มีเฉพาะ frontend ไม่มี API สำหรับล็อกอิน ให้ใช้ `npm start` เมื่อต้องการทดสอบครบชุด
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## การตั้งค่า
 
-## Expanding the ESLint configuration
+กำหนด environment variables ของโปรเซส:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- `PORT`: พอร์ตรับคำขอ
+- `HOST`: interface ที่รับการเชื่อมต่อ ค่าเริ่มต้น 0.0.0.0
+- `PIM_DB_PATH`: พาธฐานข้อมูลอื่นสำหรับแยกสภาพแวดล้อม
+- `PIM_PUBLIC_ORIGIN`: origin เช่น `https://pim.example.com` ไม่มี / ท้าย กำหนดเมื่อติดตั้งหลัง reverse proxy HTTPS เพื่อใช้ origin ที่ถูกต้องและ Secure cookie
+
+ใช้ HTTPS เมื่อเปิดออนไลน์ และรันหนึ่งโปรเซสต่อฐานข้อมูล เนื่องจากเซสชันอยู่ในหน่วยความจำของโปรเซส
+
+## พฤติกรรมหลังปรับปรุง
+
+- ล็อกอินด้วยบัญชีเดิมบนเซิร์ฟเวอร์ ใช้ HttpOnly cookie อายุ 8 ชั่วโมง ไม่มีปุ่ม Sandbox
+- เมื่อล็อกอินสำเร็จครั้งแรก รหัสผ่านเดิมในฐานข้อมูลเปลี่ยนเป็น scrypt hash โดยยังใช้รหัสเดิมล็อกอินได้ ไม่มีการสร้างบัญชีตัวอย่างอัตโนมัติ
+- รีสตาร์ตเซิร์ฟเวอร์แล้วต้องล็อกอินใหม่ การลบบัญชีหรือเปลี่ยนรหัสผ่านยกเลิกเซสชันที่เกี่ยวข้อง
+- การบันทึกตรวจ revision หากมีคนแก้ข้อมูลก่อนจะตอบ 409 และให้โหลดข้อมูลล่าสุด ไม่เขียนทับอัตโนมัติ
+- แคชเบราว์เซอร์เก็บเฉพาะข้อมูลสินค้าที่จำเป็นต่อการพิมพ์ พื้นที่แคชเต็มไม่ขัดขวางการบันทึกหลัก
+- นำเข้า Excel ตรวจทุกแถวด้วยกฎเดียวกับฟอร์ม จับคู่ด้วย SKU เท่านั้น SKU เดิมอัปเดตจากไฟล์ SKU ใหม่สร้างรายการใหม่ และห้าม SKU ซ้ำในไฟล์
+- แยกค่า 0 ออกจากช่องว่าง แจ้งข้อผิดพลาดรายแถวเมื่อตัวเลขไม่ถูกต้อง
+- เซิร์ฟเวอร์ออกเลขเอกสารและเก็บลำดับถาวร ไม่ย้อนกลับเมื่อลบ พร้อมตรวจยอด ส่วนลด เจ้าของ และสถานะ
+- แบรนด์หรือหมวดหมู่ที่มีสินค้าใช้ต้องย้ายสินค้าไปชื่ออื่นก่อนลบ การเปลี่ยนชื่อปรับสินค้าด้วยในธุรกรรมเดียว
+- ลิงก์ Base64 เดิมใช้ยืนยันเอกสารไม่ได้ ต้องสร้างลิงก์ใหม่จากเอกสารที่อนุมัติ ลิงก์ใหม่มีอายุไม่เกิน 7 วัน และใช้ไม่ได้เมื่อเอกสารถูกแก้ไข ยกเลิก หมดอายุ หรือลบ
+- การตอบรับผ่านลิงก์บันทึกบนเซิร์ฟเวอร์และแสดงเวลาในหน้าเอกสาร ไม่ส่งอีเมลอัตโนมัติ
+
+## การทดสอบและข้อมูลเดิม
+
+`npm test` ใช้ฐานข้อมูลจำลองในโฟลเดอร์ชั่วคราว ครอบคลุม API, สิทธิ์, revision, Excel, ยอดและเลขเอกสาร, ลิงก์ และการเริ่ม Vite/production โดยไม่เขียนฐานข้อมูลจริง
+
+สำรอง `ข้อมูล/db.json` ก่อนนำรุ่นใหม่ไปใช้จริง การบันทึกใช้ไฟล์ชั่วคราวและเปลี่ยนชื่อแบบ atomic พร้อมล็อกป้องกันการเขียนพร้อมกัน ห้ามแชร์ไฟล์ฐานข้อมูลผ่าน network filesystem หลายเครื่อง

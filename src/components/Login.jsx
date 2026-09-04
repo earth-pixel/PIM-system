@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
-export default function Login({ onLogin, users }) {
+export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -11,9 +11,6 @@ export default function Login({ onLogin, users }) {
   const [capsLockActive, setCapsLockActive] = useState(false);
   const passwordInputRef = useRef(null);
 
-
-
-  // Mouse Parallax Position for floating circles
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
 
   const handleMouseMove = (e) => {
@@ -36,7 +33,7 @@ export default function Login({ onLogin, users }) {
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setIsShaking(false);
@@ -49,21 +46,14 @@ export default function Login({ onLogin, users }) {
 
     setIsLoading(true);
 
-    // Simulate server response delay for realistic UX/UI feedback (as if checking backend hash)
-    setTimeout(() => {
-      const matchedUser = users.find(
-        u => u.username.toLowerCase() === username.trim().toLowerCase() && u.password === password
-      );
-
+    try {
+      await onLogin(username.trim(), password);
+    } catch (error) {
+      setErrorMsg(error.message);
+      setIsShaking(true);
+    } finally {
       setIsLoading(false);
-
-      if (matchedUser) {
-        onLogin(matchedUser);
-      } else {
-        setErrorMsg('ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง');
-        setIsShaking(true);
-      }
-    }, 900);
+    }
   };
 
   // Reset shaking after animation finished
@@ -80,44 +70,43 @@ export default function Login({ onLogin, users }) {
     <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7] font-sans p-4 sm:p-6 overflow-hidden select-none relative">
 
       {/* Subtle outer decorative background elements */}
-      <div className="absolute top-[5%] left-[5%] w-[320px] h-[320px] rounded-full bg-zinc-200/50 blur-[90px] pointer-events-none" />
-      <div className="absolute bottom-[5%] right-[5%] w-[380px] h-[380px] rounded-full bg-zinc-300/30 blur-[100px] pointer-events-none" />
+      <div className="absolute top-[5%] left-[5%] w-[420px] h-[420px] rounded-full bg-zinc-200/60 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[5%] right-[5%] w-[480px] h-[480px] rounded-full bg-zinc-300/40 blur-[120px] pointer-events-none" />
 
       {/* Main Contained Card (Split Layout) */}
-      <div className="w-full max-w-[920px] min-h-[560px] md:h-[580px] bg-white rounded-3xl border border-[#d2d2d7]/50 shadow-[0_25px_60px_rgba(0,0,0,0.06)] overflow-hidden grid grid-cols-1 md:grid-cols-12 relative z-10">
+      <div className="w-full max-w-[1040px] lg:max-w-[1120px] min-h-[580px] md:min-h-[620px] lg:h-[650px] bg-white rounded-3xl border border-[#d2d2d7]/50 shadow-[0_30px_70px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden grid grid-cols-1 md:grid-cols-12 relative z-10">
 
         {/* ─────────────────────────────────────────────────────────────
             LEFT PANEL: Clean Minimalist Login Form (White)
             ───────────────────────────────────────────────────────────── */}
-        <div className="col-span-12 md:col-span-6 lg:col-span-5 flex flex-col justify-between p-8 sm:p-10 md:p-12 bg-white relative z-10">
-
+        <div className="col-span-12 md:col-span-6 lg:col-span-5 flex flex-col justify-between p-8 sm:p-10 md:p-12 lg:p-14 bg-white relative z-10">
 
           {/* Form Container */}
-          <div className={`w-full max-w-[310px] mx-auto my-auto space-y-6 transition-all duration-300 ${isShaking ? 'animate-shake' : ''
+          <div className={`w-full max-w-[340px] sm:max-w-[370px] mx-auto my-auto space-y-7 transition-all duration-300 ${isShaking ? 'animate-shake' : ''
             }`}>
 
             {/* Logo and Titles */}
             <div className="space-y-4 text-center flex flex-col items-center">
-              <div className="w-10 h-10 flex items-center justify-center text-zinc-900">
-                <svg viewBox="0 0 80 90" className="w-7 h-8 fill-current" xmlns="http://www.w3.org/2000/svg">
+              <div className="w-12 h-12 flex items-center justify-center text-zinc-900 transition-transform duration-300 hover:scale-105">
+                <svg viewBox="0 0 80 90" className="w-8 h-9 fill-current" xmlns="http://www.w3.org/2000/svg">
                   <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
                   <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
                   <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
                 </svg>
               </div>
 
-              <div className="space-y-1">
-                <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
+              <div className="space-y-1.5">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">
                   ลงชื่อเข้าใช้งาน
                 </h1>
-                <p className="text-xs text-zinc-500 font-medium leading-relaxed max-w-[300px] mx-auto">
-                  ระบบบันทึกคลังข้อมูลสินค้า บริษัท พันธ์วาดี จำกัด
+                <p className="text-xs sm:text-sm text-zinc-500 font-medium leading-relaxed max-w-[320px] mx-auto">
+                  ระบบจัดการข้อมูลสินค้า บริษัท พันธ์วาดี จำกัด
                 </p>
               </div>
             </div>
 
             {/* Login Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4.5">
               {errorMsg && (
                 <div className="p-3 text-xs bg-red-50/80 text-red-650 border border-red-500/20 rounded-xl flex items-center gap-2 animate-fade-in">
                   <AlertCircle className="w-4.5 h-4.5 shrink-0 text-red-500" />
@@ -126,10 +115,10 @@ export default function Login({ onLogin, users }) {
               )}
 
               {/* Inputs */}
-              <div className="space-y-3">
+              <div className="space-y-3.5">
                 {/* Username Input */}
                 <div className="relative group">
-                  <User className="w-4.5 h-4.5 text-zinc-400 absolute left-3 top-3.5 group-focus-within:text-zinc-900 transition-colors" />
+                  <User className="w-4.5 h-4.5 text-zinc-400 absolute left-3.5 top-3.5 group-focus-within:text-zinc-900 transition-colors" />
                   <input
                     type="text"
                     placeholder="ชื่อผู้ใช้งาน (Username)"
@@ -146,14 +135,14 @@ export default function Login({ onLogin, users }) {
                     onFocus={checkCapsLock}
                     disabled={isLoading}
                     autoComplete="off"
-                    className="w-full pl-9.5 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
+                    className="w-full pl-10 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs sm:text-sm text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
                   />
                 </div>
 
                 {/* Password Input */}
                 <div className="space-y-1">
                   <div className="relative group">
-                    <Lock className="w-4.5 h-4.5 text-zinc-400 absolute left-3 top-3.5 group-focus-within:text-zinc-900 transition-colors" />
+                    <Lock className="w-4.5 h-4.5 text-zinc-400 absolute left-3.5 top-3.5 group-focus-within:text-zinc-900 transition-colors" />
                     <input
                       ref={passwordInputRef}
                       type={showPassword ? "text" : "password"}
@@ -165,15 +154,15 @@ export default function Login({ onLogin, users }) {
                       onFocus={checkCapsLock}
                       disabled={isLoading}
                       autoComplete="new-password"
-                      className="w-full pl-9.5 pr-11 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
+                      className="w-full pl-10 pr-11 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs sm:text-sm text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(prev => !prev)}
                       disabled={isLoading}
-                      className="absolute right-3 top-3.5 text-zinc-400 hover:text-zinc-900 transition-colors focus:outline-hidden p-0.5 rounded-lg cursor-pointer"
+                      className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-zinc-900 transition-colors focus:outline-hidden p-0.5 rounded-lg cursor-pointer"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
                     </button>
                   </div>
 
@@ -191,11 +180,11 @@ export default function Login({ onLogin, users }) {
               <button
                 type="submit"
                 disabled={isLoading}
-                className="w-full py-3 bg-gradient-to-r from-blue-600 to-[#0071e3] hover:from-blue-700 hover:to-[#0077ed] text-white rounded-xl text-xs font-semibold tracking-wide transition-all duration-200 cursor-pointer hover:shadow-[0_8px_20px_rgba(0, 113, 227,0.25)] active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none flex items-center justify-center gap-2 shadow-sm"
+                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-[#0071e3] hover:from-blue-700 hover:to-[#0077ed] text-white rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 cursor-pointer hover:shadow-[0_8px_20px_rgba(0, 113, 227,0.25)] active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none flex items-center justify-center gap-2 shadow-sm"
               >
                 {isLoading ? (
                   <>
-                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4.5 w-4.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -207,12 +196,10 @@ export default function Login({ onLogin, users }) {
               </button>
             </form>
 
-
-
           </div>
 
           {/* Footer */}
-          <div className="text-[9px] text-zinc-400 font-semibold tracking-wide">
+          <div className="text-[10px] text-zinc-400 font-semibold tracking-wide text-center sm:text-left">
             © {new Date().getFullYear()} PHANVADEE CO., LTD.
           </div>
 
@@ -288,20 +275,20 @@ export default function Login({ onLogin, users }) {
           <div className="relative z-10 text-center animate-fade-in flex flex-col items-center select-none">
 
             {/* SVG Logo Mark (Large) */}
-            <svg viewBox="0 0 80 90" className="w-16 h-18 fill-current text-white/95 drop-shadow-[0_4px_12px_rgba(255,255,255,0.08)] transition-transform duration-550 hover:scale-105" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 80 90" className="w-18 h-20 sm:w-20 sm:h-22 fill-current text-white/95 drop-shadow-[0_4px_16px_rgba(255,255,255,0.1)] transition-transform duration-550 hover:scale-105" xmlns="http://www.w3.org/2000/svg">
               <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
               <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
               <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
             </svg>
 
-            <h2 className="text-4xl font-extrabold text-white tracking-[0.18em] uppercase leading-none mt-7 drop-shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+            <h2 className="text-4xl sm:text-[42px] lg:text-5xl font-black text-white tracking-[0.2em] uppercase leading-none mt-8 drop-shadow-[0_2px_12px_rgba(0,0,0,0.4)]">
               PHANVADEE
             </h2>
 
             {/* Soft System Indicator */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-white/[0.03] border border-white/[0.08] backdrop-blur-md mt-12 shadow-[0_4px_20px_rgba(0,0,0,0.15)]">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-              <span className="text-[7.5px] text-zinc-400 font-bold uppercase tracking-[0.22em] whitespace-nowrap">
+            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.1] backdrop-blur-md mt-12 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.7)]" />
+              <span className="text-[8.5px] sm:text-[9.5px] text-zinc-300 font-bold uppercase tracking-[0.24em] whitespace-nowrap">
                 PRODUCT INFORMATION MANAGEMENT SYSTEM
               </span>
             </div>

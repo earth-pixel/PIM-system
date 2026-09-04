@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
-
 export default function BrandManage({ brands, products, onAddBrand, onEditBrand, onDeleteBrand, currentUser }) {
   const [newBrand, setNewBrand]   = useState('');
   const [errorMsg, setErrorMsg]   = useState('');
@@ -14,6 +13,21 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
   const [brandToDelete, setBrandToDelete] = useState(null);
   const [deleteProductCount, setDeleteProductCount] = useState(0);
   const [alertPopup, setAlertPopup] = useState(null);
+
+  const brandProductCounts = useMemo(() => {
+    const counts = {};
+    brands.forEach(b => {
+      counts[b] = 0;
+    });
+    products.forEach(p => {
+      if (counts[p.brand] !== undefined) {
+        counts[p.brand]++;
+      } else {
+        counts[p.brand] = 1;
+      }
+    });
+    return counts;
+  }, [brands, products]);
 
   useEffect(() => {
     if (isModalOpen || isEditModalOpen || brandToDelete || alertPopup) {
@@ -34,7 +48,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
     setIsEditModalOpen(true);
   };
 
-  const handleEditSubmit = (e) => {
+  const handleEditSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -55,12 +69,12 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
       return;
     }
 
+    try { await onEditBrand(targetEditBrand, newName); } catch (error) { setErrorMsg(error.message); return; }
     setIsEditModalOpen(false);
     setAlertPopup({
       type: 'success',
       title: 'แก้ไขแบรนด์สำเร็จ!',
       message: `แก้ไขชื่อแบรนด์สินค้าจาก "${targetEditBrand}" เป็น "${newName}" เรียบร้อยแล้ว!`,
-      action: () => onEditBrand(targetEditBrand, newName)
     });
   };
 
@@ -74,7 +88,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
     setBrandToDelete(brandName);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -90,13 +104,13 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
       return;
     }
 
+    try { await onAddBrand(brandName); } catch (error) { setErrorMsg(error.message); return; }
     setIsModalOpen(false);
     setNewBrand('');
     setAlertPopup({
       type: 'success',
       title: 'เพิ่มแบรนด์สำเร็จ!',
       message: `เพิ่มแบรนด์สินค้า "${brandName}" เรียบร้อยแล้ว!`,
-      action: () => onAddBrand(brandName)
     });
   };
 
@@ -152,7 +166,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
             </thead>
             <tbody className="divide-y divide-[#f0f0f5]">
               {brands.map((brand, index) => {
-                const productCount = products.filter(p => p.brand === brand).length;
+                const productCount = brandProductCounts[brand] || 0;
                 return (
                   <tr
                     key={brand}
@@ -225,7 +239,6 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                 <Plus className="w-5 h-5 rotate-45 animate-fade-in" />
               </button>
             </div>
-            
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-6 space-y-4 min-h-0">
                 {errorMsg && (
@@ -358,14 +371,14 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                 ยกเลิก
               </button>
               <button type="button"
-                onClick={() => {
+                onClick={async () => {
                   const deletedName = brandToDelete;
+                  try { await onDeleteBrand(deletedName); } catch (error) { setAlertPopup({ type: 'error', title: 'ลบไม่สำเร็จ', message: error.message }); return; }
                   setBrandToDelete(null);
                   setAlertPopup({
                     type: 'success',
                     title: 'ลบแบรนด์สินค้าสำเร็จ!',
                     message: `ลบข้อมูลแบรนด์สินค้า "${deletedName}" ออกจากระบบเรียบร้อยแล้ว!`,
-                    action: () => onDeleteBrand(deletedName)
                   });
                 }}
                 className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors cursor-pointer"
@@ -382,7 +395,6 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
       {alertPopup && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs animate-fade-in no-print">
           <div onClick={() => {
-            if (alertPopup.action) alertPopup.action();
             setAlertPopup(null);
           }} className="absolute inset-0" />
           <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-xs w-full p-6 shadow-xl space-y-4 z-10 animate-scale-in text-[#1d1d1f] text-center">
@@ -404,7 +416,6 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
             <div className="pt-2 text-xs font-semibold">
               <button type="button"
                 onClick={() => {
-                  if (alertPopup.action) alertPopup.action();
                   setAlertPopup(null);
                 }}
                 className={`w-full py-2.5 rounded-full text-white transition-colors cursor-pointer shadow-xs ${

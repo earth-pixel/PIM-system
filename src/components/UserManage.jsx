@@ -1,12 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { UserPlus, Shield, Lock, Plus, Check, AlertCircle, Search } from 'lucide-react';
+import { UserPlus, Shield, Lock, Plus, Check, AlertCircle, Search, Eye, EyeOff } from 'lucide-react';
 
 export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUser, currentUser }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [role, setRole] = useState('user');
+  const [showPassword, setShowPassword] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [alertPopup, setAlertPopup] = useState(null);
@@ -19,17 +20,21 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   const [selectedRole, setSelectedRole] = useState('All');
   const [hoveredRow, setHoveredRow] = useState(null);
 
-  const isOnlyAdmin = editingUser && editingUser.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
+  const isOnlyAdmin = useMemo(() => {
+    return editingUser && editingUser.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
+  }, [editingUser, users]);
 
-  const filteredUsers = users
-    .filter(u => !(currentUser.role === 'manager' && u.role === 'admin'))
-    .filter(u => {
-      const matchesSearch =
-        u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesRole = selectedRole === 'All' || u.role === selectedRole;
-      return matchesSearch && matchesRole;
-    });
+  const filteredUsers = useMemo(() => {
+    return users
+      .filter(u => !(currentUser.role === 'manager' && u.role === 'admin'))
+      .filter(u => {
+        const matchesSearch =
+          u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (u.name && u.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesRole = selectedRole === 'All' || u.role === selectedRole;
+        return matchesSearch && matchesRole;
+      });
+  }, [users, currentUser.role, searchQuery, selectedRole]);
 
   useEffect(() => {
     if (isModalOpen || confirmDeleteUser || alertPopup) {
@@ -67,23 +72,23 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   const handleStartEdit = (u) => {
     setEditingUser(u);
     setUsername(u.username);
-    setPassword(u.password);
+    setPassword('');
     setName(u.name);
     setRole(u.role);
     setErrorMsg('');
     setIsModalOpen(true);
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (confirmDeleteUser) {
       const deletedName = confirmDeleteUser.name || confirmDeleteUser.username;
       const targetUsername = confirmDeleteUser.username;
+      try { await onDeleteUser(targetUsername); } catch (error) { setAlertPopup({ type: 'error', title: 'ลบไม่สำเร็จ', message: error.message }); return; }
       setConfirmDeleteUser(null);
       setAlertPopup({
         type: 'success',
         title: 'ลบผู้ใช้งานสำเร็จ!',
         message: `ลบข้อมูลผู้ใช้งาน "${deletedName}" ออกจากระบบเรียบร้อยแล้ว!`,
-        action: () => onDeleteUser(targetUsername)
       });
     }
   };
@@ -109,18 +114,30 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
     return false;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
-    if (!username.trim() || !password.trim() || !name.trim()) {
+    if (!username.trim() || (!editingUser && !password.trim()) || !name.trim()) {
       setErrorMsg('กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง');
       return;
     }
 
+    if (password && (password.length < 8 || password.length > 256)) { setErrorMsg('รหัสผ่านใหม่ต้องมี 8–256 ตัวอักษร'); return; }
     const cleanUsername = username.trim().toLowerCase();
 
     if (editingUser) {
+      const cleanUsername = username.trim().toLowerCase();
+
+      // ตรวจ username ซ้ำ (ยกเว้นตัวเอง)
+      const duplicateUser = users.find(
+        (u) => u.username === cleanUsername && u.username !== editingUser.username
+      );
+      if (duplicateUser) {
+        setErrorMsg(`ชื่อผู้ใช้ (Username) "${cleanUsername}" ถูกใช้งานแล้ว`);
+        return;
+      }
+
       if (editingUser.role === 'admin' && role !== 'admin' && users.filter(u => u.role === 'admin').length === 1) {
         setErrorMsg('ไม่สามารถเปลี่ยนสิทธิ์ได้ เนื่องจากต้องมีบัญชี Admin อย่างน้อย 1 บัญชีในระบบ');
         return;
@@ -128,18 +145,19 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
       const updatedUser = {
         ...editingUser,
+        username: cleanUsername,
         password: password.trim(),
         name: name.trim(),
         role: currentUser.role === 'admin' ? role : editingUser.role,
       };
 
+      try { await onUpdateUser(updatedUser, editingUser.username); } catch (error) { setErrorMsg(error.message); return; }
       setIsModalOpen(false);
       setEditingUser(null);
       setAlertPopup({
         type: 'success',
         title: 'แก้ไขผู้ใช้งานสำเร็จ!',
         message: `แก้ไขข้อมูลผู้ใช้งาน "${updatedUser.name}" เรียบร้อยแล้ว!`,
-        action: () => onUpdateUser(updatedUser)
       });
     } else {
       const exists = users.some(u => u.username === cleanUsername);
@@ -158,6 +176,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
         createdAt: new Date().toLocaleDateString('sv-SE'),
       };
 
+      try { await onAddUser(newUser); } catch (error) { setErrorMsg(error.message); return; }
       setIsModalOpen(false);
       setUsername('');
       setPassword('');
@@ -167,7 +186,6 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
         type: 'success',
         title: 'ลงทะเบียนสำเร็จ!',
         message: `ลงทะเบียนผู้ใช้งาน "${newUser.name}" เรียบร้อยแล้ว!`,
-        action: () => onAddUser(newUser)
       });
     }
   };
@@ -355,15 +373,13 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                 {/* Username */}
                 <div>
                   <label className="form-label">
-                    ชื่อไอดีเข้าระบบ (Username) <span className="text-xs font-semibold text-zinc-650 ml-1">
-                      (เช่น somchai_pim)</span> <span className="text-red-500">*</span>
+                    ชื่อไอดีเข้าระบบ (Username) <span className="text-xs font-semibold text-zinc-650 ml-1"></span> <span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className={`form-input ${editingUser ? '!bg-zinc-300 text-zinc-650 cursor-not-allowed border-[#a1a1a6] font-semibold' : ''}`}
-                    disabled={!!editingUser}
+                    className="form-input"
                     autoFocus={!editingUser}
                   />
                 </div>
@@ -371,20 +387,30 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                 {/* Password */}
                 <div>
                   <label className="form-label">
-                    รหัสผ่านเข้าระบบ (Password) <span className="text-xs font-semibold text-zinc-650 ml-1">(ระบุรหัสผ่าน...)</span> <span className="text-red-500">*</span>
+                    รหัสผ่านเข้าระบบ (Password) <span className="text-xs font-semibold text-zinc-650 ml-1">{editingUser ? '(เว้นว่างเพื่อใช้รหัสผ่านเดิม)' : '(อย่างน้อย 8 ตัวอักษร)'}</span> <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="form-input"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className="form-input pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((v) => !v)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+                      tabIndex={-1}
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
                 </div>
 
                 {/* Full name */}
                 <div>
                   <label className="form-label">
-                    ชื่อ-นามสกุลพนักงาน <span className="text-xs font-semibold text-zinc-650 ml-1">(เช่น นายสมบูรณ์ ดีใจ)</span> <span className="text-red-500">*</span>
+                    ชื่อ-นามสกุลพนักงาน <span className="text-xs font-semibold text-zinc-650 ml-1"></span><span className="text-red-500">*</span>
                   </label>
                   <input
                     type="text"
@@ -482,7 +508,6 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
       {alertPopup && createPortal(
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/30 backdrop-blur-xs animate-fade-in no-print">
           <div onClick={() => {
-            if (alertPopup.action) alertPopup.action();
             setAlertPopup(null);
           }} className="absolute inset-0" />
           <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-xs w-full p-6 shadow-xl space-y-4 z-10 animate-scale-in text-[#1d1d1f] text-center">
@@ -504,7 +529,6 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
             <div className="pt-2 text-xs font-semibold">
               <button type="button"
                 onClick={() => {
-                  if (alertPopup.action) alertPopup.action();
                   setAlertPopup(null);
                 }}
                 className={`w-full py-2.5 rounded-full text-white transition-colors cursor-pointer shadow-xs ${alertPopup.type === 'success'

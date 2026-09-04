@@ -408,7 +408,7 @@ export default function QuotationPrint({
           margin: 0,
           filename,
           image: { type: 'png' },
-          html2canvas: { scale: 6, useCORS: true, logging: false, windowWidth: 794 },
+          html2canvas: { scale: 2.5, useCORS: true, logging: false, windowWidth: 794 },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
           pagebreak: { mode: 'css' },
         })
@@ -506,7 +506,7 @@ export default function QuotationPrint({
           margin: 0,
           filename: `${docTitle}.pdf`,
           image: { type: 'png' },
-          html2canvas: { scale: 6, useCORS: true, logging: false, windowWidth: 794 },
+          html2canvas: { scale: 2.5, useCORS: true, logging: false, windowWidth: 794 },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
           pagebreak: { mode: 'css' },
         })
@@ -900,6 +900,7 @@ export default function QuotationPrint({
           )}
         </td>
         <td style={{ padding: '8px 10px', textAlign: 'left' }}>
+
           <div style={{ fontWeight: 'bold', color: '#000' }}>{item.productName}{qtyPart}</div>
           {item.description && (
             <div style={{ color: GRAY, fontSize: '10px', marginTop: 2, whiteSpace: 'pre-line' }}>{item.description}</div>
@@ -1136,66 +1137,66 @@ export default function QuotationPrint({
       {(!isAutoOpen && isDownloading) && (
         <div
           style={{
-            position: 'fixed',
-            inset: 0,
-            zIndex: 99999,
-            background: 'rgb(15, 23, 42)',  /* ทึบ 100% — ไม่เห็นเอกสารด้านหลังเลย */
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
+              position: 'fixed',
+              inset: 0,
+              zIndex: 99999,
+              background: 'rgb(15, 23, 42)',  /* ทึบ 100% — ไม่เห็นเอกสารด้านหลังเลย */
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#fff',
+              fontFamily: "'Sarabun', sans-serif",
+              gap: 16
+            }}
+          >
+            <div
+              style={{
+                width: 40,
+                height: 40,
+                border: '4px solid rgba(255, 255, 255, 0.1)',
+                borderTop: '4px solid #0071e3',
+                borderRadius: '50%',
+                animation: 'spin 1s linear infinite'
+              }}
+            />
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
+            <div style={{ fontWeight: 700, fontSize: 16 }}>กำลังเตรียมไฟล์ PDF...</div>
+            <div style={{ fontSize: 12, color: '#94a3b8' }}>กรุณารอสักครู่ ระบบกำลังจัดทำหน้าเอกสาร A4</div>
+          </div>
+        )}
+
+        {/* ── Toolbar ── */}
+        <div
+          className="no-print"
+          style={{
+            position: 'sticky', top: 0, zIndex: 10,
+            height: '60px',
+            background: 'rgba(15, 23, 42, 0.88)',
+            backdropFilter: 'blur(12px)',
             color: '#fff',
-            fontFamily: "'Sarabun', sans-serif",
-            gap: 16
+            padding: '0 24px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
           }}
         >
-          <div
-            style={{
-              width: 40,
-              height: 40,
-              border: '4px solid rgba(255, 255, 255, 0.1)',
-              borderTop: '4px solid #0071e3',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }}
-          />
-          <style>{`
-            @keyframes spin {
-              0% { transform: rotate(0deg); }
-              100% { transform: rotate(360deg); }
-            }
-          `}</style>
-          <div style={{ fontWeight: 700, fontSize: 16 }}>กำลังเตรียมไฟล์ PDF...</div>
-          <div style={{ fontSize: 12, color: '#94a3b8' }}>กรุณารอสักครู่ ระบบกำลังจัดทำหน้าเอกสาร A4</div>
-        </div>
-      )}
-
-      {/* ── Toolbar ── */}
-      <div
-        className="no-print"
-        style={{
-          position: 'sticky', top: 0, zIndex: 10,
-          height: '60px',
-          background: 'rgba(15, 23, 42, 0.88)',
-          backdropFilter: 'blur(12px)',
-          color: '#fff',
-          padding: '0 24px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff',
-              borderRadius: 8, padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-              transition: 'background 0.2s, transform 0.1s',
-            }}
-            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            <button
+              onClick={onClose}
+              style={{
+                background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff',
+                borderRadius: 8, padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+                transition: 'background 0.2s, transform 0.1s',
+              }}
+              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+              onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
             onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             <X size={18} />

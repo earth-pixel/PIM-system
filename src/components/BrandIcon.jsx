@@ -31,7 +31,7 @@ export const BrandIcon = ({ className = "w-4 h-4", ...props }) => {
           </text>
         </mask>
       </defs>
-
+      
       {/* 16-point starburst rosette (forced fill="none") */}
       <path 
         fill="none" 

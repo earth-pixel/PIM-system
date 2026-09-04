@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, Trash2, Printer, Clock, ArrowRight, Check, AlertCircle, X, Info } from 'lucide-react';
 import MobileDownloadModal from './MobileDownloadModal';
@@ -18,37 +18,38 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
   const [endDate, setEndDate] = useState('');
   const [hoveredRow, setHoveredRow] = useState(null);
 
-  const filteredLogs = activityLog.filter(log => {
-    const matchesSearch = log.action.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          log.userName.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = selectedRole === 'All' || log.userRole === selectedRole;
-    
-    let matchesAction = true;
-    if (selectedActionType !== 'All') {
-      if (selectedActionType === 'add') matchesAction = log.action.includes('เพิ่ม');
-      else if (selectedActionType === 'edit') matchesAction = log.action.includes('แก้ไข') || log.action.includes('เปลี่ยน');
-      else if (selectedActionType === 'delete') matchesAction = log.action.includes('ลบ');
-      else if (selectedActionType === 'clear') matchesAction = log.action.includes('ล้าง');
-      else if (selectedActionType === 'print') matchesAction = log.action.includes('พิมพ์') || log.action.includes('ดาวน์โหลด') || log.action.includes('นำออก');
-    }
-
-    let matchesDate = true;
-    if (startDate || endDate) {
-      const logDate = new Date(log.timestamp);
-      if (startDate) {
-        const start = new Date(startDate);
-        start.setHours(0, 0, 0, 0);
-        if (logDate < start) matchesDate = false;
+  const filteredLogs = useMemo(() => {
+    return activityLog.filter(log => {
+      const matchesSearch = log.action.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                            log.userName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesRole = selectedRole === 'All' || log.userRole === selectedRole;
+      
+      let matchesAction = true;
+      if (selectedActionType !== 'All') {
+        if (selectedActionType === 'add') matchesAction = log.action.includes('เพิ่ม');
+        else if (selectedActionType === 'edit') matchesAction = log.action.includes('แก้ไข') || log.action.includes('เปลี่ยน');
+        else if (selectedActionType === 'delete') matchesAction = log.action.includes('ลบ');
+        else if (selectedActionType === 'print') matchesAction = log.action.includes('พิมพ์') || log.action.includes('ดาวน์โหลด') || log.action.includes('นำออก');
       }
-      if (endDate) {
-        const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999);
-        if (logDate > end) matchesDate = false;
-      }
-    }
 
-    return matchesSearch && matchesRole && matchesAction && matchesDate;
-  });
+      let matchesDate = true;
+      if (startDate || endDate) {
+        const logDate = new Date(log.timestamp);
+        if (startDate) {
+          const start = new Date(startDate);
+          start.setHours(0, 0, 0, 0);
+          if (logDate < start) matchesDate = false;
+        }
+        if (endDate) {
+          const end = new Date(endDate);
+          end.setHours(23, 59, 59, 999);
+          if (logDate > end) matchesDate = false;
+        }
+      }
+
+      return matchesSearch && matchesRole && matchesAction && matchesDate;
+    });
+  }, [activityLog, searchQuery, selectedRole, selectedActionType, startDate, endDate]);
 
   const handleToggleSelectLog = (logId) => {
     setSelectedLogIds(prev => {
@@ -129,15 +130,24 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
       `}</style>
       
       {/* Printable Sheet Header */}
-      <div className="hidden print-only text-center border-b pb-4 mb-4 space-y-1">
-        <h2 className="text-lg font-bold text-black uppercase tracking-wider">
-          {isPrintingSelected 
-            ? 'รายงานประวัติการดำเนินงานในระบบ (PIM) - เฉพาะรายการที่เลือก'
-            : 'รายงานประวัติการดำเนินงานในระบบ (PIM)'}
-        </h2>
-        <p className="text-xs text-zinc-550">
-          ข้อมูล ณ วันที่: {new Date().toLocaleString('th-TH')}
-        </p>
+      <div className="hidden print-only border-b pb-4 mb-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Logo" className="h-10 w-auto object-contain" />
+            <div className="text-left">
+              <h3 className="text-sm font-black text-black">บริษัท พันธ์วาดี จำกัด</h3>
+              <p className="text-[10px] text-zinc-500">Product Information Management System</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <h2 className="text-base font-bold text-black uppercase tracking-wide">
+              {isPrintingSelected 
+                ? 'ประวัติการดำเนินงาน (เฉพาะที่เลือก)'
+                : 'ประวัติการดำเนินงานในระบบ'}
+            </h2>
+            <p className="text-[10px] text-zinc-400">ข้อมูล ณ วันที่: {new Date().toLocaleString('th-TH')}</p>
+          </div>
+        </div>
       </div>
 
       {/* Page Header */}
@@ -203,25 +213,38 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
         {/* Date Filter */}
         <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
           <span className="text-[10px] font-black text-[#555557] uppercase tracking-wide whitespace-nowrap">วันที่:</span>
-          <div className="flex items-center gap-1.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-[#0071e3]/10 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
+          <div className={`flex items-center gap-1.5 bg-[#f5f5f7] border rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-[#0071e3]/10 focus-within:bg-white transition-all ${
+            startDate && endDate && startDate > endDate
+              ? 'border-red-400 ring-2 ring-red-200'
+              : 'border-[#d2d2d7] focus-within:border-[#0071e3]'
+          }`}>
             <span className="text-[9px] font-black text-zinc-500 select-none uppercase">เริ่มต้น</span>
             <input
               type="date"
               value={startDate}
+              max={endDate || undefined}
               onChange={(e) => setStartDate(e.target.value)}
               className="bg-transparent border-none text-xs focus:outline-none cursor-pointer font-bold p-0 text-[#1d1d1f] w-28 sm:w-auto"
             />
           </div>
           <span className="text-xs text-[#555557] font-semibold">-</span>
-          <div className="flex items-center gap-1.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-[#0071e3]/10 focus-within:border-[#0071e3] focus-within:bg-white transition-all">
+          <div className={`flex items-center gap-1.5 bg-[#f5f5f7] border rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-[#0071e3]/10 focus-within:bg-white transition-all ${
+            startDate && endDate && startDate > endDate
+              ? 'border-red-400 ring-2 ring-red-200'
+              : 'border-[#d2d2d7] focus-within:border-[#0071e3]'
+          }`}>
             <span className="text-[9px] font-black text-zinc-500 select-none uppercase">สิ้นสุด</span>
             <input
               type="date"
               value={endDate}
+              min={startDate || undefined}
               onChange={(e) => setEndDate(e.target.value)}
               className="bg-transparent border-none text-xs focus:outline-none cursor-pointer font-bold p-0 text-[#1d1d1f] w-28 sm:w-auto"
             />
           </div>
+          {startDate && endDate && startDate > endDate && (
+            <span className="text-[10px] font-bold text-red-500 whitespace-nowrap">⚠️ วันที่ไม่ถูกต้อง</span>
+          )}
           {(startDate || endDate) && (
             <button type="button"
               onClick={() => {
@@ -304,6 +327,8 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                   onMouseEnter={() => setHoveredRow(log.id)}
                   onMouseLeave={() => setHoveredRow(null)}
                   className={`p-2 sm:p-3.5 transition-all duration-150 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs log-row ${
+                    isSelected ? 'is-selected' : ''
+                  } ${
                     hoveredRow === log.id
                       ? 'bg-gradient-to-r from-[#0071e3]/4 via-[#0071e3]/3 to-transparent'
                       : isSelected
@@ -559,7 +584,6 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
         isOpen={isDownloadGuideOpen} 
         onClose={() => setIsDownloadGuideOpen(false)} 
       />
-
     </div>
   );
 }

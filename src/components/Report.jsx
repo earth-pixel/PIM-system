@@ -1,31 +1,62 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Printer, Download, Search, X, ToggleRight, Package, ToggleLeft } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ProductProposalReport from './ProductProposalReport';
+import QuotationReport from './QuotationReport';
+import ArchiveManage from './ArchiveManage';
 
-export default function Report({ products, brands, categories, addActivityLog }) {
+// All roles can view all documents in reports
+const isOwnDocument = () => true;
+
+
+export default function Report({ products, brands, categories, subcategories = {}, quotations = [], currentUser, addActivityLog, onArchiveDeleteQuotations }) {
+  const [reportType, setReportType] = useState('products');
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [showArchive, setShowArchive] = useState(false);
 
-  const baseFilteredProducts = products.filter(product => {
-    const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-    const q = searchQuery.trim().toLowerCase();
-    const matchesSearch = !q ||
-      (product.name || '').toLowerCase().includes(q) ||
-      (product.code || '').toLowerCase().includes(q);
-    return matchesBrand && matchesCategory && matchesSearch;
-  });
+  const isAdmin = currentUser?.role === 'admin';
 
-  const filteredProducts = baseFilteredProducts.filter(product => {
-    return selectedStatus === 'All' || product.status === selectedStatus;
-  });
+  // Counts for tabs
+  const productsCount = products.length;
+  const quotationsCount = useMemo(() => {
+    return quotations.filter(q => q.documentType !== 'product_proposal' && isOwnDocument(q, currentUser)).length;
+  }, [quotations, currentUser]);
+  const proposalsCount = useMemo(() => {
+    return quotations.filter(q => q.documentType === 'product_proposal' && isOwnDocument(q, currentUser)).length;
+  }, [quotations, currentUser]);
 
-  const activeCount = baseFilteredProducts.filter(p => p.status === 'Active').length;
-  const inactiveCount = baseFilteredProducts.filter(p => p.status !== 'Active').length;
+  const baseFilteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
+      const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+      const matchesSubCategory = selectedSubCategory === 'All' || product.subCategory === selectedSubCategory;
+      const q = searchQuery.trim().toLowerCase();
+      const matchesSearch = !q ||
+        (product.name || '').toLowerCase().includes(q) ||
+        (product.code || '').toLowerCase().includes(q);
+      return matchesBrand && matchesCategory && matchesSubCategory && matchesSearch;
+    });
+  }, [products, selectedBrand, selectedCategory, selectedSubCategory, searchQuery]);
+
+  const filteredProducts = useMemo(() => {
+    return baseFilteredProducts.filter(product => {
+      return selectedStatus === 'All' || product.status === selectedStatus;
+    });
+  }, [baseFilteredProducts, selectedStatus]);
+
+  const activeCount = useMemo(() => {
+    return baseFilteredProducts.filter(p => p.status === 'Active').length;
+  }, [baseFilteredProducts]);
+
+  const inactiveCount = useMemo(() => {
+    return baseFilteredProducts.filter(p => p.status !== 'Active').length;
+  }, [baseFilteredProducts]);
 
   const handlePrint = () => {
     window.print();
@@ -46,7 +77,7 @@ export default function Report({ products, brands, categories, addActivityLog })
       return dateStr;
     }
   };
-
+  
   const downloadViaRedirect = async (base64Data, filename) => {
     try {
       const response = await fetch('/api/store-download', {
@@ -109,12 +140,12 @@ export default function Report({ products, brands, categories, addActivityLog })
     setIsExporting(true);
     try {
       const headers = [
-        'รหัสสินค้า (SKU)', 'รหัสบาร์โค้ด', 'ชื่อสินค้า', 'แบรนด์', 'หมวดหมู่สินค้า',
+        'รหัสสินค้า (SKU)', 'รหัสบาร์โค้ด', 'ชื่อสินค้า', 'แบรนด์', 'หมวดหมู่สินค้า', 'หมวดหมู่ย่อย',
         'ราคาขายส่ง (บาท)', 'ราคาขายปลีก (บาท)', 'ค่าฝา (บาท)', 'ขนาด', 'น้ำหนัก',
         'หมายเลข อย.', 'หมายเลข มอก.', 'สถานะ', 'วันที่เพิ่มข้อมูล', 'วันที่แก้ไขข้อมูลล่าสุด'
       ];
       const rows = filteredProducts.map(p => [
-        p.code || '', p.barcode || '', p.name || '', p.brand || '', p.category || '',
+        p.code || '', p.barcode || '', p.name || '', p.brand || '', p.category || '', p.subCategory || '',
         Number(p.wholesalePrice || 0), Number(p.retailPrice || 0), Number(p.capFee || 0),
         p.size || '', p.weight || '', p.fdaNumber || '', p.tisiNumber || '',
         p.status === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน',
@@ -133,8 +164,16 @@ export default function Report({ products, brands, categories, addActivityLog })
     }
   };
 
-  return (
-    <div className="space-y-5 animate-fade-in">
+  const reportCounts = {
+    products: productsCount,
+    quotations: quotationsCount,
+    proposals: proposalsCount,
+  };
+
+  const renderProductsContent = () => {
+    return (
+      <div className="space-y-5">
+
       {/* ── PAGE HEADER ───────────────────────────────────── */}
       <div className="no-print flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
@@ -233,7 +272,6 @@ export default function Report({ products, brands, categories, addActivityLog })
               <h3 className="text-4xl font-black text-[#1d1d1f] leading-none tracking-tight tabular-nums">
                 {activeCount.toLocaleString()}
               </h3>
-
             </div>
             <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center group-hover:scale-110 transition-transform">
               <ToggleRight className="w-5 h-5 text-emerald-600" />
@@ -308,11 +346,22 @@ export default function Report({ products, brands, categories, addActivityLog })
 
           <select
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => { setSelectedCategory(e.target.value); setSelectedSubCategory('All'); }}
             className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
           >
-            <option value="All">ทุกหมวดหมู่</option>
+            <option value="All">ทุกหมวดหมู่หลัก</option>
             {categories.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+
+          <select
+            value={selectedSubCategory}
+            onChange={(e) => setSelectedSubCategory(e.target.value)}
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+          >
+            <option value="All">ทุกหมวดหมู่ย่อย</option>
+            {Array.from(new Set(selectedCategory !== 'All' ? (subcategories[selectedCategory] || []) : Object.values(subcategories).flat())).map(s => (
+              <option key={s} value={s}>{s}</option>
+            ))}
           </select>
 
           <select
@@ -324,22 +373,31 @@ export default function Report({ products, brands, categories, addActivityLog })
             <option value="Active">เปิดใช้งาน</option>
             <option value="Inactive">ปิดใช้งาน</option>
           </select>
-
-
         </div>
       </div>
 
       {/* ── Printable Sheet Header ─────────────────────────── */}
-      <div className="hidden print-only text-center border-b pb-6 space-y-2">
-        <h2 className="text-xl font-bold text-black uppercase tracking-wider">รายงานสรุปข้อมูลผลิตภัณฑ์</h2>
-        <h3 className="text-md font-semibold text-zinc-700">บริษัท พันธ์วาดี จำกัด</h3>
-        <p className="text-xs text-zinc-500">
-          เงื่อนไขรายงาน: แบรนด์ [{selectedBrand}] / หมวดหมู่ [{selectedCategory}] / สถานะ [{selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}] • วันที่: {new Date().toLocaleString('th-TH')}
-        </p>
+      <div className="hidden print-only border-b pb-6 mb-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <img src="/logo.png" alt="Logo" className="h-12 w-auto object-contain" />
+            <div className="text-left">
+              <h3 className="text-sm font-black text-black">บริษัท พันธ์วาดี จำกัด</h3>
+              <p className="text-[10px] text-zinc-500">Product Information Management System</p>
+            </div>
+          </div>
+          <div className="text-right">
+            <h2 className="text-lg font-bold text-black uppercase tracking-wide">รายงานสรุปข้อมูลผลิตภัณฑ์</h2>
+            <p className="text-[10px] text-zinc-500 mt-0.5">
+              เงื่อนไข: แบรนด์ [{selectedBrand}] / หมวดหมู่ [{selectedCategory}] / หมวดหมู่ย่อย [{selectedSubCategory}] / สถานะ [{selectedStatus === 'All' ? 'ทั้งหมด' : selectedStatus === 'Active' ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}]
+            </p>
+            <p className="text-[10px] text-zinc-400">วันที่พิมพ์: {new Date().toLocaleString('th-TH')}</p>
+          </div>
+        </div>
       </div>
 
       {/* ── REPORT TABLE ──────────────────────────────────── */}
-      <div className="rounded-2xl border border-[#d2d2d7]/50 bg-white overflow-hidden shadow-xs print-card">
+      <div className="rounded-2xl border border-[#d2d2d7]/50 bg-white overflow-hidden shadow-xs print-card product-report-table">
 
         {/* Table Header Bar */}
         <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] no-print flex items-center justify-between">
@@ -365,6 +423,7 @@ export default function Report({ products, brands, categories, addActivityLog })
                 <th className="p-2 sm:p-3.5 min-w-[150px] sm:min-w-[200px]">ชื่อสินค้า</th>
                 <th className="p-2 sm:p-3.5 min-w-[100px] sm:min-w-[120px]">แบรนด์</th>
                 <th className="p-2 sm:p-3.5 min-w-[100px] sm:min-w-[130px]">หมวดหมู่</th>
+                <th className="p-2 sm:p-3.5 min-w-[100px] sm:min-w-[130px]">หมวดหมู่ย่อย</th>
                 <th className="p-2 sm:p-3.5 text-right min-w-[80px] sm:min-w-[95px]">ราคาส่ง</th>
                 <th className="p-2 sm:p-3.5 text-right min-w-[80px] sm:min-w-[95px]">ราคาปลีก</th>
                 <th className="p-2 sm:p-3.5 text-right min-w-[65px] sm:min-w-[75px]">ค่าฝา</th>
@@ -387,7 +446,7 @@ export default function Report({ products, brands, categories, addActivityLog })
                     {index + 1}
                   </td>
                   <td className="p-2 sm:p-3.5">
-                    <span className="font-mono font-bold text-[#1d1d1f] text-[10px] sm:text-xs bg-[#f5f5f7] px-1.5 py-0.5 rounded-md">
+                    <span className="font-mono text-[10px] font-bold text-zinc-700 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200/80">
                       {p.code}
                     </span>
                   </td>
@@ -396,6 +455,11 @@ export default function Report({ products, brands, categories, addActivityLog })
                   <td className="p-2 sm:p-3.5">
                     <span className="text-[10px] font-semibold text-[#555557] bg-[#f5f5f7] px-2 py-0.5 rounded-lg leading-none inline-block">
                       {p.category}
+                    </span>
+                  </td>
+                  <td className="p-2 sm:p-3.5">
+                    <span className="text-[10px] font-semibold text-[#555557] bg-[#f5f5f7] px-2 py-0.5 rounded-lg leading-none inline-block">
+                      {p.subCategory || '-'}
                     </span>
                   </td>
                   <td className="p-2 sm:p-3.5 text-right font-semibold text-[#555557] tabular-nums">
@@ -436,17 +500,97 @@ export default function Report({ products, brands, categories, addActivityLog })
           </div>
         )}
 
-        {filteredProducts.length > 0 && (
-          <div className="px-4.5 py-3 border-t border-[#f0f0f5] bg-[#fafafa]/50 no-print flex items-center justify-between">
-            <p className="text-[10px] text-[#86868b] font-medium">
-              แสดง {filteredProducts.length.toLocaleString()} รายการ
-            </p>
-            <p className="text-[10px] text-[#86868b] font-medium hidden sm:block">
-              ราคาปลีกสูงสุด ฿{Math.max(...filteredProducts.map(p => p.retailPrice || 0)).toLocaleString()}
-            </p>
-          </div>
+
+      </div>
+    </div>
+  );
+};
+
+  return (
+    <>
+    <div className="space-y-5">
+      {/* ── REPORT TAB NAVIGATION SWITCHER ───────────────── */}
+      <div className="no-print flex flex-wrap items-center gap-1 p-1 bg-[#e8e8ed] rounded-full border border-[#d2d2d7]/50 w-full sm:w-fit shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)]">
+        <button
+          type="button"
+          onClick={() => setReportType('products')}
+          className={`flex-1 sm:flex-initial px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center transform active:scale-95 ${
+            reportType === 'products'
+              ? 'bg-white text-[#0071e3] shadow-sm border border-[#d2d2d7]/10'
+              : 'text-zinc-600 hover:text-zinc-900'
+          }`}
+        >
+          <span>รายงานสินค้า</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setReportType('quotations')}
+          className={`flex-1 sm:flex-initial px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center transform active:scale-95 ${
+            reportType === 'quotations'
+              ? 'bg-white text-[#0071e3] shadow-sm border border-[#d2d2d7]/10'
+              : 'text-zinc-600 hover:text-zinc-900'
+          }`}
+        >
+          <span>รายงานใบเสนอราคา</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setReportType('product-proposals')}
+          className={`flex-1 sm:flex-initial px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer flex items-center justify-center transform active:scale-95 ${
+            reportType === 'product-proposals'
+              ? 'bg-white text-[#0071e3] shadow-sm border border-[#d2d2d7]/10'
+              : 'text-zinc-600 hover:text-zinc-900'
+          }`}
+        >
+          <span>รายงานใบเสนอสินค้า</span>
+        </button>
+      </div>
+
+      <div key={reportType} className="animate-page-transition">
+        {reportType === 'products' && renderProductsContent()}
+        {reportType === 'quotations' && (
+          <QuotationReport
+            quotations={quotations}
+            currentUser={currentUser}
+            addActivityLog={addActivityLog}
+            activeTab={reportType}
+            onTabChange={setReportType}
+            counts={reportCounts}
+            hideSwitcher={true}
+            isAdmin={isAdmin}
+            onArchive={() => setShowArchive(true)}
+          />
+        )}
+        {reportType === 'product-proposals' && (
+          <ProductProposalReport
+            quotations={quotations}
+            currentUser={currentUser}
+            addActivityLog={addActivityLog}
+            activeTab={reportType}
+            onTabChange={setReportType}
+            counts={reportCounts}
+            hideSwitcher={true}
+            isAdmin={isAdmin}
+            onArchive={() => setShowArchive(true)}
+          />
         )}
       </div>
     </div>
+
+    {/* Archive Manage Modal — Admin only */}
+    {isAdmin && showArchive && (
+      <ArchiveManage
+        quotations={quotations}
+        currentUser={currentUser}
+        addActivityLog={addActivityLog}
+        onClose={() => setShowArchive(false)}
+        onDeleted={(updatedQuotations, updatedLog) => {
+          if (onArchiveDeleteQuotations) onArchiveDeleteQuotations(updatedQuotations, updatedLog);
+        }}
+      />
+    )}
+  </>
   );
 }

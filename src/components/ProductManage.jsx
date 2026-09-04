@@ -1,5 +1,6 @@
+import { findHeaderRow, parseNumericCell, validateProduct, normalizeCode } from '../utils/validation';
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import {
   Image as ImageIcon,
@@ -23,13 +24,9 @@ import {
 } from 'lucide-react';
 import { exportShopee, exportLazada, exportTikTok, exportToExcel } from '../utils/exportUtils';
 import {
-  guessBrandFromName,
-  guessCategoryFromName,
   parseWeightToKg
 } from '../utils/marketplaceIO';
 import ExcelJS from 'exceljs';
-
-
 
 const shopeeCols = [
   { label: 'หมวดหมู่สินค้า', value: (p) => p.category || '' },
@@ -172,19 +169,22 @@ export default function ProductManage({
   onSaveProduct,
   brands,
   categories,
+  subcategories = {},
   currentUser,
   products = [],
   onDeleteProduct,
   onEditProduct,
   onImportProducts,
   onClearAllProducts = () => { },
-  addActivityLog
+  addActivityLog,
+  onAddSubCategory
 }) {
   const [code, setCode] = useState('');
   const [barcode, setBarcode] = useState('');
   const [name, setName] = useState('');
   const [brand, setBrand] = useState('');
   const [category, setCategory] = useState('');
+  const [subCategory, setSubCategory] = useState('');
   const [wholesalePrice, setWholesalePrice] = useState('');
   const [retailPrice, setRetailPrice] = useState('');
   const [capFee, setCapFee] = useState('');
@@ -232,6 +232,7 @@ export default function ProductManage({
   const [parsedProducts, setParsedProducts] = useState([]);
   const [importLoading, setImportLoading] = useState(false);
   const [importError, setImportError] = useState('');
+  const [importIssues, setImportIssues] = useState([]);
 
   // Custom Excel Import States
   const [customWorkbook, setCustomWorkbook] = useState(null);
@@ -242,8 +243,10 @@ export default function ProductManage({
     code: '',
     barcode: '',
     name: '',
+    image: '',
     brand: '',
     category: '',
+    subCategory: '',
     wholesalePrice: '',
     retailPrice: '',
     capFee: '',
@@ -256,12 +259,14 @@ export default function ProductManage({
     tisiNumber: '',
     packageLength: '',
     packageWidth: '',
-    packageHeight: ''
+    packageHeight: '',
+    status: ''
   });
 
   const getCellValue = (cell) => {
     if (!cell) return '';
     if (cell.value && typeof cell.value === 'object') {
+      if (cell.value.hyperlink) return cell.value.hyperlink;
       if (cell.value.result !== undefined) {
         return String(cell.value.result);
       }
@@ -283,13 +288,7 @@ export default function ProductManage({
       return;
     }
 
-    // Find first row containing headers (usually row 1)
-    let headerRow = null;
-    worksheet.eachRow((row) => {
-      if (!headerRow && row.values.some(v => v !== null && v !== '')) {
-        headerRow = row;
-      }
-    });
+    const headerRow = findHeaderRow(worksheet, getCellValue);
 
     if (!headerRow) {
       setSheetHeaders([]);
@@ -299,10 +298,13 @@ export default function ProductManage({
 
     const headersList = [];
     headerRow.eachCell((cell, colNumber) => {
-      headersList.push({
-        colNumber,
-        name: String(cell.value || '').trim()
-      });
+      const cellText = getCellValue(cell).trim();
+      if (cellText) {
+        headersList.push({
+          colNumber,
+          name: cellText
+        });
+      }
     });
 
     setSheetHeaders(headersList);
@@ -312,6 +314,7 @@ export default function ProductManage({
       code: '',
       barcode: '',
       name: '',
+      image: '',
       brand: '',
       category: '',
       wholesalePrice: '',
@@ -326,7 +329,8 @@ export default function ProductManage({
       tisiNumber: '',
       packageLength: '',
       packageWidth: '',
-      packageHeight: ''
+      packageHeight: '',
+      status: ''
     };
 
     headersList.forEach(h => {
@@ -338,19 +342,25 @@ export default function ProductManage({
       if (!newMapping.barcode && (nameLower.includes('barcode') || nameLower.includes('บาร์โค้ด') || nameLower.includes('รหัสบาร์'))) {
         newMapping.barcode = h.name;
       }
-      if (!newMapping.name && (nameLower === 'name' || nameLower === 'title' || nameLower.includes('ชื่อ') || nameLower.includes('รายการ') || (nameLower.includes('สินค้า') && !nameLower.includes('รหัส') && !nameLower.includes('sku')))) {
+      if (!newMapping.name && (nameLower === 'name' || nameLower === 'title' || nameLower.includes('ชื่อ') || nameLower.includes('รายการ') || (nameLower.includes('สินค้า') && !nameLower.includes('รหัส') && !nameLower.includes('sku') && !nameLower.includes('รูป')))) {
         newMapping.name = h.name;
+      }
+      if (!newMapping.image && (nameLower.includes('image') || nameLower.includes('รูป') || nameLower.includes('ภาพ') || nameLower.includes('รูปภาพ') || nameLower.includes('รูปภาพสินค้า') || nameLower.includes('url'))) {
+        newMapping.image = h.name;
       }
       if (!newMapping.brand && (nameLower === 'brand' || nameLower.includes('แบรนด์') || nameLower.includes('ยี่ห้อ'))) {
         newMapping.brand = h.name;
       }
-      if (!newMapping.category && (nameLower === 'category' || nameLower.includes('หมวดหมู่') || nameLower.includes('ประเภท') || nameLower.includes('กลุ่มสินค้า'))) {
+      if (!newMapping.subCategory && (nameLower.includes('subcategory') || nameLower.includes('หมวดหมู่ย่อย') || nameLower.includes('หมวดย่อย') || nameLower.includes('ย่อย'))) {
+        newMapping.subCategory = h.name;
+      }
+      if (!newMapping.category && (nameLower === 'category' || (nameLower.includes('หมวด') && !nameLower.includes('ย่อย')) || nameLower.includes('ประเภท') || nameLower.includes('กลุ่มสินค้า'))) {
         newMapping.category = h.name;
       }
       if (!newMapping.wholesalePrice && (nameLower.includes('wholesale') || nameLower.includes('ราคาส่ง') || nameLower.includes('ส่ง') || nameLower.includes('ราคาขายส่ง'))) {
         newMapping.wholesalePrice = h.name;
       }
-      if (!newMapping.retailPrice && (nameLower.includes('retail') || nameLower === 'price' || nameLower.includes('ปลีก') || nameLower.includes('ขายปลีก') || nameLower.includes('ราคาขายปลีก') || nameLower.includes('ราคาขาย') || nameLower.includes('ราคาปลีก'))) {
+      if (!newMapping.retailPrice && (nameLower.includes('retail') || nameLower === 'price' || nameLower.includes('ปลีก') || nameLower.includes('ขายปลีก') || nameLower.includes('ราคาขายปลีก') || nameLower.includes('ราคาปลีก') || (nameLower.includes('ราคาขาย') && !nameLower.includes('ส่ง')))) {
         newMapping.retailPrice = h.name;
       }
       if (!newMapping.capFee && (nameLower.includes('cap') || nameLower.includes('ฝา') || nameLower.includes('ค่าฝา') || nameLower.includes('ค่าบริการฝา'))) {
@@ -386,6 +396,9 @@ export default function ProductManage({
       if (!newMapping.packageHeight && (nameLower.includes('height') || nameLower.includes('สูง') || nameLower.includes('ความสูงพัสดุ'))) {
         newMapping.packageHeight = h.name;
       }
+      if (!newMapping.status && (nameLower === 'status' || nameLower.includes('สถานะ') || nameLower === 'active' || nameLower.includes('การใช้งาน'))) {
+        newMapping.status = h.name;
+      }
     });
 
     // No fallback for code and name so they stay empty if not matched
@@ -399,6 +412,7 @@ export default function ProductManage({
     if (!file) return;
     setImportLoading(true);
     setImportError('');
+    setImportIssues([]);
     setCustomWorkbook(null);
     setSheetNames([]);
     setSelectedSheetName('');
@@ -435,6 +449,7 @@ export default function ProductManage({
       code: '',
       barcode: '',
       name: '',
+      image: '',
       brand: '',
       category: '',
       wholesalePrice: '',
@@ -449,7 +464,8 @@ export default function ProductManage({
       tisiNumber: '',
       packageLength: '',
       packageWidth: '',
-      packageHeight: ''
+      packageHeight: '',
+      status: ''
     });
   };
 
@@ -463,13 +479,8 @@ export default function ProductManage({
     const worksheet = customWorkbook.getWorksheet(selectedSheetName);
     if (!worksheet) return;
 
-    // Find header row again to skip it
-    let headerRowNumber = 1;
-    worksheet.eachRow((row, rowNumber) => {
-      if (headerRowNumber === 1 && row.values.some(v => v !== null && v !== '')) {
-        headerRowNumber = rowNumber;
-      }
-    });
+    const headerRowNumber = findHeaderRow(worksheet, getCellValue)?.number;
+    if (!headerRowNumber) { setParsedProducts([]); setImportIssues(['ไม่พบหัวตาราง']); return; }
 
     const tempProducts = [];
 
@@ -497,11 +508,12 @@ export default function ProductManage({
       const codeVal = getVal(columnMapping.code);
       const nameVal = getVal(columnMapping.name);
       const barcodeVal = getVal(columnMapping.barcode);
+      const imageVal = getVal(columnMapping.image);
       const brandVal = getVal(columnMapping.brand);
       const categoryVal = getVal(columnMapping.category);
-      const wholesaleVal = Number(getVal(columnMapping.wholesalePrice)) || 0;
-      const retailVal = Number(getVal(columnMapping.retailPrice)) || 0;
-      const capVal = Number(getVal(columnMapping.capFee)) || 0;
+      const wholesaleVal = parseNumericCell(getVal(columnMapping.wholesalePrice));
+      const retailVal = parseNumericCell(getVal(columnMapping.retailPrice));
+      const capVal = parseNumericCell(getVal(columnMapping.capFee));
       const descriptionVal = getVal(columnMapping.description);
       const highlightsVal = getVal(columnMapping.highlights);
       const howToUseVal = getVal(columnMapping.howToUse);
@@ -509,13 +521,13 @@ export default function ProductManage({
       const weightVal = getVal(columnMapping.weight);
       const fdaVal = getVal(columnMapping.fdaNumber);
       const tisiVal = getVal(columnMapping.tisiNumber);
-      const packageLengthVal = Number(getVal(columnMapping.packageLength)) || null;
-      const packageWidthVal = Number(getVal(columnMapping.packageWidth)) || null;
-      const packageHeightVal = Number(getVal(columnMapping.packageHeight)) || null;
+      const packageLengthVal = parseNumericCell(getVal(columnMapping.packageLength));
+      const packageWidthVal = parseNumericCell(getVal(columnMapping.packageWidth));
+      const packageHeightVal = parseNumericCell(getVal(columnMapping.packageHeight));
+      const rawStatusVal = getVal(columnMapping.status);
 
-      const finalName = nameVal || `สินค้าไม่มีชื่อแถวที่ ${rowNumber}`;
-      const finalBrand = brandVal && brandVal !== 'No Brand' && brandVal !== 'ไม่มีแบรนด์'
-        ? brandVal : (guessBrandFromName(finalName) || 'Phanvadee');
+      const finalName = nameVal;
+      const finalBrand = brandVal;
 
       const rawCat = categoryVal || '';
       let resolvedCategory = 'ไม่ระบุ';
@@ -531,15 +543,29 @@ export default function ProductManage({
         }
       }
       if (resolvedCategory === 'ไม่ระบุ' || resolvedCategory === '') {
-        resolvedCategory = guessCategoryFromName(finalName);
+        resolvedCategory = ''; 
+      }
+
+      // Resolve status: accept 'Active'/'Inactive', Thai equivalents, or default to 'Active'
+      let resolvedStatus = 'Active';
+      if (rawStatusVal) {
+        const sl = rawStatusVal.toLowerCase().trim();
+        if (sl === 'inactive' || sl === 'ปิดใช้งาน' || sl === 'ปิด' || sl === 'false' || sl === '0') {
+          resolvedStatus = 'Inactive';
+        } else {
+          resolvedStatus = 'Active';
+        }
       }
 
       tempProducts.push({
-        code: codeVal || `SKU-${rowNumber}`,
+        code: codeVal,
+        _row: rowNumber,
         name: finalName,
         barcode: barcodeVal,
+        image: imageVal,
         brand: finalBrand,
         category: resolvedCategory,
+        subCategory: getVal(columnMapping.subCategory) || '',
         wholesalePrice: wholesaleVal,
         retailPrice: retailVal,
         capFee: capVal,
@@ -553,11 +579,21 @@ export default function ProductManage({
         packageLength: packageLengthVal,
         packageWidth: packageWidthVal,
         packageHeight: packageHeightVal,
-        status: 'Active',
+        status: resolvedStatus,
         _platform: 'custom'
       });
     });
 
+    const seen = new Set();
+    const issues = [];
+    for (const product of tempProducts) {
+      const errors = validateProduct(product);
+      const code = normalizeCode(product.code);
+      if (seen.has(code)) errors.push('SKU ซ้ำในไฟล์');
+      seen.add(code);
+      if (errors.length) issues.push('แถว ' + product._row + ': ' + errors.join(', '));
+    }
+    setImportIssues(issues);
     setParsedProducts(tempProducts);
   }, [columnMapping, selectedSheetName, customWorkbook, sheetHeaders]);
 
@@ -587,7 +623,7 @@ export default function ProductManage({
             <option value="">-- ไม่ระบุ (เว้นว่าง) --</option>
             {sheetHeaders.map(h => (
               <option key={h.colNumber} value={h.name} className="text-black bg-white">
-                {h.name} (คอลัมน์ {h.colNumber})
+                {h.name}
               </option>
             ))}
           </select>
@@ -610,6 +646,7 @@ export default function ProductManage({
   // Filter States
   const [selectedBrand, setSelectedBrand] = useState('All');
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedSubCategory, setSelectedSubCategory] = useState('All');
   const [selectedStatus, setSelectedStatus] = useState('All');
 
   // Product details modal state
@@ -657,7 +694,7 @@ export default function ProductManage({
   }, [drawerProduct, showForm]);
 
   const handleCopyMarketingContent = (product) => {
-    const text = `📦 ข้อมูลสินค้าสำหรับงานขายและการตลาด\n---------------------------------\nชื่อสินค้า: ${product.name}\nรหัสสินค้า (SKU): ${product.code}\nแบรนด์: ${product.brand}\nหมวดหมู่: ${product.category}\nราคาแนะนำ: ${(product.retailPrice || 0).toLocaleString()} บาท\nรายละเอียดสินค้า:\n${product.description || 'ไม่มีรายละเอียดเพิ่มเติม'}\n---------------------------------\n*จัดเก็บโดยระบบ PIM พันธ์วาดี*`;
+    const text = `📦 ข้อมูลสินค้าสำหรับงานขายและการตลาด\n---------------------------------\nชื่อสินค้า: ${product.name}\nรหัสสินค้า (SKU): ${product.code}\nแบรนด์: ${product.brand}\nหมวดหมู่: ${product.category}\nหมวดหมู่ย่อย: ${product.subCategory || '-'}\nราคาแนะนำ: ${(product.retailPrice || 0).toLocaleString()} บาท\nรายละเอียดสินค้า:\n${product.description || 'ไม่มีรายละเอียดเพิ่มเติม'}\n---------------------------------\n*จัดเก็บโดยระบบ PIM พันธ์วาดี*`;
 
     navigator.clipboard.writeText(text).then(() => {
       setCopiedId(product.id);
@@ -672,6 +709,7 @@ export default function ProductManage({
       setQuickAddModal({ isOpen: true, type: 'category', value: '' });
     } else {
       setCategory(val);
+      setSubCategory('');
       if (val) {
         setFormErrors(prev => ({ ...prev, category: false }));
       }
@@ -691,19 +729,27 @@ export default function ProductManage({
     }
   };
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.barcode && product.barcode.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
-    const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-    const matchesStatus = selectedStatus === 'All' || product.status === selectedStatus;
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        product.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (product.barcode && product.barcode.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase()));
+      const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
+      const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+      const matchesSubCategory = selectedSubCategory === 'All' || product.subCategory === selectedSubCategory;
+      const matchesStatus = selectedStatus === 'All' || product.status === selectedStatus;
 
-    return matchesSearch && matchesBrand && matchesCategory && matchesStatus;
-  });
+      return matchesSearch && matchesBrand && matchesCategory && matchesSubCategory && matchesStatus;
+    });
+  }, [products, searchQuery, selectedBrand, selectedCategory, selectedSubCategory, selectedStatus]);
 
-
+  const availableSubCategories = useMemo(() => {
+    if (category && subcategories[category]) {
+      return subcategories[category];
+    }
+    return [];
+  }, [category, subcategories]);
 
   const resetForm = () => {
     setCode('');
@@ -711,6 +757,7 @@ export default function ProductManage({
     setName('');
     if (brands.length > 0) setBrand(brands[0]);
     if (categories.length > 0) setCategory(categories[0]);
+    setSubCategory('');
     setWholesalePrice('');
     setRetailPrice('');
     setCapFee('');
@@ -769,6 +816,7 @@ export default function ProductManage({
       setName(editProduct.name || '');
       setBrand(editProduct.brand || '');
       setCategory(editProduct.category || '');
+      setSubCategory(editProduct.subCategory || '');
       setWholesalePrice(editProduct.wholesalePrice || '');
       setRetailPrice(editProduct.retailPrice || '');
       setCapFee(editProduct.capFee || '');
@@ -885,7 +933,7 @@ export default function ProductManage({
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
 
@@ -1016,6 +1064,7 @@ export default function ProductManage({
       name: name.trim(),
       brand,
       category,
+      subCategory: subCategory.trim(),
       wholesalePrice: wholesalePrice === '' ? 0 : Number(wholesalePrice),
       retailPrice: retailPrice === '' ? 0 : Number(retailPrice),
       capFee: capFee === '' ? 0 : Number(capFee),
@@ -1040,7 +1089,16 @@ export default function ProductManage({
       editRemark: editProduct ? editRemark.trim() : ''
     };
 
-    setAlertPopup({ type: 'success', title: 'บันทึกข้อมูลสำเร็จ', message: 'ข้อมูลสินค้าถูกบันทึกเรียบร้อยแล้ว', data: newProductData });
+    const validationErrors = validateProduct(newProductData);
+    if (validationErrors.length) { setAlertPopup({ type: 'error', title: 'ข้อมูลไม่ถูกต้อง', message: validationErrors.join(', ') }); return; }
+    try {
+      await onSaveProduct(newProductData);
+      resetForm();
+      setShowForm(false);
+      setAlertPopup({ type: 'success', title: 'บันทึกข้อมูลสำเร็จ', message: 'เซิร์ฟเวอร์บันทึกข้อมูลสินค้าแล้ว' });
+    } catch (error) {
+      setAlertPopup({ type: 'error', title: 'บันทึกไม่สำเร็จ', message: error.message });
+    }
   };
 
   return (
@@ -1104,7 +1162,8 @@ export default function ProductManage({
                   {importLoading && (
                     <p className="text-[10px] text-zinc-500 font-semibold animate-pulse">กำลังสแกนวิเคราะห์โครงสร้างไฟล์และแผ่นงาน...</p>
                   )}
-                  {importError && (
+                  {importIssues.length > 0 && <div role="alert" className="text-xs text-red-700 bg-red-50 p-3 rounded-xl space-y-1"><p>กรุณาแก้ไขข้อมูล {importIssues.length} แถวก่อนนำเข้า</p>{importIssues.slice(0, 10).map(issue => <p key={issue}>{issue}</p>)}</div>}
+                {importError && (
                     <p className="text-[10px] text-red-500 font-semibold">{importError}</p>
                   )}
                 </div>
@@ -1129,16 +1188,56 @@ export default function ProductManage({
                 )}
 
                 {/* Column Mapping Section (Auto-Matched Read-Only Summary) */}
-                {sheetHeaders.length > 0 && (
-                  <div className="space-y-2.5 border-t border-zinc-150 pt-3.5">
-                    <span className="text-[10px] font-bold text-[#555557] uppercase tracking-wider block">
-                      2. ผลการจับคู่คอลัมน์ข้อมูลสินค้าอัตโนมัติ (Column Mapping Summary)
-                    </span>
-                    <p className="text-[9px] text-zinc-500 leading-relaxed">
-                      ระบบจะวิเคราะห์หัวตารางใน Excel แถวแรกที่มีข้อมูลเพื่อจับคู่โดยอัตโนมัติให้ตรงกับแบบฟอร์มเพิ่มข้อมูลสินค้าในระบบ PIM
-                    </p>
+                {sheetHeaders.length > 0 && (() => {
+                  const isAutoMapped = columnMapping.code && columnMapping.name;
+                  const mappedCount = Object.values(columnMapping).filter(Boolean).length;
+                  const totalFields = Object.keys(columnMapping).length;
+                  return (
+                    <div className="space-y-2.5 border-t border-zinc-150 pt-3.5">
+                      {/* Auto-map status banner */}
+                      {isAutoMapped ? (
+                        <div className="flex items-center gap-2.5 px-4 py-3 bg-emerald-50 border border-emerald-200/70 rounded-2xl animate-fade-in">
+                          <span className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center shrink-0">
+                            <Check className="w-3.5 h-3.5 text-white" />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold text-emerald-800">พร้อมนำเข้า — ไม่ต้องตั้งค่าเพิ่ม</p>
+                            <p className="text-[10px] text-emerald-600 mt-0.5">จับคู่คอลัมน์อัตโนมัติสำเร็จ {mappedCount}/{totalFields} ช่อง · กดปุ่ม "ยืนยันการนำเข้าสินค้า" ได้เลย</p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2.5 px-4 py-3 bg-amber-50 border border-amber-200/70 rounded-2xl animate-fade-in">
+                          <span className="w-6 h-6 rounded-full bg-amber-400 flex items-center justify-center shrink-0">
+                            <AlertCircle className="w-3.5 h-3.5 text-white" />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold text-amber-800">กรุณาตั้งค่าคอลัมน์ก่อนนำเข้า</p>
+                            <p className="text-[10px] text-amber-600 mt-0.5">ยังไม่พบคอลัมน์ "รหัสสินค้า" หรือ "ชื่อสินค้า" — เลือก dropdown ด้านล่างให้ครบก่อน</p>
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="space-y-4 text-xs">
+                      {/* Show advanced mapping only when not fully auto-mapped */}
+                      {!isAutoMapped && (
+                        <>
+                          <span className="text-[10px] font-bold text-[#555557] uppercase tracking-wider block">
+                            2. ผลการจับคู่คอลัมน์ข้อมูลสินค้าอัตโนมัติ (Column Mapping Summary)
+                          </span>
+                          <p className="text-[9px] text-zinc-500 leading-relaxed">
+                            ระบบจะวิเคราะห์หัวตารางใน Excel แถวแรกที่มีข้อมูลเพื่อจับคู่โดยอัตโนมัติให้ตรงกับแบบฟอร์มเพิ่มข้อมูลสินค้าในระบบ PIM
+                          </p>
+                        </>
+                      )}
+
+                      {/* Always allow advanced override */}
+                      <details open={!isAutoMapped} className="group">
+                        {isAutoMapped && (
+                          <summary className="text-[10px] font-bold text-zinc-400 hover:text-[#0071e3] cursor-pointer list-none flex items-center gap-1 select-none">
+                            <ChevronDown className="w-3 h-3 group-open:rotate-180 transition-transform" />
+                            ดู/แก้ไขการจับคู่คอลัมน์
+                          </summary>
+                        )}
+                        <div className={`space-y-4 text-xs ${isAutoMapped ? 'mt-2.5' : ''}`}>
                       {/* กลุ่ม 1: ข้อมูลสินค้าหลัก */}
                       <div className="bg-zinc-50/50 p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
                         <h4 className="font-extrabold text-zinc-800 text-[10px] uppercase tracking-wider border-b border-zinc-200/80 pb-1.5 mb-2">1. ข้อมูลพื้นฐานสินค้า</h4>
@@ -1146,6 +1245,7 @@ export default function ProductManage({
                           {renderMappingSummaryItem('รหัสสินค้า (SKU / Code) *', 'code')}
                           {renderMappingSummaryItem('ชื่อสินค้า *', 'name')}
                           {renderMappingSummaryItem('รหัสบาร์โค้ด', 'barcode')}
+                          {renderMappingSummaryItem('รูปภาพสินค้า (URL หรือที่อยู่ไฟล์)', 'image')}
                           {renderMappingSummaryItem('แบรนด์สินค้า', 'brand')}
                           {renderMappingSummaryItem('หมวดหมู่สินค้า', 'category')}
                           {renderMappingSummaryItem('ขนาด', 'size')}
@@ -1155,11 +1255,12 @@ export default function ProductManage({
 
                       {/* กลุ่ม 2: ข้อมูลราคาและคลัง */}
                       <div className="bg-zinc-50/50 p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
-                        <h4 className="font-extrabold text-zinc-800 text-[10px] uppercase tracking-wider border-b border-zinc-200/80 pb-1.5 mb-2">2. ข้อมูลราคาผลิตภัณฑ์</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <h4 className="font-extrabold text-zinc-800 text-[10px] uppercase tracking-wider border-b border-zinc-200/80 pb-1.5 mb-2">2. ข้อมูลราคาและสถานะ</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                           {renderMappingSummaryItem('ราคาขายส่ง', 'wholesalePrice')}
                           {renderMappingSummaryItem('ราคาขายปลีก', 'retailPrice')}
                           {renderMappingSummaryItem('ค่าฝา', 'capFee')}
+                          {renderMappingSummaryItem('สถานะ (Active/Inactive)', 'status')}
                         </div>
                       </div>
 
@@ -1177,56 +1278,13 @@ export default function ProductManage({
                           {renderMappingSummaryItem('ความสูงพัสดุ (ซม.)', 'packageHeight')}
                         </div>
                       </div>
+                        </div>
+                      </details>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
-                {/* Preview Grid */}
-                {parsedProducts.length > 0 && (
-                  <div className="space-y-2.5 border-t border-zinc-150 pt-3.5">
-                    <span className="text-[10px] font-bold text-[#555557] uppercase tracking-wider block">
-                      3. ตัวอย่างข้อมูลสินค้าที่อ่านได้ ({parsedProducts.length} รายการ)
-                    </span>
-                    {(!columnMapping.code || !columnMapping.name) && (
-                      <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl flex items-start gap-2.5 text-[11px] leading-relaxed">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                        <div>
-                          <span className="font-bold">หมายเหตุการนำเข้า: </span>
-                          {!columnMapping.code && !columnMapping.name ? (
-                            <span>ไม่ได้ระบุคอลัมน์รหัสสินค้าและชื่อสินค้า ระบบจะสแกนคอลัมน์อื่นและสุ่มสร้างรหัส (เช่น SKU-2) และชื่อเริ่มต้นสำหรับสินค้าในแถวนั้นๆ ให้โดยอัตโนมัติ</span>
-                          ) : !columnMapping.code ? (
-                            <span>ไม่ได้ระบุคอลัมน์รหัสสินค้า (SKU) ระบบจะสุ่มสร้างรหัสสินค้าให้อัตโนมัติ (เช่น SKU-2)</span>
-                          ) : (
-                            <span>ไม่ได้ระบุคอลัมน์ชื่อสินค้า ระบบจะตั้งชื่อสินค้าอัตโนมัติ (เช่น สินค้าไม่มีชื่อแถวที่ 2)</span>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                    <div className="border border-[#d2d2d7]/50 rounded-xl overflow-hidden max-h-[250px] overflow-y-auto">
-                      <table className="w-full text-left border-collapse text-[11px]">
-                        <thead>
-                          <tr className="bg-[#f5f5f7] border-b border-[#d2d2d7]/50 text-[#555557] font-bold">
-                            <th className="p-2">รหัสสินค้า (SKU)</th>
-                            <th className="p-2">ชื่อสินค้า</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-zinc-150">
-                          {parsedProducts.slice(0, 50).map((p, idx) => (
-                            <tr key={idx} className="hover:bg-zinc-50">
-                              <td className="p-2 font-mono text-[10px]">{p.code}</td>
-                              <td className="p-2 truncate max-w-[280px] font-semibold">{p.name}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      {parsedProducts.length > 50 && (
-                        <div className="p-2 text-center text-zinc-400 text-[10px] bg-[#f5f5f7] border-t">
-                          ...และรายการอื่นๆ อีก {parsedProducts.length - 50} รายการ
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
+
               </div>
             </div>
 
@@ -1241,9 +1299,12 @@ export default function ProductManage({
               </button>
               <button
                 type="button"
-                disabled={parsedProducts.length === 0}
-                onClick={() => {
-                  onImportProducts(parsedProducts, `ไฟล์ Excel (${selectedSheetName})`);
+                disabled={parsedProducts.length === 0 || importIssues.length > 0 || importLoading}
+                onClick={async () => {
+                  setImportLoading(true);
+                  try { await onImportProducts(parsedProducts, `ไฟล์ Excel (${selectedSheetName})`); }
+                  catch (error) { setImportError(error.message); return; }
+                  finally { setImportLoading(false); }
                   closeImportModal();
 
                   // Alert success
@@ -1282,8 +1343,8 @@ export default function ProductManage({
                 ยกเลิก
               </button>
               <button type="button"
-                onClick={() => {
-                  onClearAllProducts();
+                onClick={async () => {
+                  try { await onClearAllProducts(); } catch (error) { setAlertPopup({ type: 'error', title: 'ลบไม่สำเร็จ', message: error.message }); return; }
                   setShowClearAllConfirm(false);
                   setAlertPopup({
                     type: 'success-delete',
@@ -1505,7 +1566,7 @@ export default function ProductManage({
           </button>
 
           {/* Delete All Products Button */}
-          {currentUser?.role === 'admin' && products.length > 0 && (
+          {products.length > 0 && (
             <button
               type="button"
               onClick={() => setShowClearAllConfirm(true)}
@@ -1535,60 +1596,62 @@ export default function ProductManage({
               <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
             </button>
             {showExportDropdown && (
-              <div className="absolute right-0 mt-1.5 w-52 bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xl z-20 overflow-hidden py-2 animate-scale-in text-[#1d1d1f] before:absolute before:-top-2 before:left-0 before:right-0 before:h-2 before:content-['']">
-                <span className="text-[9px] font-bold text-[#8e8e93] px-4 py-1 block uppercase tracking-wider">ดาวน์แพลตฟอร์ม </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    exportShopee(filteredProducts);
-                    if (addActivityLog) {
-                      addActivityLog(`นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                    }
-                    setShowExportDropdown(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  Shopee Excel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    exportLazada(filteredProducts);
-                    if (addActivityLog) {
-                      addActivityLog(`นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                    }
-                    setShowExportDropdown(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  Lazada Excel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    exportTikTok(filteredProducts);
-                    if (addActivityLog) {
-                      addActivityLog(`นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                    }
-                    setShowExportDropdown(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  TikTok Shop Excel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    exportToExcel(filteredProducts);
-                    if (addActivityLog) {
-                      addActivityLog(`นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                    }
-                    setShowExportDropdown(false);
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
-                >
-                  ส่งออก Excel
-                </button>
+              <div className="absolute right-0 top-full pt-1.5 w-52 z-20">
+                <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xl overflow-hidden py-2 animate-scale-in text-[#1d1d1f]">
+                  <span className="text-[9px] font-bold text-[#8e8e93] px-4 py-1 block uppercase tracking-wider">ดาวน์โหลดเทมเพลต</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportShopee(filteredProducts);
+                      if (addActivityLog) {
+                        addActivityLog(`นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                      }
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    Shopee Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportLazada(filteredProducts);
+                      if (addActivityLog) {
+                        addActivityLog(`นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                      }
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    Lazada Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportTikTok(filteredProducts);
+                      if (addActivityLog) {
+                        addActivityLog(`นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                      }
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    TikTok Shop Excel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      exportToExcel(filteredProducts);
+                      if (addActivityLog) {
+                        addActivityLog(`นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                      }
+                      setShowExportDropdown(false);
+                    }}
+                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
+                  >
+                    ส่งออก Excel
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -1641,12 +1704,23 @@ export default function ProductManage({
 
           <select
             value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
+            onChange={(e) => { setSelectedCategory(e.target.value); setSelectedSubCategory('All'); }}
             className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
           >
-            <option value="All">ทุกหมวดหมู่</option>
+            <option value="All">ทุกหมวดหมู่หลัก</option>
             {categories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedSubCategory}
+            onChange={(e) => setSelectedSubCategory(e.target.value)}
+            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
+          >
+            <option value="All">ทุกหมวดหมู่ย่อย</option>
+            {Array.from(new Set(selectedCategory !== 'All' ? (subcategories[selectedCategory] || []) : Object.values(subcategories).flat())).map(sub => (
+              <option key={sub} value={sub}>{sub}</option>
             ))}
           </select>
 
@@ -1690,7 +1764,7 @@ export default function ProductManage({
               type="button"
               onClick={() => setViewMode('grid')}
               className={`p-1.5 rounded-md flex items-center gap-1 text-[11px] font-bold transition-all cursor-pointer ${viewMode === 'grid'
-                  ? 'bg-white text-black shadow-xs font-extrabold'
+                  ? 'bg-[#ffffff] text-black shadow-xs font-extrabold'
                   : 'hover:text-black'
                 }`}
               title="แสดงแบบแคตตาล็อก"
@@ -1702,44 +1776,28 @@ export default function ProductManage({
         </div>
 
         {viewMode === 'table' ? (
-          <div
-            className="overflow-x-auto cursor-grab active:cursor-grabbing select-none"
-            onMouseDown={(e) => {
-              const el = e.currentTarget;
-              el.dataset.dragging = 'true';
-              el.dataset.startX = e.pageX;
-              el.dataset.scrollLeft = el.scrollLeft;
-            }}
-            onMouseMove={(e) => {
-              const el = e.currentTarget;
-              if (el.dataset.dragging !== 'true') return;
-              e.preventDefault();
-              const walk = (e.pageX - Number(el.dataset.startX)) * 1.5;
-              el.scrollLeft = Number(el.dataset.scrollLeft) - walk;
-            }}
-            onMouseUp={(e) => { e.currentTarget.dataset.dragging = 'false'; }}
-            onMouseLeave={(e) => { e.currentTarget.dataset.dragging = 'false'; }}
-          >
+          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)] text-zinc-950 scrollbar-thin">
             <table className="w-full text-left border-collapse text-xs table-fixed min-w-[960px]">
               <thead>
-                <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
-                  <th className="p-2 sm:p-3.5 w-12 text-center">ลำดับ</th>
-                  <th className="p-2 sm:p-3.5 w-12 text-center">รูปภาพ</th>
-                  <th className="p-2 sm:p-3.5 w-20">รหัสสินค้า</th>
-                  <th className="p-2 sm:p-3.5 w-28">รหัสบาร์โค้ด</th>
-                  <th className="p-2 sm:p-3.5">ชื่อสินค้า</th>
-                  <th className="p-2 sm:p-3.5 w-24">แบรนด์</th>
-                  <th className="p-2 sm:p-3.5 w-24">หมวดหมู่</th>
-                  <th className="p-2 sm:p-3.5 text-right w-20">ราคาส่ง</th>
-                  <th className="p-2 sm:p-3.5 text-right w-20">ราคาปลีก</th>
-                  <th className="p-2 sm:p-3.5 text-center w-20">สถานะ</th>
-                  <th className="p-2 sm:p-3.5 text-center w-24 no-print">การจัดการ</th>
+                <tr className="text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 w-12 text-center z-10">ลำดับ</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 w-12 text-center z-10">รูปภาพ</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 w-20 z-10">รหัสสินค้า</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 w-28 z-10">รหัสบาร์โค้ด</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 w-48 sm:w-56 z-10">ชื่อสินค้า</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 w-28 z-10">แบรนด์</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 w-28 z-10">หมวดหมู่</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 w-28 z-10">หมวดหมู่ย่อย</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 text-right w-20 z-10">ราคาส่ง</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 text-right w-20 z-10">ราคาปลีก</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 text-center w-20 z-10">สถานะ</th>
+                  <th className="sticky top-0 bg-[#f5f5f7] p-2 sm:p-3.5 text-center w-24 no-print z-10">การจัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f0f0f5]">
                 {filteredProducts.length === 0 ? (
                   <tr>
-                    <td colSpan="11" className="p-16 text-center">
+                    <td colSpan="12" className="p-16 text-center">
                       <div className="space-y-3">
                         <FileSpreadsheet className="w-12 h-12 text-[#555557] mx-auto" />
                         <h3 className="font-semibold text-[#1d1d1f] text-xs uppercase tracking-wider">ไม่พบผลการค้นหา</h3>
@@ -1788,6 +1846,9 @@ export default function ProductManage({
                       <td className="px-2 py-2">
                         <span className="text-zinc-600 truncate block max-w-[90px]" title={product.category}>{product.category}</span>
                       </td>
+                      <td className="px-2 py-2">
+                        <span className="text-zinc-600 truncate block max-w-[90px]" title={product.subCategory}>{product.subCategory || '-'}</span>
+                      </td>
                       <td className="px-2 py-2 text-right whitespace-nowrap font-medium text-zinc-900">{(product.wholesalePrice || 0).toLocaleString()} ฿</td>
                       <td className="px-2 py-2 text-right whitespace-nowrap font-bold text-black">{(product.retailPrice || 0).toLocaleString()} ฿</td>
                       <td className="px-2 py-2 text-center">
@@ -1819,16 +1880,14 @@ export default function ProductManage({
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
-                          {currentUser.role === 'admin' && (
-                            <button
-                              type="button"
-                              onClick={() => setProductToDelete(product)}
-                              className="p-1 text-red-650 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                              title="ลบสินค้า"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setProductToDelete(product)}
+                            className="p-1 text-red-650 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                            title="ลบสินค้า"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1902,16 +1961,14 @@ export default function ProductManage({
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
-                          {currentUser?.role === 'admin' && (
-                            <button
-                              type="button"
-                              onClick={() => setProductToDelete(product)}
-                              className="w-7 h-7 bg-white text-zinc-700 hover:text-rose-600 rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
-                              title="ลบสินค้า"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          )}
+                          <button
+                            type="button"
+                            onClick={() => setProductToDelete(product)}
+                            className="w-7 h-7 bg-white text-zinc-700 hover:text-rose-600 rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
+                            title="ลบสินค้า"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -1976,16 +2033,14 @@ export default function ProductManage({
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
-                      {currentUser?.role === 'admin' && (
-                        <button
-                          type="button"
-                          onClick={() => setProductToDelete(product)}
-                          className="px-2.5 py-1.5 border border-zinc-200 text-zinc-650 hover:text-rose-600 rounded-lg flex items-center justify-center active:scale-90 transition-all cursor-pointer"
-                          title="ลบสินค้า"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        onClick={() => setProductToDelete(product)}
+                        className="px-2.5 py-1.5 border border-zinc-200 text-zinc-650 hover:text-rose-600 rounded-lg flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                        title="ลบสินค้า"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -2013,9 +2068,9 @@ export default function ProductManage({
                 ยกเลิก
               </button>
               <button type="button"
-                onClick={() => {
+                onClick={async () => {
                   const deletedName = productToDelete.name;
-                  onDeleteProduct(productToDelete.id);
+                  try { await onDeleteProduct(productToDelete.id); } catch (error) { setAlertPopup({ type: 'error', title: 'ลบไม่สำเร็จ', message: error.message }); return; }
                   setProductToDelete(null);
                   setAlertPopup({
                     type: 'success-delete',
@@ -2149,10 +2204,10 @@ export default function ProductManage({
                           )}
                         </div>
 
-                        {/* แถว 3: เลือกหมวดหมู่ และ แบรนด์ */}
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {/* แถว 3: หมวดหมู่สินค้า, หมวดหมู่ย่อย และ แบรนด์สินค้า */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div className="min-w-0">
-                            <label className="form-label min-h-[28px] flex items-end pb-1">หมวดหมู่สินค้า<span className="text-red-500">*</span></label>
+                            <label className="form-label min-h-[28px] flex items-end pb-1">หมวดหมู่สินค้าหลัก<span className="text-red-500">*</span></label>
                             <select
                               id="product-category"
                               value={category}
@@ -2174,6 +2229,35 @@ export default function ProductManage({
                             {formErrors.category && (
                               <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณาเลือกหมวดหมู่สินค้า</span>
                             )}
+                          </div>
+                          <div className="min-w-0">
+                            <label className="form-label min-h-[28px] flex items-end pb-1">หมวดหมู่ย่อย<span className="text-red-500">*</span></label>
+                            <select
+                              id="product-subcategory"
+                              value={subCategory}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === 'ADD_NEW_SUB') {
+                                  if (!category) { alert('กรุณาเลือกหมวดหมู่หลักก่อนเพิ่มหมวดหมู่ย่อยใหม่'); return; }
+                                  setQuickAddModal({ isOpen: true, type: 'subcategory', value: '' });
+                                } else {
+                                  setSubCategory(val);
+                                }
+                              }}
+                              disabled={!category}
+                              className={`form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white ${!category ? 'opacity-60 cursor-not-allowed' : ''}`}
+                            >
+                              <option value="">{category ? '-- เลือกหมวดหมู่ย่อย --' : '-- กรุณาเลือกหมวดหมู่หลักก่อน --'}</option>
+                              {category && currentUser?.role !== 'user' && (
+                                <option value="ADD_NEW_SUB">+ เพิ่มหมวดหมู่ย่อยใหม่ในหมวดหมู่นี้</option>
+                              )}
+                              {availableSubCategories.map(s => (
+                                <option key={s} value={s}>{s}</option>
+                              ))}
+                              {subCategory && !availableSubCategories.includes(subCategory) && (
+                                <option value={subCategory}>{subCategory}</option>
+                              )}
+                            </select>
                           </div>
                           <div className="min-w-0">
                             <label className="form-label min-h-[28px] flex items-end pb-1">แบรนด์สินค้า<span className="text-red-500">*</span></label>
@@ -2602,10 +2686,6 @@ export default function ProductManage({
               <button
                 type="button"
                 onClick={() => {
-                  if (alertPopup.type === 'success') {
-                    onSaveProduct(alertPopup.data);
-                    resetForm();
-                  }
                   setAlertPopup(null);
                 }}
                 className={`w-full py-2.5 rounded-full text-xs font-semibold text-white transition-colors cursor-pointer ${alertPopup.type.startsWith('success')
@@ -2670,6 +2750,10 @@ export default function ProductManage({
                 <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
                   <span className="text-zinc-800 font-bold">หมวดหมู่สินค้า</span>
                   <span className="font-extrabold text-black">{drawerProduct.category}</span>
+                </div>
+                <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
+                  <span className="text-zinc-800 font-bold">หมวดหมู่ย่อย</span>
+                  <span className="font-extrabold text-black">{drawerProduct.subCategory || '-'}</span>
                 </div>
                 <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
                   <span className="text-zinc-800 font-bold">รหัสสินค้า / SKU</span>
@@ -2788,12 +2872,18 @@ export default function ProductManage({
           <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-2xl z-10 animate-scale-in text-[#1d1d1f] space-y-4">
             <div className="space-y-1.5 text-center">
               <h3 className="font-bold text-base tracking-tight">
-                {quickAddModal.type === 'brand' ? 'ระบุแบรนด์สินค้าใหม่' : 'ระบุหมวดหมู่สินค้าใหม่'}
+                {quickAddModal.type === 'brand' 
+                  ? 'ระบุแบรนด์สินค้าใหม่' 
+                  : quickAddModal.type === 'subcategory'
+                    ? `ระบุหมวดหมู่ย่อยใหม่ใน "${category}"`
+                    : 'ระบุหมวดหมู่สินค้าใหม่'}
               </h3>
               <p className="text-xs text-[#555557] leading-relaxed">
                 {quickAddModal.type === 'brand'
                   ? 'กรุณากรอกชื่อแบรนด์สินค้าใหม่เพื่อใช้ในฟอร์มนี้'
-                  : 'กรุณากรอกชื่อหมวดหมู่สินค้าใหม่เพื่อใช้ในฟอร์มนี้'}
+                  : quickAddModal.type === 'subcategory'
+                    ? `กรุณากรอกชื่อหมวดหมู่ย่อยใหม่สำหรับหมวดหมู่ "${category}"`
+                    : 'กรุณากรอกชื่อหมวดหมู่สินค้าใหม่เพื่อใช้ในฟอร์มนี้'}
               </p>
             </div>
 
@@ -2802,12 +2892,17 @@ export default function ProductManage({
                 type="text"
                 value={quickAddModal.value}
                 onChange={(e) => setQuickAddModal(prev => ({ ...prev, value: e.target.value }))}
-                placeholder={quickAddModal.type === 'brand' ? 'ระบุชื่อแบรนด์ (เช่น Phanvadee)' : 'ระบุชื่อหมวดหมู่ (เช่น Treatment)'}
+                placeholder={
+                  quickAddModal.type === 'brand' 
+                    ? 'ระบุชื่อแบรนด์ (เช่น Phanvadee)' 
+                    : quickAddModal.type === 'subcategory'
+                      ? 'ระบุชื่อหมวดหมู่ย่อย (เช่น Hair Styling)'
+                      : 'ระบุชื่อหมวดหมู่ (เช่น Treatment)'
+                }
                 className="w-full px-3.5 py-2.5 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-sm text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:bg-white transition-all placeholder-[#555557]"
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
-                    // Trigger save (locally, not persistently yet)
                     const trimmed = quickAddModal.value.trim();
                     if (!trimmed) {
                       alert('กรุณากรอกชื่อข้อมูล');
@@ -2820,6 +2915,11 @@ export default function ProductManage({
                       }
                       setBrand(trimmed);
                       setFormErrors(prev => ({ ...prev, brand: false }));
+                    } else if (quickAddModal.type === 'subcategory') {
+                      if (category) {
+                        onAddSubCategory?.(category, trimmed);
+                      }
+                      setSubCategory(trimmed);
                     } else {
                       if (categories.includes(trimmed)) {
                         alert('หมวดหมู่นี้มีอยู่ในระบบแล้ว');

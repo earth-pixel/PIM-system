@@ -1,21 +1,21 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { Package, Award, FolderKanban, FileText, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
 export default function Dashboard({ products, brands, categories, quotations = [], setActiveTab }) {
   // Stats calculations (Overall static stats)
   const totalProducts = products.length;
-  const activeProducts = products.filter(p => p.status === 'Active').length;
+  const activeProducts = useMemo(() => products.filter(p => p.status === 'Active').length, [products]);
   const totalBrands = brands.length;
   const totalCategories = categories.length;
   const totalQuotations = quotations.length;
-  const approvedQuotations = quotations.filter(q => q.status === 'approved').length;
+  const approvedQuotations = useMemo(() => quotations.filter(q => q.status === 'approved').length, [quotations]);
 
   // Dynamic Chart States
   const [chartType, setChartType] = useState('brand'); // 'brand' | 'category'
   const [timeframe, setTimeframe] = useState('30d');   // '7d' | '30d'
   const [chartDisplay, setChartDisplay] = useState('bar'); // 'bar' | 'line'
-
+  
   // Helper to get formatted date string relative to today
   const getTodayStr = () => {
     const d = new Date();
@@ -49,40 +49,48 @@ export default function Dashboard({ products, brands, categories, quotations = [
   }, []);
 
   // Timeframe calculation logic
-  const currentDate = new Date();
+  const dateRange = useMemo(() => {
+    const currentDate = new Date();
+    let start, end;
+    if (isCustomRange) {
+      start = new Date(startDateStr + 'T00:00:00');
+      end = new Date(endDateStr + 'T23:59:59');
+    } else {
+      const days = timeframe === '7d' ? 7 : 30;
+      end = new Date(currentDate);
+      start = new Date(currentDate);
+      start.setDate(start.getDate() - days + 1);
+      start.setHours(0, 0, 0, 0);
+    }
+    return { start, end };
+  }, [isCustomRange, startDateStr, endDateStr, timeframe]);
 
-  let rangeStart, rangeEnd;
-  if (isCustomRange) {
-    rangeStart = new Date(startDateStr + 'T00:00:00');
-    rangeEnd = new Date(endDateStr + 'T23:59:59');
-  } else {
-    const days = timeframe === '7d' ? 7 : 30;
-    rangeEnd = new Date(currentDate);
-    rangeStart = new Date(currentDate);
-    rangeStart.setDate(rangeStart.getDate() - days + 1);
-    rangeStart.setHours(0, 0, 0, 0);
-  }
+  const rangeStart = dateRange.start;
+  const rangeEnd = dateRange.end;
 
-
-  const filteredProducts = products.filter(p => {
-    if (!p.updatedAt) return false;
-    const pDate = new Date(p.updatedAt.replace(/-/g, '/'));
-    return pDate >= rangeStart && pDate <= rangeEnd;
-  });
+  const filteredProducts = useMemo(() => {
+    return products.filter(p => {
+      if (!p.updatedAt) return false;
+      const pDate = new Date(p.updatedAt.replace(/-/g, '/'));
+      return pDate >= rangeStart && pDate <= rangeEnd;
+    });
+  }, [products, rangeStart, rangeEnd]);
 
   // Aggregate data depending on selected tab
-  const aggregatedData = chartType === 'brand'
-    ? brands.map(brand => ({
-        name: brand,
-        count: filteredProducts.filter(p => p.brand === brand).length,
-      }))
-    : categories.map(cat => ({
-        name: cat.split(' ').slice(0, 2).join(' '),
-        fullName: cat,
-        count: filteredProducts.filter(p => p.category === cat).length,
-      }));
+  const aggregatedData = useMemo(() => {
+    return chartType === 'brand'
+      ? brands.map(brand => ({
+          name: brand,
+          count: filteredProducts.filter(p => p.brand === brand).length,
+        }))
+      : categories.map(cat => ({
+          name: cat.split(' ').slice(0, 2).join(' '),
+          fullName: cat,
+          count: filteredProducts.filter(p => p.category === cat).length,
+        }));
+  }, [chartType, brands, categories, filteredProducts]);
 
-  const realMaxCount = Math.max(...aggregatedData.map(d => d.count), 0);
+  const realMaxCount = useMemo(() => Math.max(...aggregatedData.map(d => d.count), 0), [aggregatedData]);
   
   // Calculate clean, readable round max scale with 4 equal intervals
   const calculateNiceMax = (realMax) => {
@@ -104,13 +112,16 @@ export default function Dashboard({ products, brands, categories, quotations = [
     return niceStep * targetSteps;
   };
 
-  const maxCount = calculateNiceMax(realMaxCount);
+  const maxCount = useMemo(() => calculateNiceMax(realMaxCount), [realMaxCount]);
   const N = aggregatedData.length;
-  const svgPoints = aggregatedData.map((d, i) => {
-    const x = N > 0 ? (i + 0.5) * (dimensions.width / N) : 0;
-    const y = maxCount > 0 ? dimensions.height * (1 - d.count / maxCount) : dimensions.height;
-    return { x, y, name: d.name, fullName: d.fullName, count: d.count };
-  });
+
+  const svgPoints = useMemo(() => {
+    return aggregatedData.map((d, i) => {
+      const x = N > 0 ? (i + 0.5) * (dimensions.width / N) : 0;
+      const y = maxCount > 0 ? dimensions.height * (1 - d.count / maxCount) : dimensions.height;
+      return { x, y, name: d.name, fullName: d.fullName, count: d.count };
+    });
+  }, [aggregatedData, N, dimensions, maxCount]);
 
   // Build smooth cubic bezier path through data points
   const buildSmoothPath = (pts) => {
@@ -127,10 +138,18 @@ export default function Dashboard({ products, brands, categories, quotations = [
     return d;
   };
 
-  const smoothLinePath = buildSmoothPath(svgPoints);
-  const smoothAreaPath = svgPoints.length > 0
-    ? `${smoothLinePath} L ${svgPoints[svgPoints.length - 1].x} ${dimensions.height} L ${svgPoints[0].x} ${dimensions.height} Z`
-    : '';
+  const smoothLinePath = useMemo(() => buildSmoothPath(svgPoints), [svgPoints]);
+  const smoothAreaPath = useMemo(() => {
+    return svgPoints.length > 0
+      ? `${smoothLinePath} L ${svgPoints[svgPoints.length - 1].x} ${dimensions.height} L ${svgPoints[0].x} ${dimensions.height} Z`
+      : '';
+  }, [svgPoints, smoothLinePath, dimensions.height]);
+
+  const modalProducts = useMemo(() => {
+    if (!selectedDetailGroup) return [];
+    const { type, name } = selectedDetailGroup;
+    return filteredProducts.filter(p => type === 'brand' ? p.brand === name : p.category === name);
+  }, [filteredProducts, selectedDetailGroup]);
 
   const formatDateForInput = (date) => {
     if (!date) return '';
@@ -244,14 +263,21 @@ export default function Dashboard({ products, brands, categories, quotations = [
           <div className="flex flex-wrap items-center gap-2">
 
             {/* Chart Display Toggle (Bar / Line) */}
-            <div className="bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center">
+            <div className="relative bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center w-24 sm:w-28">
+              <div 
+                className="absolute top-0.5 bottom-0.5 left-0.5 rounded-md bg-white shadow-xs transition-transform duration-250 ease-out pointer-events-none"
+                style={{
+                  width: 'calc(50% - 2px)',
+                  transform: chartDisplay === 'line' ? 'translateX(100%)' : 'translateX(0)'
+                }}
+              />
               {[['bar', 'แท่ง'], ['line', 'เส้น']].map(([val, label]) => (
                 <button
                   key={val}
                   type="button"
                   onClick={() => setChartDisplay(val)}
-                  className={`px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-md transition-all cursor-pointer ${
-                    chartDisplay === val ? 'bg-white text-black shadow-xs' : 'text-[#555557] hover:text-black'
+                  className={`relative z-10 flex-1 py-1 text-[10px] sm:text-xs font-bold transition-colors duration-200 cursor-pointer text-center ${
+                    chartDisplay === val ? 'text-black' : 'text-[#555557] hover:text-black'
                   }`}
                 >
                   {label}
@@ -260,14 +286,21 @@ export default function Dashboard({ products, brands, categories, quotations = [
             </div>
 
             {/* Chart Type Toggle */}
-            <div className="bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center">
+            <div className="relative bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center w-32 sm:w-36">
+              <div 
+                className="absolute top-0.5 bottom-0.5 left-0.5 rounded-md bg-white shadow-xs transition-transform duration-250 ease-out pointer-events-none"
+                style={{
+                  width: 'calc(50% - 2px)',
+                  transform: chartType === 'category' ? 'translateX(100%)' : 'translateX(0)'
+                }}
+              />
               {[['brand', 'แบรนด์'], ['category', 'หมวดหมู่']].map(([val, label]) => (
                 <button
                   key={val}
                   type="button"
                   onClick={() => setChartType(val)}
-                  className={`px-2 sm:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-md transition-all cursor-pointer ${
-                    chartType === val ? 'bg-white text-black shadow-xs' : 'text-[#555557] hover:text-black'
+                  className={`relative z-10 flex-1 py-1 text-[10px] sm:text-xs font-bold transition-colors duration-200 cursor-pointer text-center ${
+                    chartType === val ? 'text-black' : 'text-[#555557] hover:text-black'
                   }`}
                 >
                   {label}
@@ -276,7 +309,16 @@ export default function Dashboard({ products, brands, categories, quotations = [
             </div>
 
             {/* Timeframe preset toggle (7 วัน / 30 วัน) */}
-            <div className="bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center">
+            <div className="relative bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center w-28 sm:w-32">
+              <div 
+                className="absolute top-0.5 bottom-0.5 left-0.5 rounded-md bg-white shadow-xs transition-all duration-250 ease-out pointer-events-none"
+                style={{
+                  width: 'calc(50% - 2px)',
+                  transform: timeframe === '30d' ? 'translateX(100%)' : 'translateX(0)',
+                  opacity: isCustomRange ? 0 : 1,
+                  scale: isCustomRange ? 0.95 : 1
+                }}
+              />
               {[['7d', '7 วัน'], ['30d', '30 วัน']].map(([val, label]) => (
                 <button
                   key={val}
@@ -285,9 +327,9 @@ export default function Dashboard({ products, brands, categories, quotations = [
                     setIsCustomRange(false);
                     setTimeframe(val);
                   }}
-                  className={`px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-md transition-all cursor-pointer ${
+                  className={`relative z-10 flex-1 py-1 text-[10px] sm:text-xs font-bold transition-colors duration-200 cursor-pointer text-center ${
                     !isCustomRange && timeframe === val
-                      ? 'bg-white text-black shadow-xs'
+                      ? 'text-black'
                       : 'text-[#555557] hover:text-black'
                   }`}
                 >
@@ -363,118 +405,120 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 </div>
 
                 {/* Line Chart Graphic */}
-                {chartDisplay === 'line' && (
-                  <>
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#0071e3]/[0.04] via-[#0071e3]/[0.01] to-transparent pointer-events-none" />
+                <div 
+                  className={`absolute inset-0 transition-all duration-500 ease-in-out ${
+                    chartDisplay === 'line' ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
+                  }`}
+                >
+                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#0071e3]/[0.04] via-[#0071e3]/[0.01] to-transparent pointer-events-none" />
 
-                    <svg
-                      className="absolute inset-0 w-full h-full overflow-visible pointer-events-none"
-                      viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
-                    >
-                      <defs>
-                        <linearGradient id="lineAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%"   stopColor="#0071e3" stopOpacity="0.22" />
-                          <stop offset="50%"  stopColor="#0071e3" stopOpacity="0.08" />
-                          <stop offset="100%" stopColor="#0071e3" stopOpacity="0" />
-                        </linearGradient>
+                  <svg
+                    className="absolute inset-0 w-full h-full overflow-visible pointer-events-none"
+                    viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
+                  >
+                    <defs>
+                      <linearGradient id="lineAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"   stopColor="#0071e3" stopOpacity="0.22" />
+                        <stop offset="50%"  stopColor="#0071e3" stopOpacity="0.08" />
+                        <stop offset="100%" stopColor="#0071e3" stopOpacity="0" />
+                      </linearGradient>
 
-                        <linearGradient id="lineStrokeGradient" x1="0" y1="0" x2="1" y2="0">
-                          <stop offset="0%"   stopColor="#00c6ff" />
-                          <stop offset="50%"  stopColor="#0071e3" />
-                          <stop offset="100%" stopColor="#7000ff" />
-                        </linearGradient>
+                      <linearGradient id="lineStrokeGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%"   stopColor="#00c6ff" />
+                        <stop offset="50%"  stopColor="#0071e3" />
+                        <stop offset="100%" stopColor="#7000ff" />
+                      </linearGradient>
 
-                        <filter id="lineGlow" x="-10%" y="-60%" width="120%" height="220%">
-                          <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
-                          <feMerge>
-                            <feMergeNode in="blur" />
-                            <feMergeNode in="SourceGraphic" />
-                          </feMerge>
-                        </filter>
+                      <filter id="lineGlow" x="-10%" y="-60%" width="120%" height="220%">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
 
-                        <clipPath id="chartClip">
-                          <rect x="0" y="0" width={dimensions.width} height={dimensions.height} />
-                        </clipPath>
-                      </defs>
+                      <clipPath id="chartClip">
+                        <rect x="0" y="0" width={dimensions.width} height={dimensions.height} />
+                      </clipPath>
+                    </defs>
 
-                      {/* Area fill */}
-                      {smoothAreaPath && (
-                        <path
-                          d={smoothAreaPath}
-                          fill="url(#lineAreaGradient)"
-                          clipPath="url(#chartClip)"
-                        />
-                      )}
+                    {/* Area fill */}
+                    {smoothAreaPath && (
+                      <path
+                        d={smoothAreaPath}
+                        fill="url(#lineAreaGradient)"
+                        clipPath="url(#chartClip)"
+                      />
+                    )}
 
-                      {/* Glow layer */}
-                      {smoothLinePath && (
-                        <path
-                          d={smoothLinePath}
-                          fill="none"
-                          stroke="#0071e3"
-                          strokeWidth="6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          opacity="0.25"
-                          filter="url(#lineGlow)"
-                        />
-                      )}
+                    {/* Glow layer */}
+                    {smoothLinePath && (
+                      <path
+                        d={smoothLinePath}
+                        fill="none"
+                        stroke="#0071e3"
+                        strokeWidth="6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity="0.25"
+                        filter="url(#lineGlow)"
+                      />
+                    )}
 
-                      {/* Main stroke */}
-                      {smoothLinePath && (
-                        <path
-                          d={smoothLinePath}
-                          fill="none"
-                          stroke="url(#lineStrokeGradient)"
-                          strokeWidth="3"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      )}
-                    </svg>
+                    {/* Main stroke */}
+                    {smoothLinePath && (
+                      <path
+                        d={smoothLinePath}
+                        fill="none"
+                        stroke="url(#lineStrokeGradient)"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+                  </svg>
 
-                    {/* Data Points */}
-                    <div className="absolute inset-0 pointer-events-none">
-                      {svgPoints.map((p, idx) => {
-                        if (p.count === 0 && N > 5) return null;
-                        const leftPercent = dimensions.width > 0 ? (p.x / dimensions.width) * 100 : 0;
-                        const topPercent = dimensions.height > 0 ? (p.y / dimensions.height) * 100 : 0;
-                        return (
-                          <div
-                            key={idx}
-                            onClick={() => setSelectedDetailGroup({ type: chartType, name: p.fullName || p.name })}
-                            style={{
-                              left: `${leftPercent}%`,
-                              top: `${topPercent}%`,
-                            }}
-                            className="group/point absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-30 cursor-pointer pointer-events-auto hover:scale-125 transition-transform"
-                          >
-                            {/* Line Point Hover Tooltip */}
-                            <div className="
-                              absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                              text-[10px] font-bold text-white
-                              px-2.5 py-1 rounded-lg shadow-2xl
-                              opacity-0 scale-90 translate-y-1
-                              group-hover/point:opacity-100 group-hover/point:scale-100 group-hover/point:translate-y-0
-                              transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
-                              bg-[#1d1d1f] border border-white/10
-                            ">
-                              <span className="text-zinc-300 mr-1">{p.fullName || p.name}:</span>
-                              <span className="text-[#38bdf8] font-extrabold">{p.count.toLocaleString()}</span> รายการ
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
-                            </div>
-
-                            <div className="w-2.5 h-2.5 rounded-full bg-[#0071e3] border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative z-10" />
-                            <div
-                              className="absolute w-5 h-5 rounded-full bg-[#0071e3]/20 animate-pulse-ring"
-                              style={{ animationDelay: `${idx * 0.12}s` }}
-                            />
+                  {/* Data Points */}
+                  <div className="absolute inset-0 pointer-events-none">
+                    {svgPoints.map((p, idx) => {
+                      if (p.count === 0 && N > 5) return null;
+                      const leftPercent = dimensions.width > 0 ? (p.x / dimensions.width) * 100 : 0;
+                      const topPercent = dimensions.height > 0 ? (p.y / dimensions.height) * 100 : 0;
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => setSelectedDetailGroup({ type: chartType, name: p.fullName || p.name })}
+                          style={{
+                            left: `${leftPercent}%`,
+                            top: `${topPercent}%`,
+                          }}
+                          className="group/point absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-30 cursor-pointer pointer-events-auto hover:scale-125 transition-transform"
+                        >
+                          {/* Line Point Hover Tooltip */}
+                          <div className="
+                            absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                            text-[10px] font-bold text-white
+                            px-2.5 py-1 rounded-lg shadow-2xl
+                            opacity-0 scale-90 translate-y-1
+                            group-hover/point:opacity-100 group-hover/point:scale-100 group-hover/point:translate-y-0
+                            transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
+                            bg-[#1d1d1f] border border-white/10
+                          ">
+                            <span className="text-zinc-300 mr-1">{p.fullName || p.name}:</span>
+                            <span className="text-[#38bdf8] font-extrabold">{p.count.toLocaleString()}</span> รายการ
+                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
                           </div>
-                        );
-                      })}
-                    </div>
-                  </>
-                )}
+
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#0071e3] border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative z-10" />
+                          <div
+                            className="absolute w-5 h-5 rounded-full bg-[#0071e3]/20 animate-pulse-ring"
+                            style={{ animationDelay: `${idx * 0.12}s` }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* Bars & Hover tooltips */}
                 <div className="absolute inset-0 flex items-end">
@@ -487,49 +531,50 @@ export default function Dashboard({ products, brands, categories, quotations = [
                         style={{ animationDelay: `${idx * 60}ms` }}
                       >
                         {/* Bar content */}
-                        {chartDisplay === 'bar' && (
-                          <div 
-                            onClick={() => setSelectedDetailGroup({ type: chartType, name: fullName || name })}
-                            className="w-[60%] sm:w-[45%] max-w-[38px] h-full flex flex-col justify-end cursor-pointer pointer-events-auto relative z-10"
+                        <div 
+                          onClick={() => setSelectedDetailGroup({ type: chartType, name: fullName || name })}
+                          className={`w-[60%] sm:w-[45%] max-w-[38px] h-full flex flex-col justify-end cursor-pointer pointer-events-auto relative z-10 transition-all duration-300 ease-out ${
+                            chartDisplay === 'bar' ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
+                          }`}
+                        >
+                          {/* Bar wrapper sized precisely to heightPercent */}
+                          <div
+                            style={{
+                              height: `${Math.max(heightPercent, count > 0 ? 1.5 : 0)}%`,
+                              transition: 'height 0.6s cubic-bezier(0.34,1.2,0.64,1)',
+                            }}
+                            className="w-full relative group/bar"
                           >
-                            {/* Bar wrapper sized precisely to heightPercent */}
-                            <div
-                              style={{
-                                height: `${Math.max(heightPercent, count > 0 ? 1.5 : 0)}%`,
-                                transition: 'height 0.6s cubic-bezier(0.34,1.2,0.64,1)',
-                              }}
-                              className="w-full relative group/bar"
-                            >
-                              {/* Hover Tooltip - Positioned directly above the bar top */}
-                              <div className="
-                                absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                                text-[10px] font-bold text-white
-                                px-2.5 py-1 rounded-lg shadow-2xl
-                                opacity-0 scale-90 translate-y-1
-                                group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0
-                                transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
-                                bg-[#1d1d1f] border border-white/10
-                              ">
-                                <span className="text-zinc-300 mr-1">{fullName || name}:</span>
-                                <span className="text-[#38bdf8] font-extrabold">{count.toLocaleString()}</span> รายการ
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
-                              </div>
-
-                              {count > 0 && (
-                                <div
-                                  className="
-                                    w-full h-full rounded-t-md
-                                    bg-gradient-to-t from-[#0052d4] via-[#0071e3] to-[#00c6ff]
-                                    group-hover:from-[#0041a8] group-hover:via-[#0071e3] group-hover:to-[#38bdf8]
-                                    transition-all duration-200
-                                    shadow-[0_-2px_10px_rgba(0,113,227,0.25)]
-                                    group-hover:shadow-[0_-4px_16px_rgba(0,113,227,0.45)]
-                                  "
-                                />
-                              )}
+                      
+                            {/* Hover Tooltip - Positioned directly above the bar top */}
+                            <div className="
+                              absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                              text-[10px] font-bold text-white
+                              px-2.5 py-1 rounded-lg shadow-2xl
+                              opacity-0 scale-90 translate-y-1
+                              group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0
+                              transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
+                              bg-[#1d1d1f] border border-white/10
+                            ">
+                              <span className="text-zinc-300 mr-1">{fullName || name}:</span>
+                              <span className="text-[#38bdf8] font-extrabold">{count.toLocaleString()}</span> รายการ
+                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
                             </div>
+
+                            {count > 0 && (
+                              <div
+                                className="
+                                  w-full h-full rounded-t-md
+                                  bg-gradient-to-t from-[#0052d4] via-[#0071e3] to-[#00c6ff]
+                                  group-hover:from-[#0041a8] group-hover:via-[#0071e3] group-hover:to-[#38bdf8]
+                                  transition-all duration-200
+                                  shadow-[0_-2px_10px_rgba(0,113,227,0.25)]
+                                  group-hover:shadow-[0_-4px_16px_rgba(0,113,227,0.45)]
+                                "
+                              />
+                            )}
                           </div>
-                        )}
+                        </div>
 
                         {/* Interactive hover hotspot area if chartDisplay === 'line' */}
                         {chartDisplay === 'line' && (
@@ -593,7 +638,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 <h3 className="font-bold text-sm text-[#1d1d1f] tracking-tight">
                   รายการสินค้าใน{selectedDetailGroup.type === 'brand' ? 'แบรนด์' : 'หมวดหมู่'}: {selectedDetailGroup.name}
                 </h3>
-                <p className="text-[10px] text-zinc-500 mt-0.5 font-semibold">พบทั้งหมด {filteredProducts.filter(p => selectedDetailGroup.type === 'brand' ? p.brand === selectedDetailGroup.name : p.category === selectedDetailGroup.name).length} รายการ</p>
+                <p className="text-[10px] text-zinc-500 mt-0.5 font-semibold">พบทั้งหมด {modalProducts.length} รายการ</p>
               </div>
               <button type="button" 
                 onClick={() => setSelectedDetailGroup(null)} 
@@ -605,9 +650,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
             {/* List */}
             <div className="flex-1 overflow-y-auto divide-y divide-[#f5f5f7] pr-1 py-2">
-              {filteredProducts
-                .filter(p => selectedDetailGroup.type === 'brand' ? p.brand === selectedDetailGroup.name : p.category === selectedDetailGroup.name)
-                .map(product => (
+              {modalProducts.map(product => (
                   <div key={product.id} className="py-2.5 flex items-center gap-3">
                     <div className="w-11 h-11 rounded-lg overflow-hidden bg-[#f5f5f7] border border-[#d2d2d7]/30 shrink-0">
                       <img src={product.image} alt="" className="w-full h-full object-cover" />

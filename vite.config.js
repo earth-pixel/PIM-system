@@ -7,6 +7,7 @@ import ExcelJS from 'exceljs'
 import https from 'https'
 import fs from 'fs'
 import path from 'path'
+import { createApi } from './server/api.js'
 
 
 
@@ -37,7 +38,7 @@ const rateLimiter = (limitWindowMs, maxRequests) => {
         requestTracker.set(ip, fresh);
       }
     }
-  }, 300000);
+  }, 300000).unref();
 
   return (req, res, onLimitExceeded) => {
     const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
@@ -71,123 +72,21 @@ export default defineConfig({
       return {
         name: 'download-middleware',
         configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            let url;
+            try { url = decodeURIComponent(req.url || '').replaceAll('\\', '/'); } catch { res.statusCode = 400; res.end(); return; }
+            const pathname = url.split('?')[0];
+            const database = path.resolve(process.env.PIM_DB_PATH || path.join(process.cwd(), 'ข้อมูล', 'db.json'));
+            const requested = pathname.startsWith('/@fs/') ? path.resolve(pathname.slice(5)) : path.resolve(process.cwd(), '.' + pathname);
+            const canonical = candidate => { try { return fs.realpathSync(candidate).toLowerCase(); } catch { return candidate.toLowerCase(); } };
+            if (canonical(requested) === canonical(database) || url.includes('/ข้อมูล/') || /\.(?:lock|tmp|bak)(?:\?|$)/.test(url)) {
+              res.statusCode = 403; res.end('Forbidden'); return;
+            }
+            next();
+          });
+          server.middlewares.use('/api', createApi((process.env.PIM_DB_PATH || path.join(process.cwd(), 'ข้อมูล', 'db.json'))));
           server.middlewares.use(async (req, res, next) => {
             const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
-
-            // 1. GET /api/db (Read Database from local db.json)
-            if (parsedUrl.pathname === '/api/db' && req.method === 'GET') {
-              try {
-                const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
-                let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
-                if (fs.existsSync(dbPath)) {
-                  db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-                }
-                res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                res.end(JSON.stringify(db));
-              } catch (fallbackErr) {
-                res.statusCode = 500;
-                res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                res.end(JSON.stringify({ error: fallbackErr.message }));
-              }
-              return;
-            }
-
-            // 2. POST /api/db/save (Update/Save array to local db.json)
-            if (parsedUrl.pathname === '/api/db/save' && req.method === 'POST') {
-              try {
-                const ipAllowed = uploadLimiter(req, res, () => {
-                  res.statusCode = 429;
-                  res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                  res.end(JSON.stringify({ error: 'Too many requests, please slow down.' }));
-                });
-                if (!ipAllowed) return;
-
-                let body = '';
-                req.on('data', chunk => {
-                  body += chunk.toString();
-                });
-                req.on('end', async () => {
-                  try {
-                    const { key, data } = JSON.parse(body);
-                    const allowedKeys = ['products', 'brands', 'categories', 'users', 'quotations', 'activityLog'];
-
-                    if (!allowedKeys.includes(key)) {
-                      res.statusCode = 400;
-                      res.end('Invalid database key');
-                      return;
-                    }
-                    if (!Array.isArray(data)) {
-                      res.statusCode = 400;
-                      res.end('Data must be an array');
-                      return;
-                    }
-
-                    // Always write to local db.json
-                    const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
-                    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
-                    if (fs.existsSync(dbPath)) {
-                      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-                    }
-                    db[key] = data;
-                    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
-
-                    res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                    res.end(JSON.stringify({ success: true, syncedToSupabase: false }));
-                  } catch (e) {
-                    console.error('Error saving database:', e);
-                    res.statusCode = 500;
-                    res.end('Error saving database: ' + e.message);
-                  }
-                });
-              } catch (err) {
-                res.statusCode = 500;
-                res.end('Error: ' + err.message);
-              }
-              return;
-            }
-
-            // 2.5 POST /api/db/activityLog/append (Append a single log entry to local db.json)
-            if (parsedUrl.pathname === '/api/db/activityLog/append' && req.method === 'POST') {
-              try {
-                let body = '';
-                req.on('data', chunk => {
-                  body += chunk.toString();
-                });
-                req.on('end', async () => {
-                  try {
-                    const { entry } = JSON.parse(body);
-
-                    if (!entry || !entry.action) {
-                      res.statusCode = 400;
-                      res.end('Invalid log entry');
-                      return;
-                    }
-
-                    // Write to local db.json
-                    const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
-                    let db = { products: [], brands: [], categories: [], users: [], quotations: [], activityLog: [] };
-                    if (fs.existsSync(dbPath)) {
-                      db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-                    }
-                    if (!Array.isArray(db.activityLog)) {
-                      db.activityLog = [];
-                    }
-                    db.activityLog = [entry, ...db.activityLog].slice(0, 200);
-                    fs.writeFileSync(dbPath, JSON.stringify(db, null, 2), 'utf8');
-
-                    res.setHeader('Content-Type', 'application/json;charset=utf-8');
-                    res.end(JSON.stringify({ success: true, activityLog: db.activityLog, syncedToSupabase: false }));
-                  } catch (e) {
-                    res.statusCode = 500;
-                    res.end('Error appending activity log: ' + e.message);
-                  }
-                });
-              } catch (err) {
-                res.statusCode = 500;
-                res.end('Error: ' + err.message);
-              }
-              return;
-            }
 
             if (parsedUrl.pathname === '/api/store-download' && req.method === 'POST') {
               try {
@@ -438,7 +337,7 @@ export default defineConfig({
                 }
 
                 // Load products from local db.json
-                const dbPath = path.join(process.cwd(), 'ข้อมูล', 'db.json');
+                const dbPath = (process.env.PIM_DB_PATH || path.join(process.cwd(), 'ข้อมูล', 'db.json'));
                 let db = { products: [] };
                 if (fs.existsSync(dbPath)) {
                   db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
