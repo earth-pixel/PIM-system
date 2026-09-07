@@ -494,27 +494,28 @@ export default function Dashboard({ products, brands, categories, quotations = [
                             left: `${leftPercent}%`,
                             top: `${topPercent}%`,
                           }}
-                          className="group/point absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center cursor-pointer pointer-events-auto z-30 select-none"
+                          className="group/point absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center cursor-pointer pointer-events-auto z-30 select-none"
                         >
-                          {/* Tooltip directly above the real dot */}
+                          {/* Sleek Apple-style Tooltip directly above the real dot */}
                           <div className="
-                            absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                            text-[10px] font-bold text-white
-                            px-2.5 py-1 rounded-lg shadow-2xl
+                            absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5
+                            text-[11px] font-medium text-white
+                            px-3 py-1.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.25)]
                             opacity-0 scale-90 translate-y-1
                             group-hover/point:opacity-100 group-hover/point:scale-100 group-hover/point:translate-y-0
                             transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
-                            bg-[#1d1d1f] border border-white/10
+                            bg-[#1d1d1f]/95 backdrop-blur-md border border-white/15
                           ">
-                            <span className="text-zinc-300 mr-1">{p.fullName || p.name}:</span>
-                            <span className="text-[#38bdf8] font-extrabold">{p.count.toLocaleString()}</span> รายการ
+                            <span className="text-zinc-300 mr-1.5">{p.fullName || p.name}:</span>
+                            <span className="text-[#38bdf8] font-bold">{p.count.toLocaleString()}</span>
+                            <span className="text-zinc-400 text-[10px] ml-1">รายการ</span>
                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
                           </div>
 
-                          {/* The Real Dot on the line */}
-                          <div className="w-2.5 h-2.5 group-hover/point:scale-150 rounded-full bg-[#0071e3] border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] group-hover/point:shadow-[0_2px_8px_rgba(0,113,227,0.5)] transition-transform duration-150 relative z-10" />
+                          {/* The Real Dot on the line with Apple-like hover ring */}
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#0071e3] border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] group-hover/point:scale-125 group-hover/point:ring-4 group-hover/point:ring-[#0071e3]/25 group-hover/point:shadow-[0_2px_10px_rgba(0,113,227,0.5)] transition-all duration-150 relative z-10" />
                           <div
-                            className="absolute w-5 h-5 rounded-full bg-[#0071e3]/20 group-hover/point:scale-125 animate-pulse-ring transition-transform duration-150"
+                            className="absolute w-5 h-5 rounded-full bg-[#0071e3]/20 animate-pulse-ring transition-transform duration-150"
                             style={{ animationDelay: `${idx * 0.12}s` }}
                           />
                         </div>
