@@ -7,6 +7,7 @@ import {
   ToggleLeft, ToggleRight, Info, Loader, CheckCircle, XCircle,
   Archive, AlertCircle
 } from "lucide-react";
+import DropdownFilter from './DropdownFilter';
 
 const PAGE_SIZE = 15;
 
@@ -224,12 +225,17 @@ export default function ArchiveManage({ quotations = [], onClose, onDeleted }) {
                 ))}
                 <div className="w-px h-4 bg-zinc-200 mx-1 hidden sm:block" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 shrink-0">สถานะ</span>
-                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs text-zinc-700 focus:outline-none focus:border-red-400 cursor-pointer font-medium">
-                  <option value="All">ทุกสถานะ</option>
-                  <option value="draft">แบบร่าง</option>
-                  <option value="rejected">ไม่อนุมัติ</option>
-                  {includeApproved && <option value="approved">อนุมัติแล้ว</option>}
-                </select>
+                <DropdownFilter
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  className="px-3 py-1.5 bg-white border border-zinc-200 rounded-lg text-xs text-zinc-700"
+                  options={[
+                    { value: 'All', label: 'ทุกสถานะ' },
+                    { value: 'draft', label: 'แบบร่าง' },
+                    { value: 'rejected', label: 'ไม่อนุมัติ' },
+                    ...(includeApproved ? [{ value: 'approved', label: 'อนุมัติแล้ว' }] : [])
+                  ]}
+                />
               </div>
               <div className="flex flex-wrap gap-2 items-center">
                 <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500 shrink-0">วันที่</span>

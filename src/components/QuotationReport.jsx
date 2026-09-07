@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Archive, Download, Eye, FileCheck, FileSpreadsheet, Library, Package, Printer, Search, Shield, X } from 'lucide-react';
+import { Archive, Download, Eye, FileCheck, FileSpreadsheet, Library, Package, Printer, Search, Shield, X, AlertCircle } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { isExpiredQuotation } from '../utils/validation';
+import { downloadWorkbook } from '../utils/exportUtils';
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
   minimumFractionDigits: 2,
@@ -102,10 +104,14 @@ export default function QuotationReport({
       const total = Number(q.totalAmount || 0);
       acc.totalRevenue += total;
       acc.approvedCount += 1;
+      if (isExpiredQuotation(q)) {
+        acc.expiredCount += 1;
+      }
       return acc;
     }, {
       totalRevenue: 0,
       approvedCount: 0,
+      expiredCount: 0,
     });
   }, [filteredQuotations]);
 
@@ -116,42 +122,6 @@ export default function QuotationReport({
     return `${dates}, สถานะ: อนุมัติแล้ว${searchQuery.trim() ? `, ค้นหา: "${searchQuery.trim()}"` : ''}`;
   };
 
-  const downloadViaRedirect = async (base64Data, filename) => {
-    try {
-      const response = await fetch('/api/store-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: base64Data, filename }),
-      });
-      if (response.ok) {
-        const result = await response.json();
-        if (result.id) {
-          window.location.assign(`/api/download?id=${result.id}`);
-          return;
-        }
-      }
-    } catch {
-      // Fallback below
-    }
-
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      if (document.body.contains(link)) document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 10000);
-  };
 
   const handleExportExcel = async () => {
     if (isExporting) return;
@@ -164,7 +134,7 @@ export default function QuotationReport({
           return [[
             q.quotationNumber || q.id,
             q.issuedDate || '',
-            q.validUntil || '',
+            q.validUntilDate || q.validUntil || '',
             getCustName(q) || '',
             getCustTaxId(q) || '',
             q.salespersonName || q.createdBy || '',
@@ -183,7 +153,7 @@ export default function QuotationReport({
         return items.map((item, idx) => [
           q.quotationNumber || q.id,
           q.issuedDate || '',
-          q.validUntil || '',
+          q.validUntilDate || q.validUntil || '',
           getCustName(q) || '',
           getCustTaxId(q) || '',
           q.salespersonName || q.createdBy || '',
@@ -230,9 +200,8 @@ export default function QuotationReport({
 
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'รายงานใบเสนอราคา');
-      const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
       const filename = `PIM_Quotation_Report_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
-      await downloadViaRedirect(base64, filename);
+      await downloadWorkbook(workbook, filename);
       addActivityLog?.(`ดาวน์โหลดรายงานใบเสนอราคาเป็นไฟล์ Excel (${filteredQuotations.length} เอกสาร, ${filterDescription()})`);
     } catch (error) {
       console.error('Error exporting quotation report:', error);
@@ -376,24 +345,22 @@ export default function QuotationReport({
               <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
             </div>
           </div>
-          <p className="text-[10px] text-emerald-700 font-bold mt-2">มูลค่ารวมของเอกสารที่อนุมัติ</p>
         </div>
 
-        {/* Average Value */}
-        <div className="relative overflow-hidden rounded-2xl border border-blue-200/60 bg-gradient-to-br from-blue-50/80 to-cyan-50/40 p-5 group transition-all duration-300 print-card print-kpi-card">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-blue-200/40 to-transparent rounded-bl-[3rem]" />
+        {/* Expired Quotations Count */}
+        <div className="relative overflow-hidden rounded-2xl border border-red-200/60 bg-gradient-to-br from-red-50/80 to-rose-50/40 p-5 group transition-all duration-300 print-card print-kpi-card">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-red-200/40 to-transparent rounded-bl-[3rem]" />
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-[10px] font-black uppercase tracking-widest text-blue-600/80 mb-1">มูลค่าเฉลี่ยต่อเอกสาร</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-red-600/80 mb-1">รายการหมดอายุ</p>
               <h3 className="text-2xl sm:text-3xl font-black text-[#1d1d1f] leading-none tracking-tight tabular-nums">
-                ฿{formatMoney(summary.approvedCount > 0 ? summary.totalRevenue / summary.approvedCount : 0)}
+                {summary.expiredCount.toLocaleString()}
               </h3>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Library className="w-5 h-5 text-blue-600" />
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+              <AlertCircle className="w-5 h-5 text-red-600" />
             </div>
           </div>
-          <p className="text-[10px] text-[#86868b] mt-2 font-medium">จากเอกสารที่แสดงตามตัวกรอง</p>
         </div>
       </div>
 
@@ -549,10 +516,17 @@ export default function QuotationReport({
                       </td>
                       <td className="p-3.5 text-[#555557] font-medium">{q.salespersonName || q.createdBy || '-'}</td>
                       <td className="p-3.5 text-center print-hide-col">
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${st.bg} ${st.text} ${st.border} whitespace-nowrap`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                          {st.label}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${st.bg} ${st.text} ${st.border} whitespace-nowrap`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                            {st.label}
+                          </span>
+                          {isExpiredQuotation(q) && (
+                            <span className="inline-flex items-center gap-1 text-[9px] px-2 py-0.5 rounded-full font-bold bg-red-50 text-red-600 border border-red-200">
+                              หมดอายุ
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="p-3.5 text-[#1d1d1f]">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 font-bold text-xs text-zinc-800 bg-[#f5f5f7] rounded-lg border border-[#d2d2d7]/60 whitespace-nowrap print:hidden">
@@ -596,8 +570,7 @@ export default function QuotationReport({
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#0071e3] bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-lg transition-colors cursor-pointer"
                           title="ดูรายละเอียดเอกสาร"
                         >
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>ดูข้อมูล</span>
+                          <Eye className="w-2.5 h-2.5" />
                         </button>
                       </td>
                     </tr>
@@ -668,10 +641,17 @@ export default function QuotationReport({
                   {(() => {
                     const st = STATUS_CONFIG[viewDoc.status] || STATUS_CONFIG.draft;
                     return (
-                      <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${st.bg} ${st.text} ${st.border}`}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                        {st.label}
-                      </span>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${st.bg} ${st.text} ${st.border}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+                          {st.label}
+                        </span>
+                        {isExpiredQuotation(viewDoc) && (
+                          <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold bg-red-50 text-red-600 border border-red-200">
+                            หมดอายุ
+                          </span>
+                        )}
+                      </div>
                     );
                   })()}
                 </div>

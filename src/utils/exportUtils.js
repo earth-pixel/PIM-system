@@ -4,12 +4,40 @@ import { exportToLazadaMandatory } from './lazadaTemplate';
 import { exportToShopeeMandatory } from './shopeeTemplate';
 import { exportToTiktokMandatory } from './tiktokTemplate';
 
+import { checkIsInAppBrowser } from './browserUtils';
+
 // ─────────────────────────────────────────────
-// Helper: download Excel file
+// Helper: download Excel file (Instant direct blob download with in-app fallback)
 // ─────────────────────────────────────────────
-function downloadWorkbook(workbook, filename) {
+export async function downloadWorkbook(workbook, filename) {
+  // If in-app browser (LINE, Facebook Messenger, etc.) where blob download is blocked
+  if (checkIsInAppBrowser()) {
+    try {
+      const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const response = await fetch('/api/store-download', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: base64, filename }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.id) {
+          window.location.assign(`/api/download?id=${result.id}`);
+          return;
+        }
+      }
+    } catch {
+      // Fallback to direct blob download
+    }
+  }
+
+  // Fast direct instant download (< 50ms)
   const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
-  const blob = new Blob([wbout], { type: 'application/octet-stream' });
+  const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -17,9 +45,9 @@ function downloadWorkbook(workbook, filename) {
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
-    document.body.removeChild(a);
+    if (document.body.contains(a)) document.body.removeChild(a);
     URL.revokeObjectURL(url);
-  }, 100);
+  }, 1000);
 }
 
 // ─────────────────────────────────────────────

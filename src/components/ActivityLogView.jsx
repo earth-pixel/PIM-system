@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Search, Trash2, Printer, Clock, ArrowRight, Check, AlertCircle, X, Info } from 'lucide-react';
 import MobileDownloadModal from './MobileDownloadModal';
 import { checkIsInAppBrowser } from '../utils/browserUtils';
+import DropdownFilter from './DropdownFilter';
 
 export default function ActivityLogView({ activityLog, onClearLogs, currentUser }) {
   const [searchQuery, setSearchQuery] = useState('');
@@ -350,32 +351,32 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
         {/* User Role Filter */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-black text-[#555557] uppercase tracking-wide whitespace-nowrap">บทบาท:</span>
-          <select
+          <DropdownFilter
             value={selectedRole}
             onChange={(e) => setSelectedRole(e.target.value)}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium text-zinc-700"
-          >
-            <option value="All">ทั้งหมด</option>
-            <option value="admin">Admin</option>
-            <option value="manager">Manager</option>
-            <option value="user">User</option>
-          </select>
+            options={[
+              { value: 'All', label: 'ทั้งหมด' },
+              { value: 'admin', label: 'Admin' },
+              { value: 'manager', label: 'Manager' },
+              { value: 'user', label: 'User' }
+            ]}
+          />
         </div>
 
         {/* Action Type Filter */}
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-black text-[#555557] uppercase tracking-wide whitespace-nowrap">การกระทำ:</span>
-          <select
+          <DropdownFilter
             value={selectedActionType}
             onChange={(e) => setSelectedActionType(e.target.value)}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium text-zinc-700"
-          >
-            <option value="All">การกระทำทั้งหมด</option>
-            <option value="add">เพิ่มข้อมูลใหม่</option>
-            <option value="edit">แก้ไขข้อมูล</option>
-            <option value="delete">ลบข้อมูล</option>
-            <option value="print">พิมพ์ / ส่งออก</option>
-          </select>
+            options={[
+              { value: 'All', label: 'การกระทำทั้งหมด' },
+              { value: 'add', label: 'เพิ่มข้อมูลใหม่' },
+              { value: 'edit', label: 'แก้ไขข้อมูล' },
+              { value: 'delete', label: 'ลบข้อมูล' },
+              { value: 'print', label: 'พิมพ์ / ส่งออก' }
+            ]}
+          />
         </div>
       </div>
 

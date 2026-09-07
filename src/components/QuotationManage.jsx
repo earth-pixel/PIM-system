@@ -10,6 +10,8 @@ import * as XLSX from 'xlsx';
 import MobileDownloadModal from './MobileDownloadModal';
 import { checkIsInAppBrowser } from '../utils/browserUtils';
 import { playScanBeep, findProductByBarcodeOrCode } from '../utils/scannerUtils';
+import { isExpiredQuotation, getExpiryStatus } from '../utils/validation';
+import DropdownFilter from './DropdownFilter';
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', {
@@ -82,7 +84,15 @@ const canDeleteDocument = (q, currentUser) => {
 };
 
 // ── Badge ──────────────────────────────────────────────────────────────────
-const Badge = ({ status }) => {
+const Badge = ({ status, expired }) => {
+  if (expired) {
+    return (
+      <span className="inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border bg-red-50 text-red-600 border-red-200">
+        <AlertCircle className="w-3 h-3" />
+        หมดอายุ
+      </span>
+    );
+  }
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.draft;
   return (
     <span className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${cfg.bg} ${cfg.text} ${cfg.border}`}>
@@ -835,15 +845,15 @@ const AdminApprovedReport = ({ quotations, addActivityLog }) => {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <select
+            <DropdownFilter
               value={typeFilter}
               onChange={e => setTypeFilter(e.target.value)}
-              className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-            >
-              <option value="All">เอกสารทุกประเภท</option>
-              <option value="quotation">📄 ใบเสนอราคา (อนุมัติแล้ว)</option>
-              <option value="product_proposal">📦 ใบเสนอสินค้า</option>
-            </select>
+              options={[
+                { value: 'All', label: 'เอกสารทุกประเภท' },
+                { value: 'quotation', label: '📄 ใบเสนอราคา (อนุมัติแล้ว)' },
+                { value: 'product_proposal', label: '📦 ใบเสนอสินค้า' }
+              ]}
+            />
 
             {/* Start Date */}
             <div className="relative flex items-center">
@@ -1002,12 +1012,13 @@ const AdminApprovedReport = ({ quotations, addActivityLog }) => {
   );
 };
 // ── List Tab ───────────────────────────────────────────────────────────────
-const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) => {
+const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, onCopyAsNew }) => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [docTypeFilter, setDocTypeFilter] = useState('All');
   const [dateFilter, setDateFilter] = useState('');
   const [hoveredRow, setHoveredRow] = useState(null);
+  const [expiringSoonOnly, setExpiringSoonOnly] = useState(false);
 
   const [sortBy, setSortBy] = useState(() => {
     return localStorage.getItem('pim_quotation_list_sort_by') || 'newest';
@@ -1015,7 +1026,11 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
   const [isSortOpen, setIsSortOpen] = useState(false);
 
   const [adminListMode, setAdminListMode] = useState(() => {
-    return localStorage.getItem('pim_quotation_admin_list_mode') || 'all';
+    const savedMode = localStorage.getItem('pim_quotation_admin_list_mode');
+    if (currentUser?.role === 'admin') {
+      return (savedMode && ['pending', 'expired', 'mine'].includes(savedMode)) ? savedMode : 'pending';
+    }
+    return (savedMode && ['all', 'expired'].includes(savedMode)) ? savedMode : 'all';
   });
 
   useEffect(() => {
@@ -1024,11 +1039,39 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
   useEffect(() => {
     localStorage.setItem('pim_quotation_admin_list_mode', adminListMode);
+    setExpiringSoonOnly(false);
   }, [adminListMode]);
 
+  const visibleListMode = useMemo(() => {
+    if (currentUser?.role === 'admin') {
+      return ['pending', 'expired', 'mine'].includes(adminListMode) ? adminListMode : 'pending';
+    }
+    return ['all', 'expired'].includes(adminListMode) ? adminListMode : 'all';
+  }, [currentUser, adminListMode]);
+
   const pendingCount = useMemo(() => {
-    return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation').length;
+    return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation' && !isExpiredQuotation(q)).length;
   }, [quotations]);
+
+  const expiredCount = useMemo(() => {
+    return quotations.filter(isExpiredQuotation).length;
+  }, [quotations]);
+
+  const expiringSoonCount = useMemo(() => {
+    return quotations.filter(q => {
+      if (isExpiredQuotation(q)) return false;
+      if (currentUser?.role === 'admin' && visibleListMode === 'mine') {
+        const creator = q.createdBy || '';
+        const salesName = q.salespersonName || '';
+        const isMine = creator === currentUser.username ||
+          salesName.toLowerCase().includes(currentUser.username.toLowerCase()) ||
+          (currentUser.name && salesName.toLowerCase().includes(currentUser.name.toLowerCase()));
+        if (!isMine) return false;
+      }
+      const exp = getExpiryStatus(q);
+      return Boolean(exp && exp.isExpiringSoon);
+    }).length;
+  }, [quotations, currentUser, visibleListMode]);
 
   const matchDate = (issuedDateStr, filterDateStr) => {
     if (!filterDateStr) return true;
@@ -1065,11 +1108,25 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
       const matchD = !dateFilter || matchDate(q.issuedDate, dateFilter);
 
-      if (currentUser?.role === 'admin' && adminListMode === 'pending') {
+      if (visibleListMode === 'expired') {
+        return matchSearch && isExpiredQuotation(q) && matchD;
+      }
+
+      // If document is expired, move it out of active quotation tabs into "เอกสารหมดอายุ"
+      if (isExpiredQuotation(q)) {
+        return false;
+      }
+
+      if (expiringSoonOnly) {
+        const exp = getExpiryStatus(q);
+        if (!exp || !exp.isExpiringSoon) return false;
+      }
+
+      if (currentUser?.role === 'admin' && visibleListMode === 'pending') {
         return matchSearch && q.status === 'sent' && q.documentType === 'quotation' && matchD;
       }
 
-      if (currentUser?.role === 'admin' && adminListMode === 'mine') {
+      if (currentUser?.role === 'admin' && visibleListMode === 'mine') {
         const creator = q.createdBy || '';
         const salesName = q.salespersonName || '';
         const isMine = creator === currentUser.username ||
@@ -1081,13 +1138,6 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
         return matchSearch && isMine && matchStatus && matchDocType && matchD;
       }
 
-      // For admin viewing all documents in the system:
-      // Only show: approved quotations, or ready product proposals. Hide drafts, sent, and rejected items.
-      if (currentUser?.role === 'admin' && adminListMode === 'all') {
-        const isValidStatus = q.status === 'approved' || q.documentType === 'product_proposal';
-        if (!isValidStatus) return false;
-      }
-
       const matchStatus = statusFilter === 'All' || q.status === statusFilter;
       const matchDocType = docTypeFilter === 'All' || q.documentType === docTypeFilter;
 
@@ -1095,8 +1145,8 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
     });
 
     return res.sort((a, b) => {
-      const dateA = a.issuedDate || '';
-      const dateB = b.issuedDate || '';
+      const dateA = (visibleListMode === 'expired' ? a.validUntilDate : a.issuedDate) || '';
+      const dateB = (visibleListMode === 'expired' ? b.validUntilDate : b.issuedDate) || '';
       let cmp = dateA.localeCompare(dateB);
       if (cmp === 0) {
         const idA = a.id || '';
@@ -1105,7 +1155,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
       }
       return sortBy === 'newest' ? -cmp : cmp;
     });
-  }, [quotations, search, dateFilter, currentUser, adminListMode, statusFilter, docTypeFilter, sortBy]);
+  }, [quotations, search, dateFilter, currentUser, visibleListMode, statusFilter, docTypeFilter, sortBy, expiringSoonOnly]);
 
   const handleExportExcel = async () => {
     try {
@@ -1231,12 +1281,24 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
   return (
     <div className="space-y-4">
-      {currentUser?.role === 'admin' && (
-        <div className="flex bg-[#f5f5f7] p-1 rounded-full border border-[#d2d2d7]/50 w-fit flex-wrap gap-1 sm:gap-0 shadow-inner">
+      <div className="flex bg-[#f5f5f7] p-1 rounded-full border border-[#d2d2d7]/50 w-fit flex-wrap gap-1 shadow-inner">
+        {currentUser?.role !== 'admin' && (
+          <button
+            type="button"
+            onClick={() => setAdminListMode('all')}
+            className={`px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer transform active:scale-95 ${visibleListMode === 'all'
+              ? 'bg-white text-[#0071e3] shadow-md border border-[#d2d2d7]/10'
+              : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/50'
+              }`}
+          >
+            เอกสารของคุณ
+          </button>
+        )}
+        {currentUser?.role === 'admin' && (
           <button
             type="button"
             onClick={() => setAdminListMode('pending')}
-            className={`px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer flex items-center gap-2 transform active:scale-95 ${adminListMode === 'pending'
+            className={`px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer flex items-center gap-2 transform active:scale-95 ${visibleListMode === 'pending'
               ? 'bg-white text-[#0071e3] shadow-md border border-[#d2d2d7]/10'
               : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/50'
               }`}
@@ -1248,26 +1310,41 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
               </span>
             )}
           </button>
+        )}
+        {currentUser?.role === 'admin' && (
           <button
             type="button"
             onClick={() => setAdminListMode('mine')}
-            className={`px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer transform active:scale-95 ${adminListMode === 'mine'
+            className={`px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer transform active:scale-95 ${visibleListMode === 'mine'
               ? 'bg-white text-[#0071e3] shadow-md border border-[#d2d2d7]/10'
               : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-200/50'
               }`}
           >
             เอกสารของคุณ
           </button>
-        </div>
-      )}
+        )}
+        <button
+          type="button"
+          onClick={() => {
+            setAdminListMode('expired');
+            setExpiringSoonOnly(false);
+          }}
+          className={`px-5 py-2 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer flex items-center gap-2 transform active:scale-95 ${visibleListMode === 'expired'
+            ? 'bg-white text-red-600 shadow-md border border-red-100'
+            : 'text-zinc-500 hover:text-red-600 hover:bg-red-50'
+            }`}
+        >
+          เอกสารหมดอายุ
+        </button>
+      </div>
 
       {/* ถ้าอยู่ใน admin 'all' mode ให้ render AdminApprovedReport แทน */}
-      {currentUser?.role === 'admin' && adminListMode === 'all' && (
+      {currentUser?.role === 'admin' && visibleListMode === 'all' && (
         <AdminApprovedReport quotations={quotations} addActivityLog={addActivityLog} />
       )}
 
       {/* Search and Filters — ซ่อนเมื่ออยู่ใน admin 'all' mode */}
-      {!(currentUser?.role === 'admin' && adminListMode === 'all') && (
+      {!(currentUser?.role === 'admin' && visibleListMode === 'all') && (
         <>{/* Search and Filters */}
           <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
             <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
@@ -1289,52 +1366,46 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
 
               <div className="flex flex-wrap items-center gap-2">
                 <div className="w-full sm:w-auto">
-                  {currentUser?.role === 'admin' && adminListMode === 'pending' ? (
+                  {visibleListMode === 'pending' || visibleListMode === 'expired' ? (
                     <div className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f]/75 font-medium select-none flex items-center">
                       📄 ใบเสนอราคา
                     </div>
                   ) : (
-                    <select
+                    <DropdownFilter
                       value={docTypeFilter}
                       onChange={e => setDocTypeFilter(e.target.value)}
-                      className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-                    >
-                      <option value="All">ประเภทเอกสารทั้งหมด</option>
-                      <option value="quotation">📄 ใบเสนอราคา</option>
-                      <option value="product_proposal">📦 ใบเสนอสินค้า</option>
-                    </select>
+                      options={[
+                        { value: 'All', label: 'ประเภทเอกสารทั้งหมด' },
+                        { value: 'quotation', label: '📄 ใบเสนอราคา' },
+                        { value: 'product_proposal', label: '📦 ใบเสนอสินค้า' }
+                      ]}
+                    />
                   )}
                 </div>
                 {/* Status selector or pending status label */}
-                {currentUser?.role === 'admin' && adminListMode === 'pending' ? (
+                {visibleListMode === 'pending' || visibleListMode === 'expired' ? (
                   <div className="w-full sm:w-auto">
                     <div className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 font-medium select-none flex items-center">
-                      ⏳ รออนุมัติ
+                      {visibleListMode === 'expired' ? '⚠️ หมดอายุ' : '⏳ รออนุมัติ'}
                     </div>
                   </div>
                 ) : (
                   <div className="w-full sm:w-auto">
-                    <select
+                    <DropdownFilter
                       value={statusFilter}
                       onChange={e => setStatusFilter(e.target.value)}
-                      className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
                       disabled={docTypeFilter === 'product_proposal'}
-                    >
-                      {currentUser?.role === 'admin' && adminListMode === 'all' ? (
-                        <>
-                          <option value="All">สถานะทั้งหมด</option>
-                          <option value="approved">อนุมัติแล้ว</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="All">สถานะทั้งหมด</option>
-                          <option value="draft">แบบร่าง</option>
-                          <option value="sent">รออนุมัติ</option>
-                          <option value="approved">อนุมัติแล้ว</option>
-                          <option value="rejected">ไม่อนุมัติ</option>
-                        </>
-                      )}
-                    </select>
+                      options={currentUser?.role === 'admin' && visibleListMode === 'all' ? [
+                        { value: 'All', label: 'สถานะทั้งหมด' },
+                        { value: 'approved', label: 'อนุมัติแล้ว' }
+                      ] : [
+                        { value: 'All', label: 'สถานะทั้งหมด' },
+                        { value: 'draft', label: 'แบบร่าง' },
+                        { value: 'sent', label: 'รออนุมัติ' },
+                        { value: 'approved', label: 'อนุมัติแล้ว' },
+                        { value: 'rejected', label: 'ไม่อนุมัติ' }
+                      ]}
+                    />
                   </div>
                 )}
 
@@ -1363,7 +1434,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
                     </button>
                   )}
                 </div>
-                {currentUser?.role === 'admin' && adminListMode === 'all' && (
+                {currentUser?.role === 'admin' && visibleListMode === 'all' && (
                   <button
                     onClick={handleExportExcel}
                     className="group relative overflow-hidden px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
@@ -1380,18 +1451,63 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
       )}
 
       {/* List — ซ่อนเมื่ออยู่ใน admin 'all' mode */}
-      {!(currentUser?.role === 'admin' && adminListMode === 'all') && (
-        <>{/* List */}
+      {!(currentUser?.role === 'admin' && visibleListMode === 'all') && (
+        <div className="space-y-3">
+          {/* แจ้งเตือน 3 วันก่อนหมดอายุ (Expiring Soon Alert Banner) */}
+          {expiringSoonCount > 0 && visibleListMode !== 'expired' && (
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-amber-50/90 to-orange-50/80 border border-amber-200/90 rounded-2xl text-xs text-amber-950 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-100/90 flex items-center justify-center text-amber-700 shrink-0 shadow-2xs">
+                  <Clock className="w-4 h-4 animate-pulse" />
+                </div>
+                <div>
+                  <div className="font-bold flex items-center gap-1.5 flex-wrap">
+                    <span>แจ้งเตือน: มีใบเสนอราคาใกล้หมดอายุภายใน 3 วัน</span>
+                    <span className="bg-amber-500 text-white text-[10px] px-2 py-0.2 rounded-full font-black shadow-2xs">
+                      {expiringSoonCount} รายการ
+                    </span>
+                  </div>
+                  <p className="text-amber-800/85 text-[11px] mt-0.5">
+                    กรุณาติดต่อติดตามลูกค้าเพื่อยืนยันคำสั่งซื้อก่อนที่เอกสารจะหมดอายุ
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExpiringSoonOnly(!expiringSoonOnly)}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 shrink-0 shadow-xs ${
+                  expiringSoonOnly
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white'
+                    : 'bg-white hover:bg-amber-100/80 text-amber-900 border border-amber-300'
+                }`}
+              >
+                {expiringSoonOnly ? (
+                  <>
+                    <X className="w-3.5 h-3.5" /> แสดงเอกสารทั้งหมด
+                  </>
+                ) : (
+                  <>
+                    <Clock className="w-3.5 h-3.5" /> ดูเฉพาะใกล้หมดอายุ ({expiringSoonCount})
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+
           {filtered.length === 0 ? (
             <div className="text-center py-12 text-xs text-zinc-400 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
-              ไม่พบรายการเอกสารเสนอราคา/สินค้า
+              {expiringSoonOnly
+                ? 'ไม่พบใบเสนอราคาที่ใกล้หมดอายุตามเงื่อนไขที่เลือก'
+                : (visibleListMode === 'expired' ? 'ไม่พบใบเสนอราคาที่หมดอายุ' : 'ไม่พบรายการเอกสารเสนอราคา/สินค้า')}
             </div>
           ) : (
             <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xs overflow-hidden">
               <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-3">
-                  <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">รายการเอกสารเสนอราคา</h4>
-                  <span className="px-2.5 py-0.5 text-[10px] font-black bg-[#0071e3] text-white rounded-full">
+                  <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">
+                    {visibleListMode === 'expired' ? 'รายการใบเสนอราคาที่หมดอายุ' : 'รายการเอกสารเสนอราคา'}
+                  </h4>
+                  <span className={`px-2.5 py-0.5 text-[10px] font-black text-white rounded-full ${visibleListMode === 'expired' ? 'bg-red-500' : 'bg-[#0071e3]'}`}>
                     {filtered.length.toLocaleString()} รายการ
                   </span>
                 </div>
@@ -1491,13 +1607,35 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
                             : `${q.customer?.name} · ${q.customer?.companyName || 'ลูกค้าทั่วไป'}`}
                         </div>
                         <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-[10px] text-[#aaa]">{formatDate(q.issuedDate)}</span>
-                          {currentUser?.role === 'admin' && adminListMode === 'pending' && q.salespersonName && (
+                          <span className={`text-[10px] ${visibleListMode === 'expired' ? 'font-bold text-red-600' : 'text-[#aaa]'}`}>
+                            {visibleListMode === 'expired' ? `หมดอายุ ${formatDate(q.validUntilDate)}` : formatDate(q.issuedDate)}
+                          </span>
+                          {currentUser?.role === 'admin' && visibleListMode === 'pending' && q.salespersonName && (
                             <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">
                               <Users className="w-2.5 h-2.5" />
                               {q.salespersonName}
                             </span>
                           )}
+                          {/* แจ้งเตือน 3 วันก่อนหมดอายุในแถวรายการ */}
+                          {(() => {
+                            const expStatus = getExpiryStatus(q);
+                            if (expStatus?.isExpiringSoon && visibleListMode !== 'expired') {
+                              return (
+                                <span
+                                  className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
+                                    expStatus.daysLeft === 0
+                                      ? 'bg-red-50 text-red-600 border-red-200 animate-pulse'
+                                      : 'bg-amber-50 text-amber-800 border-amber-300'
+                                  }`}
+                                  title={`จะหมดอายุวันที่ ${formatDate(q.validUntilDate)}`}
+                                >
+                                  <Clock className="w-2.5 h-2.5" />
+                                  {expStatus.label}
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
                       </div>
                       <div className="text-right flex flex-col items-end gap-1.5">
@@ -1508,7 +1646,21 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
                               ✓ พร้อมใช้งาน
                             </span>
                           ) : (
-                            <Badge status={q.status} />
+                            <Badge status={q.status} expired={isExpiredQuotation(q)} />
+                          )}
+
+                          {isExpiredQuotation(q) && onCopyAsNew && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onCopyAsNew(q);
+                              }}
+                              className="px-2.5 py-1 text-[11px] font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-lg transition-colors cursor-pointer flex items-center gap-1 shadow-2xs"
+                              title="สร้างใบเสนอราคาใหม่จากใบเดิมที่หมดอายุแล้ว"
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span className="hidden sm:inline">สร้างใหม่</span>
+                            </button>
                           )}
 
                           {canDeleteDocument(q, currentUser) && (
@@ -1531,7 +1683,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser }) 
               </div>
             </div>
           )}
-        </> /* end list block */
+        </div> /* end list block */
       )}
     </div>
   );
@@ -1815,6 +1967,11 @@ const CreateTab = ({
       if (!form.projName.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกชื่อโปรเจกต์' }); return; }
       if (!form.validDate) { setAlert({ type: 'error', msg: 'กรุณาเลือกวันหมดอายุ' }); return; }
 
+      const minDate = (editQt && editQt.issuedDate) ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE');
+      if (form.validDate < minDate) {
+        setAlert({ type: 'error', msg: 'วันหมดอายุต้องไม่น้อยกว่าวันที่ออกเอกสาร' });
+        return;
+      }
     }
     const isProductProposalDraft = docFormat === 'product_proposal' && status === 'draft';
     if (!isProductProposalDraft) {
@@ -1824,12 +1981,13 @@ const CreateTab = ({
     const validItems = items.filter(it => it.productName && it.productName.trim());
 
     // Admin auto-approves; others submit as 'sent' (pending approval)
+    const isEditingExisting = Boolean(editQt && editQt.id);
     const effectiveStatus = (status === 'sent' && currentUser?.role === 'admin') ? 'approved' : status;
     onSave({
-      id: editQt ? editQt.id : generateNewId(),
-      quotationNumber: editQt ? editQt.quotationNumber : undefined,
+      id: isEditingExisting ? editQt.id : generateNewId(),
+      quotationNumber: isEditingExisting ? editQt.quotationNumber : undefined,
       documentType: docFormat,
-      createdBy: editQt?.createdBy || currentUser?.username || 'system',
+      createdBy: isEditingExisting ? (editQt?.createdBy || currentUser?.username || 'system') : (currentUser?.username || 'system'),
       // Track conversion origin
       sourceProposalId: sourceProposal ? (sourceProposal.quotationNumber || sourceProposal.id) : (editQt?.sourceProposalId || undefined),
       customer: docFormat === 'product_proposal'
@@ -1838,7 +1996,7 @@ const CreateTab = ({
       salespersonName: form.salesName || currentUser?.name || currentUser?.username || '',
       salespersonPhone: docFormat === 'product_proposal' ? '' : form.salesPhone,
       projectName: docFormat === 'product_proposal' ? '' : form.projName,
-      issuedDate: editQt ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE'),
+      issuedDate: isEditingExisting ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE'),
       validUntilDate: docFormat === 'product_proposal' ? '' : form.validDate,
       vatRate: docFormat === 'product_proposal' ? 0 : vatRate,
       note: docFormat === 'product_proposal' ? '' : form.note,
@@ -1849,7 +2007,7 @@ const CreateTab = ({
       status: effectiveStatus,
       approvedBy: effectiveStatus === 'approved' ? (currentUser?.name || currentUser?.username || 'ไม่ระบุ') : undefined,
       approvedDate: effectiveStatus === 'approved' ? new Date().toISOString() : undefined,
-      customerRevised: docFormat === 'product_proposal' ? false : (editQt?.customerRevised || false),
+      customerRevised: docFormat === 'product_proposal' ? false : (isEditingExisting ? (editQt?.customerRevised || false) : false),
     });
     const successMsg = docFormat === 'product_proposal'
       ? 'บันทึกใบเสนอสินค้าเรียบร้อย!'
@@ -1907,48 +2065,50 @@ const CreateTab = ({
       {/* Document Format Toggle — hidden when converting from proposal */}
       {!sourceProposal && (
         <label
-          className={`mb-6 flex items-center gap-4 rounded-2xl p-5 border-2 cursor-pointer transition-all duration-300 select-none ${docFormat === 'product_proposal'
-            ? 'bg-violet-50/80 border-violet-500 shadow-md shadow-violet-100/50 scale-[1.01]'
-            : 'bg-white border-[#d2d2d7]/80 hover:border-violet-300 hover:shadow-xs'
+          className={`mb-5 flex items-center justify-between gap-3.5 rounded-2xl p-3.5 sm:p-4 border cursor-pointer transition-all duration-200 select-none ${docFormat === 'product_proposal'
+            ? 'bg-violet-50/80 border-violet-400 shadow-xs'
+            : 'bg-white border-[#d2d2d7]/80 hover:border-violet-300 hover:bg-zinc-50/40'
             }`}
         >
-          {/* Custom Checkbox */}
-          <div className="relative flex-shrink-0">
-            <input
-              type="checkbox"
-              className="sr-only"
-              checked={docFormat === 'product_proposal'}
-              onChange={e => setDocFormat(e.target.checked ? 'product_proposal' : 'quotation')}
-            />
-            <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all duration-200 ${docFormat === 'product_proposal'
-              ? 'bg-violet-600 border-violet-600 scale-110 shadow-xs'
-              : 'bg-white border-[#d2d2d7] hover:border-violet-400'
-              }`}>
-              {docFormat === 'product_proposal' && (
-                <svg className="w-4 h-4 text-white" viewBox="0 0 12 12" fill="none">
-                  <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              )}
+          <div className="flex items-center gap-3 min-w-0">
+            {/* Custom Checkbox */}
+            <div className="relative flex-shrink-0">
+              <input
+                type="checkbox"
+                className="sr-only"
+                checked={docFormat === 'product_proposal'}
+                onChange={e => setDocFormat(e.target.checked ? 'product_proposal' : 'quotation')}
+              />
+              <div className={`w-5 h-5 rounded-lg border flex items-center justify-center transition-all duration-200 ${docFormat === 'product_proposal'
+                ? 'bg-violet-600 border-violet-600 shadow-xs'
+                : 'bg-white border-[#d2d2d7] hover:border-violet-400'
+                }`}>
+                {docFormat === 'product_proposal' && (
+                  <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 12 12" fill="none">
+                    <path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </div>
+            </div>
+
+            {/* Label text */}
+            <div className="min-w-0">
+              <p className={`text-sm font-bold transition-colors ${docFormat === 'product_proposal' ? 'text-violet-900' : 'text-[#1d1d1f]'}`}>
+                ใบเสนอสินค้า
+              </p>
+              <p className={`text-xs mt-0.5 transition-colors ${docFormat === 'product_proposal' ? 'text-violet-600' : 'text-[#555557]'}`}>
+                {docFormat === 'product_proposal'
+                  ? 'ไม่แสดงข้อมูลลูกค้า, พนักงานขาย และราคารวม VAT'
+                  : 'ติ๊กเพื่อสร้างใบเสนอสินค้าแบบไม่ระบุข้อมูลลูกค้า'
+                }
+              </p>
             </div>
           </div>
 
-          {/* Label text */}
-          <div className="flex-1 min-w-0">
-            <p className={`text-sm sm:text-base font-bold transition-colors ${docFormat === 'product_proposal' ? 'text-violet-900' : 'text-[#1d1d1f]'}`}>
-              ใบเสนอสินค้า
-            </p>
-            <p className={`text-xs sm:text-sm mt-1 transition-colors ${docFormat === 'product_proposal' ? 'text-violet-600' : 'text-[#555557]'}`}>
-              {docFormat === 'product_proposal'
-                ? 'ไม่แสดงข้อมูลลูกค้า, พนักงานขาย และราคารวม VAT'
-                : 'ติ๊กเพื่อสร้างใบเสนอสินค้าแบบไม่ระบุข้อมูลลูกค้า'
-              }
-            </p>
-          </div>
-
           {/* Right badge */}
-          <span className={`text-xs font-bold px-3 py-1.5 rounded-full border flex-shrink-0 transition-all duration-300 ${docFormat === 'product_proposal'
-            ? 'bg-violet-600 text-white border-violet-600 shadow-sm'
-            : 'bg-[#f5f5f7] text-[#555557] border-[#d2d2d7]/50'
+          <span className={`text-xs font-bold px-3 py-1 rounded-full border flex-shrink-0 transition-all duration-200 ${docFormat === 'product_proposal'
+            ? 'bg-violet-600 text-white border-violet-600 shadow-xs'
+            : 'bg-[#f5f5f7] text-[#555557] border-[#d2d2d7]/60'
             }`}>
             {docFormat === 'product_proposal' ? '✓ ใบเสนอสินค้า' : 'ใบเสนอราคา'}
           </span>
@@ -2058,7 +2218,7 @@ const CreateTab = ({
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div><label className={labelClass}>ชื่อโปรเจกต์ <span className="text-red-500">*</span></label><input className={inputClass} value={form.projName} onChange={e => setField('projName', e.target.value)} /></div>
-                  <div><label className={labelClass}>วันหมดอายุ <span className="text-red-500">*</span></label><input className={inputClass} type="date" value={form.validDate} onChange={e => setField('validDate', e.target.value)} /></div>
+                  <div><label className={labelClass}>วันหมดอายุ <span className="text-red-500">*</span></label><input className={inputClass} type="date" value={form.validDate} min={(editQt && editQt.issuedDate) ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE')} onChange={e => setField('validDate', e.target.value)} /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
@@ -2451,7 +2611,8 @@ const PreviewTab = ({
   onDelete,
   onConvert,
   currentUser,
-  onSendMailDirect
+  onSendMailDirect,
+  onCopyAsNew
 }) => {
   const q = selectedIndex !== null && quotations[selectedIndex] ? quotations[selectedIndex] : null;
 
@@ -2466,11 +2627,12 @@ const PreviewTab = ({
 
 
   const canPrint = q.status === 'approved' || q.documentType === 'product_proposal';
-  const canEdit = currentUser?.role === 'admin' || (
+  const canEdit = !isExpiredQuotation(q) && (currentUser?.role === 'admin' || (
     (currentUser?.role === 'manager' || currentUser?.role === 'user') &&
     isOwnDocument(q, currentUser) &&
     (q.documentType === 'product_proposal' || q.status !== 'approved')
-  );
+  ));
+  const expiryStatus = useMemo(() => getExpiryStatus(q), [q]);
 
   return (
     <div className="space-y-4 animate-fade-in text-[#1d1d1f] w-full font-sans">
@@ -2484,9 +2646,20 @@ const PreviewTab = ({
                 ✓ พร้อมใช้งาน
               </span>
             ) : (
-              <Badge status={q.status} />
+              <Badge status={q.status} expired={isExpiredQuotation(q)} />
             )}
-
+            {!isExpiredQuotation(q) && expiryStatus?.isExpiringSoon && (
+              <span
+                className={`inline-flex items-center gap-1 text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
+                  expiryStatus.daysLeft === 0
+                    ? 'bg-red-50 text-red-600 border-red-200 animate-pulse'
+                    : 'bg-amber-50 text-amber-800 border-amber-300'
+                }`}
+              >
+                <Clock className="w-3 h-3" />
+                {expiryStatus.label}
+              </span>
+            )}
           </div>
           <div className="text-[11px] text-[#555557] mt-1 font-semibold">
             {q.customer?.name} {q.customer?.companyName ? `· ${q.customer.companyName}` : ''}
@@ -2500,7 +2673,7 @@ const PreviewTab = ({
         </div>
 
         <div className="flex flex-wrap gap-2 items-center self-start md:self-auto">
-          {currentUser?.role === 'admin' && q.documentType !== 'product_proposal' && (q.status === 'sent' || q.status === 'draft') && (
+          {!isExpiredQuotation(q) && currentUser?.role === 'admin' && q.documentType !== 'product_proposal' && (q.status === 'sent' || q.status === 'draft') && (
             <>
               <button
                 onClick={() => onStatusChange(q, 'approved')}
@@ -2517,12 +2690,22 @@ const PreviewTab = ({
             </>
           )}
 
-          {q.status === 'draft' && (currentUser?.role === 'user' || currentUser?.role === 'manager') && (
+          {!isExpiredQuotation(q) && q.status === 'draft' && (currentUser?.role === 'user' || currentUser?.role === 'manager') && (
             <button
               onClick={() => onStatusChange(q, 'sent')}
               className="px-3.5 py-2 text-xs font-bold bg-[#e0f2fe] hover:bg-[#bae6fd] text-[#0369a1] border border-[#bae6fd] rounded-xl cursor-pointer transition-colors"
             >
               ส่งเอกสาร
+            </button>
+          )}
+
+          {isExpiredQuotation(q) && onCopyAsNew && (
+            <button
+              onClick={() => onCopyAsNew(q)}
+              className="px-3.5 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl cursor-pointer transition-colors flex items-center gap-1.5 shadow-xs"
+              title="คัดลอกข้อมูลเพื่อสร้างใบเสนอราคาฉบับใหม่สำหรับขายต่อ"
+            >
+              <Plus className="w-3.5 h-3.5" /> สร้างใบเสนอราคาใหม่
             </button>
           )}
 
@@ -2543,7 +2726,7 @@ const PreviewTab = ({
               <Trash2 className="w-4 h-4" />
             </button>
           )}
-          {(q.status === 'approved' || q.documentType === 'product_proposal') && onSendMailDirect && (
+          {!isExpiredQuotation(q) && (q.status === 'approved' || q.documentType === 'product_proposal') && onSendMailDirect && (
             <button
               onClick={() => onSendMailDirect(q)}
               className="px-3.5 py-2 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl cursor-pointer transition-colors flex items-center gap-1.5"
@@ -2564,7 +2747,7 @@ const PreviewTab = ({
             </button>
           )}
 
-          {canPrint ? (
+          {!isExpiredQuotation(q) && (canPrint ? (
             <button
               onClick={() => onPrint(q)}
               className="px-4 py-2 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
@@ -2575,9 +2758,50 @@ const PreviewTab = ({
             <span className="text-[10px] font-bold text-[#a32d2d] bg-[#fcebeb] px-3 py-2 rounded-full border border-[#f7c1c1]">
               ไม่สามารถพิมพ์ได้
             </span>
-          )}
+          ))}
         </div>
       </div>
+
+      {/* Expired quotation alert banner */}
+      {isExpiredQuotation(q) && (
+        <div className="rounded-2xl p-4 flex items-center gap-3 border bg-amber-50/80 border-amber-200 text-amber-900">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 text-amber-600">
+            <AlertTriangle className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-bold">
+              เอกสารนี้หมดอายุแล้ว (เก็บไว้เป็นประวัติ)
+            </p>
+            <p className="text-[11px] mt-0.5 text-amber-700">
+              ครบกำหนดอายุเมื่อ {formatDate(q.validUntilDate)} หากต้องการขายต่อ สามารถกดปุ่ม <strong>"สร้างใบเสนอราคาใหม่"</strong> ด้านบนเพื่อคัดลอกข้อมูลไปออกใบใหม่ได้ทันที
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Expiring soon alert banner (within 3 days) */}
+      {!isExpiredQuotation(q) && expiryStatus?.isExpiringSoon && (
+        <div className="rounded-2xl p-4 flex items-center gap-3 border bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300 text-amber-950 shadow-2xs">
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-amber-100 text-amber-700 shadow-2xs">
+            <Clock className="w-5 h-5 animate-pulse" />
+          </div>
+          <div>
+            <p className="text-xs font-bold flex items-center gap-2 text-amber-900">
+              <span>⚠️ ใบเสนอราคานี้{expiryStatus.label} (วันที่ {formatDate(q.validUntilDate)})</span>
+              {expiryStatus.daysLeft === 0 && (
+                <span className="bg-red-500 text-white text-[9px] px-2 py-0.5 rounded-full font-black animate-pulse">
+                  วันสุดท้าย
+                </span>
+              )}
+            </p>
+            <p className="text-[11px] mt-0.5 text-amber-800">
+              {expiryStatus.daysLeft === 0
+                ? 'วันนี้เป็นวันสุดท้ายที่เอกสารนี้มีผลใช้งาน กรุณาติดต่อติดตามลูกค้าเพื่อสรุปคำสั่งซื้อก่อนหมดอายุ'
+                : `เหลือเวลาอีก ${expiryStatus.daysLeft} วันก่อนที่เอกสารจะหมดอายุ กรุณาติดต่อติดตามลูกค้าเพื่อยืนยันหรือปิดการขาย`}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Source Proposal Traceability Badge */}
       {q.sourceProposalId && (
@@ -2670,7 +2894,16 @@ const PreviewTab = ({
                   ['เบอร์ติดต่อ', q.salespersonPhone || '-'],
                   ['ชื่อโปรเจกต์', q.projectName || '-'],
                   ['วันที่ออกเอกสาร', formatDate(q.issuedDate)],
-                  ['ใช้ได้ถึงวันที่', formatDate(q.validUntilDate)],
+                  ['ใช้ได้ถึงวันที่', (
+                    <span className="flex items-center gap-1.5 flex-wrap">
+                      <span>{formatDate(q.validUntilDate)}</span>
+                      {expiryStatus?.isExpiringSoon && !isExpiredQuotation(q) && (
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${expiryStatus.daysLeft === 0 ? 'bg-red-50 text-red-600 border-red-200 animate-pulse' : 'bg-amber-50 text-amber-800 border-amber-300'}`}>
+                          {expiryStatus.label}
+                        </span>
+                      )}
+                    </span>
+                  )],
                   ['VAT (%)', (q.vatRate ?? 7) + '%']
                 ].map(([l, v]) => (
                   <div key={l} className="flex gap-2 leading-relaxed">
@@ -3009,13 +3242,39 @@ export default function QuotationManage({
   };
 
   const handleSave = (data) => {
+    const isEditingExisting = Boolean(editQt && editQt.id);
     const savedData = {
       ...data,
-      id: editQt ? editQt.id : generateNewId(),
-      quotationNumber: editQt ? editQt.quotationNumber : `QT-${new Date().toLocaleDateString('sv-SE').replace(/-/g, '')}-${String(quotations.length + 1).padStart(4, '0')}`,
+      id: isEditingExisting ? editQt.id : generateNewId(),
+      quotationNumber: isEditingExisting ? editQt.quotationNumber : `QT-${new Date().toLocaleDateString('sv-SE').replace(/-/g, '')}-${String(quotations.length + 1).padStart(4, '0')}`,
     };
     onSaveQuotation(savedData);
     setEditQt(null);
+  };
+
+  const handleCopyAsNew = (q) => {
+    if (!q) return;
+    const cloned = {
+      customer: q.customer ? { ...q.customer } : undefined,
+      salespersonName: q.salespersonName || currentUser?.name || currentUser?.username || '',
+      salespersonPhone: q.salespersonPhone || '',
+      projectName: q.projectName || '',
+      items: (q.items || []).map((it, idx) => ({ ...it, id: it.id || idx })),
+      vatRate: q.vatRate ?? 7,
+      note: q.note || '',
+      documentType: q.documentType || 'quotation',
+      id: undefined,
+      quotationNumber: undefined,
+      issuedDate: new Date().toLocaleDateString('sv-SE'),
+      validUntilDate: '',
+      status: 'draft',
+      approvedBy: undefined,
+      approvedDate: undefined,
+      customerRevised: false,
+    };
+    setEditQt(cloned);
+    setConvertProposal(null);
+    setTab('create');
   };
 
   const handleDelete = (q) => {
@@ -3028,6 +3287,9 @@ export default function QuotationManage({
 
   const handleStatusChange = (q, status) => {
     if (q && q.id) {
+      if (status === 'approved' && isExpiredQuotation(q)) {
+        return;
+      }
       // Find the exact quotation in the master quotations array by ID
       const masterQ = quotations.find(x => x.id === q.id) || q;
       onSaveQuotation({
@@ -3067,7 +3329,9 @@ export default function QuotationManage({
               {convertProposal
                 ? '🔁 สร้างใบเสนอราคาจากใบเสนอสินค้า'
                 : editQt
-                  ? (createDocFormat === 'product_proposal' ? 'แก้ไขใบเสนอสินค้า' : 'แก้ไขใบเสนอราคา')
+                  ? (editQt.id
+                    ? (createDocFormat === 'product_proposal' ? 'แก้ไขใบเสนอสินค้า' : 'แก้ไขใบเสนอราคา')
+                    : 'สร้างใบเสนอราคาใหม่ (คัดลอกข้อมูล)')
                   : (createDocFormat === 'product_proposal' ? 'สร้างเอกสารใหม่ (ใบเสนอสินค้า)' : 'สร้างเอกสารใหม่ (ใบเสนอราคา)')
               }
             </h1>
@@ -3172,6 +3436,7 @@ export default function QuotationManage({
           onDelete={setDeleteTarget}
           addActivityLog={addActivityLog}
           currentUser={currentUser}
+          onCopyAsNew={handleCopyAsNew}
         />
       )}
 
@@ -3206,6 +3471,7 @@ export default function QuotationManage({
           }}
           addActivityLog={addActivityLog}
           onSaveQuotation={onSaveQuotation}
+          onCopyAsNew={handleCopyAsNew}
         />
       )}
 

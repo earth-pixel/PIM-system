@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Printer, Download, ExternalLink } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import { isExpiredQuotation } from '../utils/validation';
 
 // ─── Thai Number to Words ─────────────────────────────────────
 const ONES = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
@@ -727,6 +728,22 @@ export default function QuotationPrint({
         <div style={{ fontSize: '18px', fontWeight: '800', color: ACCENT, marginTop: 4 }}>
           {quotation.referenceNumber || quotation.quotationNumber}
         </div>
+        {isExpiredQuotation(quotation) && (
+          <div style={{
+            display: 'inline-block',
+            marginTop: '6px',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            backgroundColor: '#fef2f2',
+            border: '1px solid #fecaca',
+            color: '#dc2626',
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '0.02em',
+          }}>
+            เอกสารนี้หมดอายุแล้ว (EXPIRED)
+          </div>
+        )}
       </div>
     </div>
   );
@@ -734,8 +751,13 @@ export default function QuotationPrint({
   const renderMiniHeaderBlock = () => (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1.5px solid ${DARK}`, paddingBottom: 6, marginBottom: 16 }}>
       <span style={{ fontWeight: 800, fontSize: '10px', color: DARK }}>{co.name}</span>
-      <span style={{ fontSize: '10px', color: GRAY }}>
-        {docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : getDocTitle(printType)} เลขที่: {quotation.referenceNumber || quotation.quotationNumber}
+      <span style={{ fontSize: '10px', color: GRAY, display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span>{docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : getDocTitle(printType)} เลขที่: {quotation.referenceNumber || quotation.quotationNumber}</span>
+        {isExpiredQuotation(quotation) && (
+          <span style={{ color: '#dc2626', fontWeight: 700, fontSize: '9px', backgroundColor: '#fef2f2', padding: '1px 5px', borderRadius: '3px', border: '1px solid #fecaca' }}>
+            หมดอายุแล้ว
+          </span>
+        )}
       </span>
     </div>
   );
@@ -812,7 +834,24 @@ export default function QuotationPrint({
                 </tr>
                 <tr>
                   <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ใช้ได้ถึงวันที่</td>
-                  <td style={{ padding: '3px 0', border: 'none' }}>{fmtDate(quotation.validUntilDate)}</td>
+                  <td style={{ padding: '3px 0', border: 'none' }}>
+                    {fmtDate(quotation.validUntilDate)}
+                    {isExpiredQuotation(quotation) && (
+                      <span style={{
+                        marginLeft: '8px',
+                        display: 'inline-block',
+                        padding: '1px 6px',
+                        borderRadius: '3px',
+                        backgroundColor: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        color: '#dc2626',
+                        fontSize: '9px',
+                        fontWeight: 700,
+                      }}>
+                        หมดอายุแล้ว
+                      </span>
+                    )}
+                  </td>
                 </tr>
                 {quotation.paymentTerms && (
                   <tr>

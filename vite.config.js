@@ -84,7 +84,6 @@ export default defineConfig({
             }
             next();
           });
-          server.middlewares.use('/api', createApi((process.env.PIM_DB_PATH || path.join(process.cwd(), 'ข้อมูล', 'db.json'))));
           server.middlewares.use(async (req, res, next) => {
             const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
@@ -504,6 +503,7 @@ export default defineConfig({
               next();
             }
           });
+          server.middlewares.use('/api', createApi((process.env.PIM_DB_PATH || path.join(process.cwd(), 'ข้อมูล', 'db.json'))));
         }
       };
     })()

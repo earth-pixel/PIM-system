@@ -1,9 +1,11 @@
 import { useState, useMemo } from 'react';
 import { Printer, Download, Search, X, ToggleRight, Package, ToggleLeft, Barcode } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { downloadWorkbook } from '../utils/exportUtils';
 import ProductProposalReport from './ProductProposalReport';
 import QuotationReport from './QuotationReport';
 import ArchiveManage from './ArchiveManage';
+import DropdownFilter from './DropdownFilter';
 
 // All roles can view all documents in reports
 const isOwnDocument = () => true;
@@ -93,43 +95,6 @@ export default function Report({ products, brands, categories, subcategories = {
     }
   };
   
-  const downloadViaRedirect = async (base64Data, filename) => {
-    try {
-      const response = await fetch('/api/store-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: base64Data, filename: filename })
-      });
-      if (!response.ok) throw new Error('Failed to store download on server');
-      const res = await response.json();
-      if (res.id) {
-        window.location.assign(`/api/download?id=${res.id}`);
-        return;
-      }
-    } catch (err) {
-      console.error('Server download failed, falling back to local download:', err);
-    }
-
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    link.style.position = 'absolute';
-    link.style.top = '-9999px';
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      if (document.body.contains(link)) document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 10000);
-  };
 
   const downloadXLSX = async (headers, rows, filename) => {
     try {
@@ -142,8 +107,7 @@ export default function Report({ products, brands, categories, subcategories = {
       ];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'รายงานสินค้า');
-      const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
-      await downloadViaRedirect(base64, filename);
+      await downloadWorkbook(workbook, filename);
     } catch (error) {
       console.error('เกิดข้อผิดพลาดในการ Export Excel:', error);
       alert('ไม่สามารถดาวน์โหลดรายงานได้');
@@ -350,44 +314,42 @@ export default function Report({ products, brands, categories, subcategories = {
             )}
           </div>
 
-          <select
+          <DropdownFilter
             value={selectedBrand}
             onChange={(e) => setSelectedBrand(e.target.value)}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-          >
-            <option value="All">ทุกแบรนด์</option>
-            {brands.map(b => <option key={b} value={b}>{b}</option>)}
-          </select>
+            options={[
+              { value: 'All', label: 'ทุกแบรนด์' },
+              ...brands.map(b => ({ value: b, label: b }))
+            ]}
+          />
 
-          <select
+          <DropdownFilter
             value={selectedCategory}
             onChange={(e) => { setSelectedCategory(e.target.value); setSelectedSubCategory('All'); }}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-          >
-            <option value="All">ทุกหมวดหมู่หลัก</option>
-            {categories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+            options={[
+              { value: 'All', label: 'ทุกหมวดหมู่หลัก' },
+              ...categories.map(c => ({ value: c, label: c }))
+            ]}
+          />
 
-          <select
+          <DropdownFilter
             value={selectedSubCategory}
             onChange={(e) => setSelectedSubCategory(e.target.value)}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-          >
-            <option value="All">ทุกหมวดหมู่ย่อย</option>
-            {Array.from(new Set(selectedCategory !== 'All' ? (subcategories[selectedCategory] || []) : Object.values(subcategories).flat())).map(s => (
-              <option key={s} value={s}>{s}</option>
-            ))}
-          </select>
+            options={[
+              { value: 'All', label: 'ทุกหมวดหมู่ย่อย' },
+              ...Array.from(new Set(selectedCategory !== 'All' ? (subcategories[selectedCategory] || []) : Object.values(subcategories).flat())).map(s => ({ value: s, label: s }))
+            ]}
+          />
 
-          <select
+          <DropdownFilter
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-          >
-            <option value="All">ทุกสถานะ</option>
-            <option value="Active">เปิดใช้งาน</option>
-            <option value="Inactive">ปิดใช้งาน</option>
-          </select>
+            options={[
+              { value: 'All', label: 'ทุกสถานะ' },
+              { value: 'Active', label: 'เปิดใช้งาน' },
+              { value: 'Inactive', label: 'ปิดใช้งาน' }
+            ]}
+          />
         </div>
       </div>
 

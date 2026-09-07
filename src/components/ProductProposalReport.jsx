@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Archive, Download, Eye, FileText, Package, Printer, Search, Shield, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import { downloadWorkbook } from '../utils/exportUtils';
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
   minimumFractionDigits: 2,
@@ -67,42 +68,6 @@ export default function ProductProposalReport({
     return `${dates}${searchQuery.trim() ? `, ค้นหา: "${searchQuery.trim()}"` : ''}`;
   };
 
-  const downloadViaRedirect = async (base64Data, filename) => {
-    try {
-      const response = await fetch('/api/store-download', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: base64Data, filename }),
-      });
-      if (response.ok) {
-        const result = await response.json();
-        if (result.id) {
-          window.location.assign(`/api/download?id=${result.id}`);
-          return;
-        }
-      }
-    } catch {
-      // Fallback
-    }
-
-    const byteCharacters = atob(base64Data);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-      byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    const blob = new Blob([byteArray], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    setTimeout(() => {
-      if (document.body.contains(link)) document.body.removeChild(link);
-      URL.revokeObjectURL(url);
-    }, 10000);
-  };
 
   const handleExportExcel = async () => {
     if (isExporting) return;
@@ -135,9 +100,8 @@ export default function ProductProposalReport({
       ];
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'รายงานใบเสนอสินค้า');
-      const base64 = XLSX.write(workbook, { type: 'base64', bookType: 'xlsx' });
       const filename = `PIM_Product_Proposal_Report_${new Date().toLocaleDateString('sv-SE')}.xlsx`;
-      await downloadViaRedirect(base64, filename);
+      await downloadWorkbook(workbook, filename);
       addActivityLog?.(`ดาวน์โหลดรายงานใบเสนอสินค้าเป็นไฟล์ Excel (${filteredProposals.length} เอกสาร, ${filterDescription()})`);
     } catch (error) {
       console.error('Error exporting product proposal report:', error);
@@ -258,7 +222,6 @@ export default function ProductProposalReport({
             <h3 className="text-4xl font-black text-[#1d1d1f] leading-none">{summary.quantity.toLocaleString()}</h3>
             <Package className="w-6 h-6 text-blue-500" />
           </div>
-          <p className="text-[10px] text-[#86868b] mt-1 font-medium">{summary.productLines.toLocaleString()} รายการสินค้า</p>
         </div>
         <div className="rounded-2xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-teal-50 p-5 shadow-xs">
           <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 mb-1">มูลค่ารวม</p>
@@ -417,7 +380,7 @@ export default function ProductProposalReport({
                           title="ดูรายละเอียดใบเสนอสินค้า"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span>ดูข้อมูล</span>
+                          
                         </button>
                       </td>
                     </tr>

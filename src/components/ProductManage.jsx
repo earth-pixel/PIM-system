@@ -2,6 +2,7 @@ import { findHeaderRow, parseNumericCell, validateProduct, normalizeCode } from 
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import DropdownFilter from './DropdownFilter';
 import {
   Image as ImageIcon,
   X,
@@ -14,6 +15,7 @@ import {
   Check,
   AlertCircle,
   Info,
+  Eye,
   Copy,
   FileSpreadsheet,
   Download,
@@ -1699,7 +1701,7 @@ export default function ProductManage({
       </div>
 
       {/* Filters Panel */}
-      <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+      <div className="no-print relative z-20 bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
         <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
           <div className="flex items-center gap-2 shrink-0">
             <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
@@ -1711,7 +1713,7 @@ export default function ProductManage({
             <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0071e3] pointer-events-none" />
             <input
               type="text"
-              placeholder="ค้นหาชื่อ, รหัส SKU, บาร์โค้ด (รองรับ Barcode Scanner)..."
+              placeholder="ค้นหาชื่อ, รหัส SKU, บาร์โค้ด ..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleProductSearchKeyDown}
@@ -1728,48 +1730,42 @@ export default function ProductManage({
             )}
           </div>
 
-          <select
+          <DropdownFilter
             value={selectedBrand}
             onChange={(e) => setSelectedBrand(e.target.value)}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-          >
-            <option value="All">ทุกแบรนด์สินค้า</option>
-            {brands.map(brand => (
-              <option key={brand} value={brand}>{brand}</option>
-            ))}
-          </select>
+            options={[
+              { value: 'All', label: 'ทุกแบรนด์สินค้า' },
+              ...brands.map(brand => ({ value: brand, label: brand }))
+            ]}
+          />
 
-          <select
+          <DropdownFilter
             value={selectedCategory}
             onChange={(e) => { setSelectedCategory(e.target.value); setSelectedSubCategory('All'); }}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-          >
-            <option value="All">ทุกหมวดหมู่หลัก</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
+            options={[
+              { value: 'All', label: 'ทุกหมวดหมู่หลัก' },
+              ...categories.map(cat => ({ value: cat, label: cat }))
+            ]}
+          />
 
-          <select
+          <DropdownFilter
             value={selectedSubCategory}
             onChange={(e) => setSelectedSubCategory(e.target.value)}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-          >
-            <option value="All">ทุกหมวดหมู่ย่อย</option>
-            {Array.from(new Set(selectedCategory !== 'All' ? (subcategories[selectedCategory] || []) : Object.values(subcategories).flat())).map(sub => (
-              <option key={sub} value={sub}>{sub}</option>
-            ))}
-          </select>
+            options={[
+              { value: 'All', label: 'ทุกหมวดหมู่ย่อย' },
+              ...Array.from(new Set(selectedCategory !== 'All' ? (subcategories[selectedCategory] || []) : Object.values(subcategories).flat())).map(sub => ({ value: sub, label: sub }))
+            ]}
+          />
 
-          <select
+          <DropdownFilter
             value={selectedStatus}
             onChange={(e) => setSelectedStatus(e.target.value)}
-            className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-          >
-            <option value="All">สถานะทั้งหมด</option>
-            <option value="Active">เปิดใช้งาน (Active)</option>
-            <option value="Inactive">ปิดใช้งาน (Inactive)</option>
-          </select>
+            options={[
+              { value: 'All', label: 'สถานะทั้งหมด' },
+              { value: 'Active', label: 'เปิดใช้งาน (Active)' },
+              { value: 'Inactive', label: 'ปิดใช้งาน (Inactive)' }
+            ]}
+          />
         </div>
       </div>
 
@@ -1904,7 +1900,7 @@ export default function ProductManage({
                             className="p-1 text-zinc-650 hover:bg-zinc-100 rounded-md transition-colors cursor-pointer"
                             title="ดูรายละเอียดสินค้า"
                           >
-                            <Info className="w-3.5 h-3.5" />
+                            <Eye className="w-3.5 h-3.5" />
                           </button>
                           <button
                             type="button"

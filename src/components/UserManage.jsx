@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { UserPlus, Shield, Lock, Plus, Check, AlertCircle, Search, Eye, EyeOff } from 'lucide-react';
+import DropdownFilter from './DropdownFilter';
 
 export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUser, currentUser }) {
   const [username, setUsername] = useState('');
@@ -249,16 +250,17 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
           {/* Role Filter Dropdown */}
           <div className="w-full sm:w-48">
-            <select
+            <DropdownFilter
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium"
-            >
-              <option value="All">สิทธิ์ทั้งหมด (All)</option>
-              <option value="admin">Admin</option>
-              <option value="manager">Manager</option>
-              <option value="user">User</option>
-            </select>
+              className="w-full"
+              options={[
+                { value: 'All', label: 'สิทธิ์ทั้งหมด (All)' },
+                { value: 'admin', label: 'Admin' },
+                { value: 'manager', label: 'Manager' },
+                { value: 'user', label: 'User' }
+              ]}
+            />
           </div>
         </div>
       </div>

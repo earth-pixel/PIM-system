@@ -71,3 +71,77 @@ export function calculateQuotation(quotation) {
   if (!Number.isSafeInteger(Math.round((subtotal + vatAmount) * 100))) throw new Error('ยอดเอกสารเกินขอบเขตที่รองรับ');
   return { ...quotation, items, vatRate, subtotal, vatAmount, totalAmount: roundMoney(subtotal + vatAmount) };
 }
+
+export function isExpiredQuotation(q) {
+  if (!q || q.documentType === 'product_proposal') return false;
+  const rawDate = q.validUntilDate || q.validUntil;
+  if (!rawDate) return false;
+  try {
+    let expDate = null;
+    if (typeof rawDate === 'string' && rawDate.includes('-')) {
+      const [y, m, d] = rawDate.split('-').map(Number);
+      expDate = new Date(y, m - 1, d);
+    } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
+      const parts = rawDate.split('/').map(Number);
+      if (parts.length === 3) {
+        let y = parts[2];
+        if (y > 2400) y -= 543;
+        expDate = new Date(y, parts[1] - 1, parts[0]);
+      }
+    } else {
+      expDate = new Date(rawDate);
+    }
+    if (!expDate || isNaN(expDate.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    expDate.setHours(0, 0, 0, 0);
+    return expDate < today;
+  } catch {
+    return false;
+  }
+}
+
+export function getExpiryStatus(q) {
+  if (!q || q.documentType === 'product_proposal') return null;
+  const rawDate = q.validUntilDate || q.validUntil;
+  if (!rawDate) return null;
+  try {
+    let expDate = null;
+    if (typeof rawDate === 'string' && rawDate.includes('-')) {
+      const [y, m, d] = rawDate.split('-').map(Number);
+      expDate = new Date(y, m - 1, d);
+    } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
+      const parts = rawDate.split('/').map(Number);
+      if (parts.length === 3) {
+        let y = parts[2];
+        if (y > 2400) y -= 543;
+        expDate = new Date(y, parts[1] - 1, parts[0]);
+      }
+    } else {
+      expDate = new Date(rawDate);
+    }
+    if (!expDate || isNaN(expDate.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    expDate.setHours(0, 0, 0, 0);
+    const diffTime = expDate.getTime() - today.getTime();
+    const daysLeft = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+    if (daysLeft < 0) {
+      return { isExpired: true, isExpiringSoon: false, daysLeft, label: 'หมดอายุแล้ว', badgeColor: 'red' };
+    }
+    if (daysLeft === 0) {
+      return { isExpired: false, isExpiringSoon: true, daysLeft: 0, label: 'หมดอายุวันนี้', urgent: true };
+    }
+    if (daysLeft === 1) {
+      return { isExpired: false, isExpiringSoon: true, daysLeft: 1, label: 'หมดอายุพรุ่งนี้', urgent: true };
+    }
+    if (daysLeft <= 3) {
+      return { isExpired: false, isExpiringSoon: true, daysLeft, label: `ใกล้หมดอายุ (อีก ${daysLeft} วัน)`, urgent: false };
+    }
+    return { isExpired: false, isExpiringSoon: false, daysLeft, label: `เหลืออีก ${daysLeft} วัน` };
+  } catch {
+    return null;
+  }
+}
+
