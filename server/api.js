@@ -372,16 +372,20 @@ export function createApi(dbPath) {
       const before = db[key] || [];
       if (['brands', 'categories', 'subcategories', 'activityLog'].includes(key) && req.user.role !== 'admin') fail(403, 'เฉพาะ Admin เท่านั้น');
       if (key === 'products') {
-        if (!['admin', 'manager'].includes(req.user.role)) fail(403, 'ไม่มีสิทธิ์แก้ไขสินค้า');
+        if (!['admin', 'manager', 'user'].includes(req.user.role)) fail(403, 'ไม่มีสิทธิ์แก้ไขสินค้า');
         if (data.some(product => !product || !validId(product.id))) fail(400, 'รหัสรายการสินค้าไม่ถูกต้อง');
         if (req.user.role !== 'admin' && db.products.some(p => !data.some(n => n.id === p.id))) fail(403, 'เฉพาะ Admin ที่ลบสินค้าได้');
-        const codes = new Set(), ids = new Set();
+        const codes = new Set(), ids = new Set(), now = new Date().toISOString();
         for (const product of data) {
           if (!product || !validId(product.id) || ids.has(product.id)) fail(400, 'รหัสรายการสินค้าซ้ำหรือว่าง');
           ids.add(product.id);
           const code = normalizeCode(product.code);
           if (!code || codes.has(code)) fail(400, `SKU ซ้ำหรือว่าง: ${product.code || '-'}`);
           codes.add(code);
+          if (typeof product === 'object' && product !== null) {
+            product.createdAt ||= now;
+            product.updatedAt ||= product.createdAt || now;
+          }
           const before = db.products.find(p => p.id === product.id);
           if (!same(before, product)) { const errors = validateProduct(product); if (errors.length) fail(400, `${product.code}: ${errors.join(', ')}`); }
         }

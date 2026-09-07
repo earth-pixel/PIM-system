@@ -1595,7 +1595,7 @@ export default function ProductManage({
           </button>
 
           {/* Delete All Products Button */}
-          {products.length > 0 && (
+          {products.length > 0 && currentUser?.role === 'admin' && (
             <button
               type="button"
               onClick={() => setShowClearAllConfirm(true)}
@@ -1913,14 +1913,16 @@ export default function ProductManage({
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setProductToDelete(product)}
-                            className="p-1 text-red-650 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
-                            title="ลบสินค้า"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {currentUser?.role === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => setProductToDelete(product)}
+                              className="p-1 text-red-650 hover:bg-red-50 rounded-md transition-colors cursor-pointer"
+                              title="ลบสินค้า"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -1994,14 +1996,16 @@ export default function ProductManage({
                           >
                             <Edit className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => setProductToDelete(product)}
-                            className="w-7 h-7 bg-white text-zinc-700 hover:text-rose-600 rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
-                            title="ลบสินค้า"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                          {currentUser?.role === 'admin' && (
+                            <button
+                              type="button"
+                              onClick={() => setProductToDelete(product)}
+                              className="w-7 h-7 bg-white text-zinc-700 hover:text-rose-600 rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
+                              title="ลบสินค้า"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -2066,14 +2070,16 @@ export default function ProductManage({
                       >
                         <Edit className="w-3.5 h-3.5" />
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => setProductToDelete(product)}
-                        className="px-2.5 py-1.5 border border-zinc-200 text-zinc-650 hover:text-rose-600 rounded-lg flex items-center justify-center active:scale-90 transition-all cursor-pointer"
-                        title="ลบสินค้า"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      {currentUser?.role === 'admin' && (
+                        <button
+                          type="button"
+                          onClick={() => setProductToDelete(product)}
+                          className="px-2.5 py-1.5 border border-zinc-200 text-zinc-650 hover:text-rose-600 rounded-lg flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                          title="ลบสินค้า"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -121,7 +121,14 @@ export default function App() {
     return result;
   };
   const handleImportProducts = async incomingProducts => {
-    const merged = mergeImportedProducts(products, incomingProducts);
+    const now = new Date().toISOString();
+    const withTimestamps = incomingProducts.map(p => ({
+      ...p,
+      createdAt: p.createdAt || now,
+      updatedAt: p.updatedAt || now,
+      updatedBy: p.updatedBy || currentUser?.username || 'system'
+    }));
+    const merged = mergeImportedProducts(products, withTimestamps);
     return saveCollection('products', merged);
   };
   const handleDeleteProduct = id => saveCollection('products', products.filter(p => p.id !== id));

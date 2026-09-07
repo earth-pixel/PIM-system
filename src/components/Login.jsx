@@ -139,27 +139,27 @@ export default function Login({ onLogin, users = [] }) {
   }, [isShaking]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f5f5f7] font-sans p-4 sm:p-6 overflow-hidden select-none relative">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[#f5f5f7] font-sans p-3 sm:p-5 md:p-6 overflow-x-hidden overflow-y-auto select-none relative">
 
       {/* Subtle outer decorative background elements */}
-      <div className="absolute top-[5%] left-[5%] w-[420px] h-[420px] rounded-full bg-zinc-200/60 blur-[100px] pointer-events-none" />
-      <div className="absolute bottom-[5%] right-[5%] w-[480px] h-[480px] rounded-full bg-zinc-300/40 blur-[120px] pointer-events-none" />
+      <div className="absolute top-[5%] left-[5%] w-[320px] sm:w-[420px] h-[320px] sm:h-[420px] rounded-full bg-zinc-200/60 blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[5%] right-[5%] w-[340px] sm:w-[480px] h-[340px] sm:h-[480px] rounded-full bg-zinc-300/40 blur-[120px] pointer-events-none" />
 
       {/* Main Contained Card (Split Layout) */}
-      <div className="w-full max-w-[1040px] lg:max-w-[1120px] min-h-[620px] md:min-h-[660px] lg:h-[680px] bg-white rounded-3xl border border-[#d2d2d7]/50 shadow-[0_30px_70px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden grid grid-cols-1 md:grid-cols-12 relative z-10">
+      <div className="w-full max-w-[960px] lg:max-w-[1040px] xl:max-w-[1100px] min-h-[540px] md:min-h-[580px] lg:h-[620px] max-h-[calc(100vh-2rem)] bg-white rounded-2xl sm:rounded-3xl border border-[#d2d2d7]/50 shadow-[0_30px_70px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)] overflow-hidden grid grid-cols-1 md:grid-cols-12 relative z-10 my-auto">
 
         {/* ─────────────────────────────────────────────────────────────
             LEFT PANEL: Clean Minimalist Login Form (White)
             ───────────────────────────────────────────────────────────── */}
-        <div className="col-span-12 md:col-span-6 lg:col-span-5 flex flex-col justify-between p-6 sm:p-8 md:p-10 lg:p-11 bg-white relative z-10 overflow-y-auto">
+        <div className="col-span-12 md:col-span-6 lg:col-span-5 min-w-0 flex flex-col justify-between p-5 sm:p-7 md:p-8 lg:p-9 bg-white relative z-10 overflow-y-auto">
 
           {/* Form Container */}
-          <div className={`w-full max-w-[340px] sm:max-w-[370px] mx-auto my-auto space-y-5 transition-all duration-300 ${isShaking ? 'animate-shake' : ''}`}>
+          <div className={`w-full max-w-[330px] sm:max-w-[360px] mx-auto my-auto space-y-4 sm:space-y-5 transition-all duration-300 ${isShaking ? 'animate-shake' : ''}`}>
 
             {/* Logo and Titles */}
-            <div className="space-y-3 text-center flex flex-col items-center">
-              <div className="w-12 h-12 flex items-center justify-center text-zinc-900 transition-transform duration-300 hover:scale-105">
-                <svg viewBox="0 0 80 90" className="w-8 h-9 fill-current" xmlns="http://www.w3.org/2000/svg">
+            <div className="space-y-2 sm:space-y-3 text-center flex flex-col items-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-zinc-900 transition-transform duration-300 hover:scale-105">
+                <svg viewBox="0 0 80 90" className="w-7 h-8 sm:w-8 sm:h-9 fill-current" xmlns="http://www.w3.org/2000/svg">
                   <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
                   <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
                   <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
@@ -167,29 +167,29 @@ export default function Login({ onLogin, users = [] }) {
               </div>
 
               <div className="space-y-1">
-                <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 tracking-tight">
+                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-zinc-900 tracking-tight">
                   ลงชื่อเข้าใช้งาน
                 </h1>
-                <p className="text-xs sm:text-sm text-zinc-500 font-medium leading-relaxed max-w-[320px] mx-auto">
+                <p className="text-[11px] sm:text-xs text-zinc-500 font-medium leading-relaxed max-w-[300px] sm:max-w-[320px] mx-auto">
                   ระบบจัดการข้อมูลสินค้า บริษัท พันธ์วาดี จำกัด
                 </p>
               </div>
             </div>
 
             {/* Login Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-3.5 sm:space-y-4">
               {errorMsg && (
-                <div className="p-3 text-xs bg-red-50/80 text-red-650 border border-red-500/20 rounded-xl flex items-center gap-2 animate-fade-in">
-                  <AlertCircle className="w-4.5 h-4.5 shrink-0 text-red-500" />
+                <div className="p-2.5 sm:p-3 text-xs bg-red-50/80 text-red-650 border border-red-500/20 rounded-xl flex items-center gap-2 animate-fade-in">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
                   <span className="font-semibold">{errorMsg}</span>
                 </div>
               )}
 
               {/* Inputs */}
-              <div className="space-y-3">
+              <div className="space-y-2.5 sm:space-y-3">
                 {/* Username Input */}
                 <div className="relative group">
-                  <User className="w-4.5 h-4.5 text-zinc-400 absolute left-3.5 top-3.5 group-focus-within:text-zinc-900 transition-colors" />
+                  <User className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3.5 group-focus-within:text-zinc-900 transition-colors" />
                   <input
                     type="text"
                     placeholder="ชื่อผู้ใช้งาน (Username)"
@@ -206,14 +206,14 @@ export default function Login({ onLogin, users = [] }) {
                     onFocus={checkCapsLock}
                     disabled={isLoading || sandboxLoading !== null}
                     autoComplete="off"
-                    className="w-full pl-10 pr-4 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs sm:text-sm text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
+                    className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs sm:text-sm text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
                   />
                 </div>
 
                 {/* Password Input */}
                 <div className="space-y-1">
                   <div className="relative group">
-                    <Lock className="w-4.5 h-4.5 text-zinc-400 absolute left-3.5 top-3.5 group-focus-within:text-zinc-900 transition-colors" />
+                    <Lock className="w-4 h-4 text-zinc-400 absolute left-3.5 top-3.5 group-focus-within:text-zinc-900 transition-colors" />
                     <input
                       ref={passwordInputRef}
                       type={showPassword ? "text" : "password"}
@@ -225,22 +225,22 @@ export default function Login({ onLogin, users = [] }) {
                       onFocus={checkCapsLock}
                       disabled={isLoading || sandboxLoading !== null}
                       autoComplete="new-password"
-                      className="w-full pl-10 pr-11 py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs sm:text-sm text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
+                      className="w-full pl-10 pr-11 py-2.5 sm:py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs sm:text-sm text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(prev => !prev)}
                       disabled={isLoading || sandboxLoading !== null}
-                      className="absolute right-3.5 top-3.5 text-zinc-400 hover:text-zinc-900 transition-colors focus:outline-hidden p-0.5 rounded-lg cursor-pointer"
+                      className="absolute right-3.5 top-3 text-zinc-400 hover:text-zinc-900 transition-colors focus:outline-hidden p-0.5 rounded-lg cursor-pointer"
                     >
-                      {showPassword ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
 
                   {/* Caps Lock Indicator */}
                   {capsLockActive && (
-                    <div className="text-amber-600 text-xs font-semibold flex items-center gap-1.5 pl-1 pt-0.5 animate-fade-in">
-                      <AlertCircle className="w-4 h-4 text-amber-500 shrink-0" />
+                    <div className="text-amber-600 text-[11px] sm:text-xs font-semibold flex items-center gap-1.5 pl-1 pt-0.5 animate-fade-in">
+                      <AlertCircle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                       <span>ปุ่ม Caps Lock กำลังเปิดทำงานอยู่</span>
                     </div>
                   )}
@@ -251,11 +251,11 @@ export default function Login({ onLogin, users = [] }) {
               <button
                 type="submit"
                 disabled={isLoading || sandboxLoading !== null}
-                className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-[#0071e3] hover:from-blue-700 hover:to-[#0077ed] text-white rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 cursor-pointer hover:shadow-[0_8px_20px_rgba(0, 113, 227,0.25)] active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none flex items-center justify-center gap-2 shadow-sm"
+                className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-blue-600 to-[#0071e3] hover:from-blue-700 hover:to-[#0077ed] text-white rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 cursor-pointer hover:shadow-[0_8px_20px_rgba(0, 113, 227,0.25)] active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none flex items-center justify-center gap-2 shadow-sm"
               >
                 {isLoading ? (
                   <>
-                    <svg className="animate-spin h-4.5 w-4.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
@@ -267,17 +267,17 @@ export default function Login({ onLogin, users = [] }) {
               </button>
 
               {/* Sandbox Mode Divider & Quick Login */}
-              <div className="pt-2 space-y-3">
+              <div className="pt-1 sm:pt-2 space-y-2.5 sm:space-y-3">
                 <div className="relative flex py-1 items-center">
                   <div className="grow border-t border-zinc-200"></div>
-                  <span className="shrink mx-3 text-[11px] font-semibold text-zinc-400 tracking-wider flex items-center gap-1.5 uppercase">
+                  <span className="shrink mx-2.5 sm:mx-3 text-[10px] sm:text-[11px] font-semibold text-zinc-400 tracking-wider flex items-center gap-1.5 uppercase">
                     <FlaskConical className="w-3.5 h-3.5 text-blue-500" />
                     เข้าสู่ระบบด่วน (Sandbox)
                   </span>
                   <div className="grow border-t border-zinc-200"></div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
                   {SANDBOX_ACCOUNTS.map((acc) => {
                     const Icon = acc.icon;
                     const isThisLoading = sandboxLoading === acc.role;
@@ -287,24 +287,24 @@ export default function Login({ onLogin, users = [] }) {
                         type="button"
                         onClick={() => handleQuickLogin(acc)}
                         disabled={isLoading || sandboxLoading !== null}
-                        className={`flex flex-col items-center justify-center p-2.5 rounded-xl border border-zinc-200/90 bg-zinc-50/80 ${acc.hoverStyle} transition-all duration-200 cursor-pointer text-center group disabled:opacity-50 relative shadow-2xs hover:shadow-xs`}
+                        className={`flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl border border-zinc-200/90 bg-zinc-50/80 ${acc.hoverStyle} transition-all duration-200 cursor-pointer text-center group disabled:opacity-50 relative shadow-2xs hover:shadow-xs min-w-0`}
                         title={`เข้าสู่ระบบด้วยสิทธิ์ ${acc.badge} (${acc.name})`}
                       >
                         {isThisLoading ? (
                           <div className="py-0.5 flex flex-col items-center justify-center gap-1">
-                            <svg className="animate-spin h-4 w-4 text-zinc-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <svg className="animate-spin h-3.5 w-3.5 text-zinc-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span className="text-[10px] font-semibold text-zinc-600">กำลังเข้า...</span>
+                            <span className="text-[9px] font-semibold text-zinc-600">กำลังเข้า...</span>
                           </div>
                         ) : (
                           <>
                             <div className="flex items-center gap-1">
                               <Icon className={`w-3.5 h-3.5 ${acc.iconColor} group-hover:scale-110 transition-transform`} />
-                              <span className="text-xs font-bold text-zinc-800">{acc.badge}</span>
+                              <span className="text-[11px] sm:text-xs font-bold text-zinc-800">{acc.badge}</span>
                             </div>
-                            <span className="text-[10px] text-zinc-500 font-medium truncate w-full mt-0.5">
+                            <span className="text-[9px] sm:text-[10px] text-zinc-500 font-medium truncate w-full mt-0.5">
                               {acc.name}
                             </span>
                           </>
@@ -313,7 +313,7 @@ export default function Login({ onLogin, users = [] }) {
                     );
                   })}
                 </div>
-                <p className="text-[10px] text-zinc-400 text-center font-normal">
+                <p className="text-[9.5px] sm:text-[10px] text-zinc-400 text-center font-normal">
                   คลิกเลือกบทบาทเพื่อเข้าสู่ระบบทันทีโดยไม่ต้องพิมพ์รหัสผ่าน
                 </p>
               </div>
@@ -322,7 +322,7 @@ export default function Login({ onLogin, users = [] }) {
           </div>
 
           {/* Footer */}
-          <div className="text-[10px] text-zinc-400 font-semibold tracking-wide text-center sm:text-left pt-2">
+          <div className="text-[9.5px] sm:text-[10px] text-zinc-400 font-semibold tracking-wide text-center sm:text-left pt-2">
             © {new Date().getFullYear()} PHANVADEE CO., LTD.
           </div>
 
@@ -334,17 +334,16 @@ export default function Login({ onLogin, users = [] }) {
         <div
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
-          className="hidden md:flex md:col-span-6 lg:col-span-7 bg-[#09090b] relative items-center justify-center overflow-hidden cursor-default"
+          className="hidden md:flex md:col-span-6 lg:col-span-7 min-w-0 bg-[#09090b] relative items-center justify-center p-6 lg:p-8 overflow-hidden cursor-default"
         >
 
           {/* Subtle background grid pattern */}
           <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none" />
 
-          {/* Floating Architectural Shapes (Mimicking the user's design image in dark/white minimal style) */}
-
+          {/* Floating Architectural Shapes */}
           {/* 1. Large metallic gradient circle (Top Right) */}
           <div
-            className="w-[380px] h-[380px] rounded-full bg-gradient-to-br from-zinc-800/10 via-zinc-900/30 to-black absolute top-[-10%] right-[-10%] border border-zinc-800/20 animate-pulse duration-[8000ms] pointer-events-none"
+            className="w-[300px] lg:w-[380px] h-[300px] lg:h-[380px] rounded-full bg-gradient-to-br from-zinc-800/10 via-zinc-900/30 to-black absolute top-[-10%] right-[-10%] border border-zinc-800/20 animate-pulse duration-[8000ms] pointer-events-none"
             style={{
               transform: `translate3d(${mousePos.x * 25}px, ${mousePos.y * 25}px, 0)`,
               transition: 'transform 0.5s cubic-bezier(0.25, 1, 0.5, 1)'
@@ -353,7 +352,7 @@ export default function Login({ onLogin, users = [] }) {
 
           {/* 2. Sleek thin wireframe ring (Center Right) */}
           <div
-            className="w-[240px] h-[240px] rounded-full border border-white/5 absolute right-[5%] top-[35%] animate-pulse duration-[10000ms] pointer-events-none"
+            className="w-[200px] lg:w-[240px] h-[200px] lg:h-[240px] rounded-full border border-white/5 absolute right-[5%] top-[35%] animate-pulse duration-[10000ms] pointer-events-none"
             style={{
               transform: `translate3d(${mousePos.x * -40}px, ${mousePos.y * -40}px, 0)`,
               transition: 'transform 0.55s cubic-bezier(0.25, 1, 0.5, 1)'
@@ -362,7 +361,7 @@ export default function Login({ onLogin, users = [] }) {
 
           {/* 3. Soft blur white/gray background circle (Center Left) */}
           <div
-            className="w-48 h-48 rounded-full bg-gradient-to-tr from-white/3 to-transparent border border-white/5 backdrop-blur-3xs absolute top-[20%] left-[5%] animate-bounce duration-[14000ms] pointer-events-none"
+            className="w-36 lg:w-48 h-36 lg:h-48 rounded-full bg-gradient-to-tr from-white/3 to-transparent border border-white/5 backdrop-blur-3xs absolute top-[20%] left-[5%] animate-bounce duration-[14000ms] pointer-events-none"
             style={{
               transform: `translate3d(${mousePos.x * 18}px, ${mousePos.y * 18}px, 0)`,
               transition: 'transform 0.45s cubic-bezier(0.25, 1, 0.5, 1)'
@@ -371,7 +370,7 @@ export default function Login({ onLogin, users = [] }) {
 
           {/* 4. Medium solid dark slate circle (Bottom Center) */}
           <div
-            className="w-36 h-36 rounded-full bg-zinc-900/50 border border-zinc-800/30 absolute bottom-[-5%] right-[25%] animate-pulse duration-[7000ms] pointer-events-none"
+            className="w-28 lg:w-36 h-28 lg:h-36 rounded-full bg-zinc-900/50 border border-zinc-800/30 absolute bottom-[-5%] right-[25%] animate-pulse duration-[7000ms] pointer-events-none"
             style={{
               transform: `translate3d(${mousePos.x * -28}px, ${mousePos.y * -28}px, 0)`,
               transition: 'transform 0.52s cubic-bezier(0.25, 1, 0.5, 1)'
@@ -395,23 +394,23 @@ export default function Login({ onLogin, users = [] }) {
           />
 
           {/* Banner Texts: Company Logo & Tagline */}
-          <div className="relative z-10 text-center animate-fade-in flex flex-col items-center select-none">
+          <div className="relative z-10 text-center animate-fade-in flex flex-col items-center select-none max-w-full px-4">
 
             {/* SVG Logo Mark (Large) */}
-            <svg viewBox="0 0 80 90" className="w-18 h-20 sm:w-20 sm:h-22 fill-current text-white/95 drop-shadow-[0_4px_16px_rgba(255,255,255,0.1)] transition-transform duration-550 hover:scale-105" xmlns="http://www.w3.org/2000/svg">
+            <svg viewBox="0 0 80 90" className="w-14 h-16 sm:w-16 sm:h-18 lg:w-20 lg:h-22 fill-current text-white/95 drop-shadow-[0_4px_16px_rgba(255,255,255,0.1)] transition-transform duration-550 hover:scale-105" xmlns="http://www.w3.org/2000/svg">
               <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
               <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
               <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
             </svg>
 
-            <h2 className="text-4xl sm:text-[42px] lg:text-5xl font-black text-white tracking-[0.2em] uppercase leading-none mt-8 drop-shadow-[0_2px_12px_rgba(0,0,0,0.4)]">
+            <h2 className="text-2xl sm:text-3xl md:text-3xl lg:text-4xl xl:text-[44px] font-black text-white tracking-[0.14em] sm:tracking-[0.18em] uppercase leading-none mt-5 sm:mt-6 lg:mt-7 drop-shadow-[0_2px_12px_rgba(0,0,0,0.4)]">
               PHANVADEE
             </h2>
 
             {/* Soft System Indicator */}
-            <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.1] backdrop-blur-md mt-12 shadow-[0_4px_24px_rgba(0,0,0,0.2)]">
+            <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.1] backdrop-blur-md mt-6 sm:mt-8 lg:mt-10 shadow-[0_4px_24px_rgba(0,0,0,0.2)] max-w-full">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.7)]" />
-              <span className="text-[8.5px] sm:text-[9.5px] text-zinc-300 font-bold uppercase tracking-[0.24em] whitespace-nowrap">
+              <span className="text-[7.5px] sm:text-[8.5px] lg:text-[9.5px] text-zinc-300 font-bold uppercase tracking-[0.12em] sm:tracking-[0.18em] truncate">
                 PRODUCT INFORMATION MANAGEMENT SYSTEM
               </span>
             </div>

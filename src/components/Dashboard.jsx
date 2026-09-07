@@ -70,8 +70,10 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
   const filteredProducts = useMemo(() => {
     return products.filter(p => {
-      if (!p.updatedAt) return false;
-      const pDate = new Date(p.updatedAt.replace(/-/g, '/'));
+      const rawDate = p.updatedAt || p.createdAt;
+      if (!rawDate) return true;
+      const pDate = new Date(rawDate);
+      if (isNaN(pDate.getTime())) return true;
       return pDate >= rangeStart && pDate <= rangeEnd;
     });
   }, [products, rangeStart, rangeEnd]);
@@ -478,8 +480,8 @@ export default function Dashboard({ products, brands, categories, quotations = [
                     )}
                   </svg>
 
-                  {/* Data Points */}
-                  <div className="absolute inset-0 pointer-events-none">
+                  {/* Data Points along the line (Interactive Tooltip on the real points) */}
+                  <div className={`absolute inset-0 ${chartDisplay === 'line' ? 'pointer-events-auto z-30' : 'pointer-events-none z-10'}`}>
                     {svgPoints.map((p, idx) => {
                       if (p.count === 0 && N > 5) return null;
                       const leftPercent = dimensions.width > 0 ? (p.x / dimensions.width) * 100 : 0;
@@ -492,9 +494,9 @@ export default function Dashboard({ products, brands, categories, quotations = [
                             left: `${leftPercent}%`,
                             top: `${topPercent}%`,
                           }}
-                          className="group/point absolute -translate-x-1/2 -translate-y-1/2 flex items-center justify-center z-30 cursor-pointer pointer-events-auto hover:scale-125 transition-transform"
+                          className="group/point absolute -translate-x-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center cursor-pointer pointer-events-auto z-30 select-none"
                         >
-                          {/* Line Point Hover Tooltip */}
+                          {/* Tooltip directly above the real dot */}
                           <div className="
                             absolute bottom-full left-1/2 -translate-x-1/2 mb-2
                             text-[10px] font-bold text-white
@@ -509,9 +511,10 @@ export default function Dashboard({ products, brands, categories, quotations = [
                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
                           </div>
 
-                          <div className="w-2.5 h-2.5 rounded-full bg-[#0071e3] border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] relative z-10" />
+                          {/* The Real Dot on the line */}
+                          <div className="w-2.5 h-2.5 group-hover/point:scale-150 rounded-full bg-[#0071e3] border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] group-hover/point:shadow-[0_2px_8px_rgba(0,113,227,0.5)] transition-transform duration-150 relative z-10" />
                           <div
-                            className="absolute w-5 h-5 rounded-full bg-[#0071e3]/20 animate-pulse-ring"
+                            className="absolute w-5 h-5 rounded-full bg-[#0071e3]/20 group-hover/point:scale-125 animate-pulse-ring transition-transform duration-150"
                             style={{ animationDelay: `${idx * 0.12}s` }}
                           />
                         </div>
@@ -521,7 +524,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 </div>
 
                 {/* Bars & Hover tooltips */}
-                <div className="absolute inset-0 flex items-end">
+                <div className={`absolute inset-0 flex items-end ${chartDisplay === 'bar' ? 'pointer-events-auto z-20' : 'pointer-events-none z-10'}`}>
                   {aggregatedData.map(({ name, fullName, count }, idx) => {
                     const heightPercent = maxCount > 0 ? (count / maxCount) * 100 : 0;
                     return (
@@ -531,57 +534,48 @@ export default function Dashboard({ products, brands, categories, quotations = [
                         style={{ animationDelay: `${idx * 60}ms` }}
                       >
                         {/* Bar content */}
-                        <div 
-                          onClick={() => setSelectedDetailGroup({ type: chartType, name: fullName || name })}
-                          className={`w-[60%] sm:w-[45%] max-w-[38px] h-full flex flex-col justify-end cursor-pointer pointer-events-auto relative z-10 transition-all duration-300 ease-out ${
-                            chartDisplay === 'bar' ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
-                          }`}
-                        >
-                          {/* Bar wrapper sized precisely to heightPercent */}
-                          <div
-                            style={{
-                              height: `${Math.max(heightPercent, count > 0 ? 1.5 : 0)}%`,
-                              transition: 'height 0.6s cubic-bezier(0.34,1.2,0.64,1)',
-                            }}
-                            className="w-full relative group/bar"
-                          >
-                      
-                            {/* Hover Tooltip - Positioned directly above the bar top */}
-                            <div className="
-                              absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-                              text-[10px] font-bold text-white
-                              px-2.5 py-1 rounded-lg shadow-2xl
-                              opacity-0 scale-90 translate-y-1
-                              group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0
-                              transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
-                              bg-[#1d1d1f] border border-white/10
-                            ">
-                              <span className="text-zinc-300 mr-1">{fullName || name}:</span>
-                              <span className="text-[#38bdf8] font-extrabold">{count.toLocaleString()}</span> รายการ
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
-                            </div>
-
-                            {count > 0 && (
-                              <div
-                                className="
-                                  w-full h-full rounded-t-md
-                                  bg-gradient-to-t from-[#0052d4] via-[#0071e3] to-[#00c6ff]
-                                  group-hover:from-[#0041a8] group-hover:via-[#0071e3] group-hover:to-[#38bdf8]
-                                  transition-all duration-200
-                                  shadow-[0_-2px_10px_rgba(0,113,227,0.25)]
-                                  group-hover:shadow-[0_-4px_16px_rgba(0,113,227,0.45)]
-                                "
-                              />
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Interactive hover hotspot area if chartDisplay === 'line' */}
-                        {chartDisplay === 'line' && (
+                        {chartDisplay === 'bar' && (
                           <div 
                             onClick={() => setSelectedDetailGroup({ type: chartType, name: fullName || name })}
-                            className="w-full h-full cursor-pointer pointer-events-auto" 
-                          />
+                            className="w-[60%] sm:w-[45%] max-w-[38px] h-full flex flex-col justify-end cursor-pointer pointer-events-auto relative z-10"
+                          >
+                            {/* Bar wrapper sized precisely to heightPercent */}
+                            <div
+                              style={{
+                                height: `${Math.max(heightPercent, count > 0 ? 1.5 : 0)}%`,
+                                transition: 'height 0.6s cubic-bezier(0.34,1.2,0.64,1)',
+                              }}
+                              className="w-full relative group/bar"
+                            >
+                              {/* Hover Tooltip - Positioned directly above the bar top */}
+                              <div className="
+                                absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                                text-[10px] font-bold text-white
+                                px-2.5 py-1 rounded-lg shadow-2xl
+                                opacity-0 scale-90 translate-y-1
+                                group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0
+                                transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
+                                bg-[#1d1d1f] border border-white/10
+                              ">
+                                <span className="text-zinc-300 mr-1">{fullName || name}:</span>
+                                <span className="text-[#38bdf8] font-extrabold">{count.toLocaleString()}</span> รายการ
+                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
+                              </div>
+
+                              {count > 0 && (
+                                <div
+                                  className="
+                                    w-full h-full rounded-t-md
+                                    bg-gradient-to-t from-[#0052d4] via-[#0071e3] to-[#00c6ff]
+                                    group-hover:from-[#0041a8] group-hover:via-[#0071e3] group-hover:to-[#38bdf8]
+                                    transition-all duration-200
+                                    shadow-[0_-2px_10px_rgba(0,113,227,0.25)]
+                                    group-hover:shadow-[0_-4px_16px_rgba(0,113,227,0.45)]
+                                  "
+                                />
+                              )}
+                            </div>
+                          </div>
                         )}
                       </div>
                     );

@@ -62,11 +62,12 @@ test('authentication: deny anonymous APIs, hash legacy credentials, no secret fi
   assert.equal((await call('/db', undefined, cookie)).status, 401);
 });
 
-test('roles: cannot promote oneself, edit products as user, spoof archive admin, or remove last admin', async t => {
+test('roles: user and manager can edit products but cannot delete products, promote oneself, spoof archive admin, or remove last admin', async t => {
   const { call, login, save } = await setup(t);
   const cookie = await login('ann');
   const snapshot = (await call('/db', undefined, cookie)).data;
   assert.equal((await save(cookie, 'users', snapshot.users.map(u => u.username === 'ann' ? { ...u, role: 'admin' } : u))).status, 403);
+  assert.equal((await save(cookie, 'products', [{ ...product('A'), retailPrice: 125 }])).status, 200);
   assert.equal((await save(cookie, 'products', [product('X')])).status, 403);
   assert.equal((await call('/quotations/archive-delete', { ids: ['q1'], username: 'admin' }, cookie)).status, 403);
   const admin = await login();
@@ -74,6 +75,7 @@ test('roles: cannot promote oneself, edit products as user, spoof archive admin,
   const manager = await login('manager');
   const users = (await call('/db', undefined, manager)).data.users;
   assert.equal((await save(manager, 'users', users.map(u => u.username === 'admin' ? { ...u, name: 'spoof' } : u))).status, 403);
+  assert.equal((await save(manager, 'products', [product('X')])).status, 403);
 });
 
 test('CAS: saves proceed directly without revision blocking', async t => {
