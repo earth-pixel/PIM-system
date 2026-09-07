@@ -1570,7 +1570,7 @@ export default function ProductManage({
       )}
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print relative z-30">
         <div>
           <div className="flex items-center gap-2 mb-1">
             <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
@@ -1610,7 +1610,7 @@ export default function ProductManage({
 
           {/* Export Dropdown */}
           <div
-            className="relative"
+            className={`relative ${showExportDropdown ? 'z-50' : ''}`}
             onMouseEnter={() => setShowExportDropdown(true)}
             onMouseLeave={() => setShowExportDropdown(false)}
           >
@@ -1625,8 +1625,8 @@ export default function ProductManage({
               <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
             </button>
             {showExportDropdown && (
-              <div className="absolute right-0 top-full pt-1.5 w-52 z-20">
-                <div className="bg-white border border-[#d2d2d7]/50 rounded-2xl shadow-xl overflow-hidden py-2 animate-scale-in text-[#1d1d1f]">
+              <div className="absolute right-0 top-full pt-1.5 w-52 z-50">
+                <div className="bg-white border border-[#d2d2d7]/80 rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.18),0_4px_12px_rgba(0,0,0,0.08)] overflow-hidden py-2 animate-scale-in text-[#1d1d1f]">
                   <span className="text-[9px] font-bold text-[#8e8e93] px-4 py-1 block uppercase tracking-wider">ดาวน์โหลดเทมเพลต</span>
                   <button
                     type="button"
@@ -1701,7 +1701,7 @@ export default function ProductManage({
       </div>
 
       {/* Filters Panel */}
-      <div className="no-print relative z-20 bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+      <div className="no-print relative z-10 bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
         <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
           <div className="flex items-center gap-2 shrink-0">
             <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
