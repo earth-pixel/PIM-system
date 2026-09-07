@@ -9,7 +9,7 @@ export function parseNumericCell(value) {
 }
 
 export function validateProduct(product) {
-  const required = { code: 'SKU', name: 'ชื่อสินค้า', barcode: 'บาร์โค้ด', brand: 'แบรนด์', category: 'หมวดหมู่', weight: 'น้ำหนัก', size: 'ขนาด', description: 'รายละเอียด', highlights: 'จุดเด่น', howToUse: 'วิธีใช้', image: 'รูปภาพ', fdaNumber: 'เลข อย.', tisiNumber: 'เลข มอก.' };
+  const required = { code: 'SKU', name: 'ชื่อสินค้า' };
   const errors = Object.entries(required).filter(([key]) => typeof product[key] !== 'string' || !product[key].trim()).map(([, label]) => `กรุณาระบุ${label}เป็นข้อความ`);
   for (const key of ['retailPrice', 'wholesalePrice', 'capFee']) {
     const value = product[key];
@@ -20,8 +20,8 @@ export function validateProduct(product) {
     if (value != null && value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) errors.push(`${key}: ต้องเป็นตัวเลขไม่ติดลบ`);
   }
   if (product.status && !['Active', 'Inactive'].includes(product.status)) errors.push('สถานะสินค้าไม่ถูกต้อง');
-  const image = String(product.image ?? '');
-  if (image && !/^(https?:\/\/|data:image\/(?:png|jpeg|webp|gif);base64,|\/?[^:\\]+\.(?:png|jpe?g|webp|gif)(?:\?.*)?$)/i.test(image)) errors.push('รูปภาพต้องเป็น URL หรือพาธรูปที่เว็บเข้าถึงได้');
+  const image = String(product.image ?? '').trim();
+  if (image && image !== '-' && !/^(https?:\/\/|data:image\/(?:png|jpeg|webp|gif);base64,|\/?[^:\\]+\.(?:png|jpe?g|webp|gif)(?:\?.*)?$)/i.test(image)) errors.push('รูปภาพต้องเป็น URL หรือพาธรูปที่เว็บเข้าถึงได้');
   if (image.startsWith('data:') && image.length > 2 * 1024 * 1024 * 4 / 3 + 100) errors.push('รูปภาพต้องไม่เกิน 2 MB');
   return errors;
 }
