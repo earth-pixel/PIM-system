@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import {
   Search, X, Plus, Trash2, Edit2, Check, AlertTriangle, AlertCircle,
   FileText, ChevronRight, ChevronDown, Clock, CheckCircle, XCircle, Mail, Printer, Download,
-  Users, UserCheck, Package, Barcode
+  Users, UserCheck, Package, Barcode, Compass
 } from 'lucide-react';
 import QuotationPrint from './QuotationPrint';
 import * as XLSX from 'xlsx';
@@ -12,6 +12,28 @@ import { checkIsInAppBrowser } from '../utils/browserUtils';
 import { playScanBeep, findProductByBarcodeOrCode } from '../utils/scannerUtils';
 import { isExpiredQuotation, getExpiryStatus } from '../utils/validation';
 import DropdownFilter from './DropdownFilter';
+
+export const THAI_REGIONS = [
+  'ภาคกลาง',
+  'ภาคเหนือ',
+  'ภาคตะวันออกเฉียงเหนือ',
+  'ภาคตะวันออก',
+  'ภาคตะวันตก',
+  'ภาคใต้'
+];
+
+const getBranchInfo = (customer = {}) => {
+  const rawBranch = String(customer.branch || '').trim();
+  const rawName = String(customer.branchName || '').trim().replace(/^สาขา\s*/, '');
+  const isSub = customer.branchType === 'sub' || (rawBranch && !rawBranch.includes('สำนักงานใหญ่') && rawBranch !== 'Head Office');
+  const fallbackName = rawBranch.replace(/^สาขา\s*/, '').trim();
+  const branchName = isSub ? (rawName || (fallbackName !== 'ย่อย' ? fallbackName : '')) : '';
+  return {
+    branchType: isSub ? 'sub' : 'head',
+    branchName,
+    branch: isSub ? (branchName ? `สาขา ${branchName}` : 'สาขาย่อย') : 'สำนักงานใหญ่'
+  };
+};
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', {
@@ -678,7 +700,7 @@ function CustomerPickerModal({ customers, onSelect, onClose }) {
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-bold text-[#1d1d1f] group-hover:text-[#0071e3] transition-colors truncate">{c.name}</div>
                   <div className="text-[10px] text-[#86868b] mt-0.5 truncate">
-                    {[c.companyName, c.phone].filter(Boolean).join(' · ') || c.address || '-'}
+                    {[c.companyName, c.branch || (c.branchType === 'sub' && c.branchName ? `สาขา ${c.branchName}` : 'สำนักงานใหญ่'), c.phone].filter(Boolean).join(' · ') || c.address || '-'}
                   </div>
                 </div>
                 {/* Arrow */}
@@ -1453,8 +1475,8 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
       {/* List — ซ่อนเมื่ออยู่ใน admin 'all' mode */}
       {!(currentUser?.role === 'admin' && visibleListMode === 'all') && (
         <div className="space-y-3">
-          {/* แจ้งเตือน 3 วันก่อนหมดอายุ (Expiring Soon Alert Banner) */}
-          {expiringSoonCount > 0 && visibleListMode !== 'expired' && (
+          {/* แจ้งเตือน 3 วันก่อนหมดอายุ (Expiring Soon Alert Banner) - ไม่แสดงในแท็บรายการรออนุมัติของ Admin */}
+          {expiringSoonCount > 0 && visibleListMode !== 'expired' && !(currentUser?.role === 'admin' && visibleListMode === 'pending') && (
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-amber-50/90 to-orange-50/80 border border-amber-200/90 rounded-2xl text-xs text-amber-950 shadow-2xs">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-amber-100/90 flex items-center justify-center text-amber-700 shrink-0 shadow-2xs">
@@ -1698,34 +1720,54 @@ const CreateTab = ({
   sourceProposal,
   quotations = [],
   users = [],
+  customers = [],
   docFormat: controlledDocFormat,
   setDocFormat: controlledSetDocFormat
 }) => {
-  // Memoize unique customers list from past quotations
+  // Memoize unique customers list from central customers + past quotations
   const existingCustomers = useMemo(() => {
     const custMap = new Map();
+    // 1. Central customers
+    (customers || []).forEach(c => {
+      if (c && c.name && c.name.trim()) {
+        const branch = getBranchInfo(c);
+        const key = `${c.name.trim()}_${(c.companyName || '').trim()}_${branch.branchType}_${branch.branchName}`;
+        custMap.set(key, {
+          name: c.name.trim(),
+          companyName: (c.companyName || '').trim(),
+          ...branch,
+          region: c.region || '',
+          phone: (c.phone || '').trim(),
+          email: c.email || '',
+          taxId: (c.taxId || '').trim(),
+          address: (c.address || '').trim(),
+          note: c.note || '',
+        });
+      }
+    });
+
+    // 2. Past quotations
     quotations.forEach(q => {
       if (q.customer && q.customer.name && q.customer.name.trim()) {
-        const key = `${q.customer.name.trim()}_${(q.customer.companyName || '').trim()}`;
+        const branch = getBranchInfo(q.customer);
+        const key = `${q.customer.name.trim()}_${(q.customer.companyName || '').trim()}_${branch.branchType}_${branch.branchName}`;
         if (!custMap.has(key)) {
           custMap.set(key, {
             name: q.customer.name.trim(),
             companyName: (q.customer.companyName || '').trim(),
+            ...branch,
+            region: q.customer.region || q.customerRegion || '',
             phone: (q.customer.phone || '').trim(),
             email: q.customer.email || '',
             taxId: (q.customer.taxId || '').trim(),
             address: (q.customer.address || '').trim(),
+            note: q.customer.note || q.customerNote || '',
           });
-        } else {
-          const existing = custMap.get(key);
-          if (!existing.email && q.customer.email) {
-            existing.email = q.customer.email;
-          }
         }
       }
     });
     return Array.from(custMap.values()).sort((a, b) => a.name.localeCompare(b.name, 'th'));
-  }, [quotations]);
+  }, [customers, quotations]);
 
   const [showCustModal, setShowCustModal] = useState(false);
   const [selectedCustName, setSelectedCustName] = useState('');
@@ -1738,13 +1780,19 @@ const CreateTab = ({
   const setDocFormat = controlledSetDocFormat ?? setLocalDocFormat;
   const [form, setForm] = useState(() => {
     if (editQt) {
+      const branch = getBranchInfo(editQt.customer);
       return {
         custName: editQt.customer?.name || '',
         custCompany: editQt.customer?.companyName || '',
+        custBranchType: branch.branchType,
+        custBranchName: branch.branchName,
+        custBranch: branch.branch,
+        custRegion: editQt.customer?.region || editQt.customerRegion || '',
         custPhone: editQt.customer?.phone || '',
         custEmail: editQt.customer?.email || '',
         custTax: editQt.customer?.taxId || '',
         custAddr: editQt.customer?.address || '',
+        custNote: editQt.customer?.note || editQt.customerNote || '',
         salesName: editQt.salespersonName || '',
         salesPhone: editQt.salespersonPhone || '',
         projName: editQt.projectName || '',
@@ -1754,8 +1802,10 @@ const CreateTab = ({
       };
     }
     return {
-      custName: '', custCompany: '', custPhone: '', custEmail: '',
-      custTax: '', custAddr: '',
+      custName: '', custCompany: '',
+      custBranchType: 'head', custBranchName: '', custBranch: 'สำนักงานใหญ่',
+      custRegion: '', custPhone: '', custEmail: '',
+      custTax: '', custAddr: '', custNote: '',
       salesName: currentUser?.name || currentUser?.username || '', salesPhone: '',
       projName: '', validDate: '', vatRate: '7', note: '',
     };
@@ -1787,7 +1837,7 @@ const CreateTab = ({
 
   const setField = (k, v) => {
     setForm(f => ({ ...f, [k]: v }));
-    if (['custName', 'custCompany', 'custPhone', 'custEmail', 'custTax', 'custAddr'].includes(k)) {
+    if (['custName', 'custCompany', 'custPhone', 'custEmail', 'custTax', 'custAddr', 'custRegion', 'custNote'].includes(k)) {
       setSelectedCustName('');
     }
   };
@@ -1799,21 +1849,32 @@ const CreateTab = ({
         ...f,
         custName: '',
         custCompany: '',
+        custBranchType: 'head',
+        custBranchName: '',
+        custBranch: 'สำนักงานใหญ่',
+        custRegion: '',
         custPhone: '',
         custEmail: '',
         custTax: '',
         custAddr: '',
+        custNote: '',
       }));
     } else {
       setSelectedCustName(cust.name);
+      const branch = getBranchInfo(cust);
       setForm(f => ({
         ...f,
-        custName: cust.name,
-        custCompany: cust.companyName,
-        custPhone: cust.phone,
+        custName: cust.name || '',
+        custCompany: cust.companyName || '',
+        custBranchType: branch.branchType,
+        custBranchName: branch.branchName,
+        custBranch: branch.branch,
+        custRegion: cust.region || '',
+        custPhone: cust.phone || '',
         custEmail: cust.email || '',
-        custTax: cust.taxId,
-        custAddr: cust.address,
+        custTax: cust.taxId || '',
+        custAddr: cust.address || '',
+        custNote: cust.note || '',
       }));
     }
   };
@@ -1959,9 +2020,16 @@ const CreateTab = ({
     if (docFormat === 'quotation') {
       if (!form.custName.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกชื่อลูกค้า' }); return; }
       if (!form.custCompany.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกบริษัท' }); return; }
+      if (form.custBranchType === 'sub' && !form.custBranchName.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณาระบุชื่อหรือรหัสสาขาย่อย' });
+        return;
+      }
+      if (!form.custRegion.trim()) { setAlert({ type: 'error', msg: 'กรุณาเลือกภาค (6 ภาค)' }); return; }
       if (!form.custPhone.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกเบอร์โทร' }); return; }
       if (!form.custTax.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกเลขผู้เสียภาษี' }); return; }
+      if (!form.custEmail.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอก Email' }); return; }
       if (!form.custAddr.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกที่อยู่' }); return; }
+      if (!form.custNote.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกหมายเหตุ' }); return; }
       if (!form.salesName.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกชื่อพนักงานขาย' }); return; }
       if (!form.salesPhone.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกเบอร์ติดต่อพนักงานขาย' }); return; }
       if (!form.projName.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกชื่อโปรเจกต์' }); return; }
@@ -1983,6 +2051,11 @@ const CreateTab = ({
     // Admin auto-approves; others submit as 'sent' (pending approval)
     const isEditingExisting = Boolean(editQt && editQt.id);
     const effectiveStatus = (status === 'sent' && currentUser?.role === 'admin') ? 'approved' : status;
+    const branch = getBranchInfo({
+      branchType: form.custBranchType,
+      branchName: form.custBranchName,
+      branch: form.custBranch
+    });
     onSave({
       id: isEditingExisting ? editQt.id : generateNewId(),
       quotationNumber: isEditingExisting ? editQt.quotationNumber : undefined,
@@ -1992,7 +2065,19 @@ const CreateTab = ({
       sourceProposalId: sourceProposal ? (sourceProposal.quotationNumber || sourceProposal.id) : (editQt?.sourceProposalId || undefined),
       customer: docFormat === 'product_proposal'
         ? { name: '', companyName: '', email: '', phone: '', taxId: '', address: '' }
-        : { name: form.custName, companyName: form.custCompany, email: form.custEmail || '', phone: form.custPhone, taxId: form.custTax, address: form.custAddr },
+        : {
+            name: form.custName.trim(),
+            companyName: form.custCompany.trim(),
+            ...branch,
+            region: form.custRegion || '',
+            email: form.custEmail.trim(),
+            phone: form.custPhone.trim(),
+            taxId: form.custTax.trim(),
+            address: form.custAddr.trim(),
+            note: form.custNote.trim()
+          },
+      customerBranch: branch.branch,
+      customerRegion: form.custRegion || '',
       salespersonName: form.salesName || currentUser?.name || currentUser?.username || '',
       salespersonPhone: docFormat === 'product_proposal' ? '' : form.salesPhone,
       projectName: docFormat === 'product_proposal' ? '' : form.projName,
@@ -2162,15 +2247,165 @@ const CreateTab = ({
               )}
 
               <div className="space-y-4">
+                {/* Row 1: ชื่อลูกค้า และ บริษัท */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div><label className={labelClass}>ชื่อลูกค้า <span className="text-red-500">*</span></label><input className={inputClass} value={form.custName} onChange={e => setField('custName', e.target.value)} /></div>
-                  <div><label className={labelClass}>บริษัท <span className="text-red-500">*</span></label><input className={inputClass} value={form.custCompany} onChange={e => setField('custCompany', e.target.value)} /></div>
+                  <div>
+                    <label className={labelClass}>
+                      ชื่อลูกค้า <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      className={inputClass}
+                      value={form.custName}
+                      onChange={e => setField('custName', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      บริษัท <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      className={inputClass}
+                      value={form.custCompany}
+                      onChange={e => setField('custCompany', e.target.value)}
+                    />
+                  </div>
                 </div>
+
+                {/* Row 2: สาขา (สาขาใหญ่ / สาขาย่อย) และ ภาค (6 ภาค) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-start">
+                  {/* สำนักงานใหญ่ / สาขา (สำนักงานใหญ่ / สาขาย่อย) แบบ Dropdown แตกกิ่ง */}
+                  <div className="space-y-1.5">
+                    <label className={labelClass}>
+                      สำนักงานใหญ่ / สาขา <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={form.custBranchType}
+                        onChange={e => {
+                          const val = e.target.value;
+                          if (val === 'head') {
+                            setForm(f => ({ ...f, custBranchType: 'head', custBranchName: '', custBranch: 'สำนักงานใหญ่' }));
+                          } else {
+                            setForm(f => ({ ...f, custBranchType: 'sub', custBranch: f.custBranchName ? `สาขา ${f.custBranchName}` : 'สาขาย่อย' }));
+                          }
+                          setSelectedCustName('');
+                        }}
+                        className={`${inputClass} px-3.5 pr-8 cursor-pointer appearance-none font-semibold text-[#1d1d1f]`}
+                      >
+                        <option value="head">สำนักงานใหญ่</option>
+                        <option value="sub">สาขาย่อย (แตกออกเพื่อระบุสาขา)</option>
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400 text-[10px]">
+                        ▼
+                      </div>
+                    </div>
+
+                    {/* แตกกิ่งออกสำหรับระบุชื่อหรือรหัสสาขาย่อย */}
+                    {form.custBranchType === 'sub' && (
+                      <div className="pt-1.5 animate-fade-in pl-3 border-l-2 border-amber-300 ml-2 space-y-1">
+                        <div className="flex items-center gap-1 text-[11px] font-bold text-amber-700">
+                          <span>↳ ระบุชื่อหรือรหัสสาขาย่อย: <span className="text-red-500">*</span></span>
+                        </div>
+                        <input
+                          className={`${inputClass} border-amber-300 focus:border-amber-500 focus:ring-amber-500/20`}
+                          value={form.custBranchName}
+                          autoFocus
+                          onChange={e => {
+                            const val = e.target.value;
+                            setForm(f => ({ ...f, custBranchName: val, custBranch: val ? `สาขา ${val}` : 'สาขาย่อย' }));
+                            setSelectedCustName('');
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ภาค 6 ภาค */}
+                  <div>
+                    <label className={labelClass}>
+                      ภาค (6 ภาค) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={form.custRegion}
+                        onChange={e => setField('custRegion', e.target.value)}
+                        className={`${inputClass} px-3.5 pr-8 cursor-pointer appearance-none`}
+                      >
+                        <option value="">-- เลือกภาค (จำเป็น) --</option>
+                        {THAI_REGIONS.map(r => (
+                          <option key={r} value={r}>{r}</option>
+                        ))}
+                      </select>
+                      <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-zinc-400 text-[10px]">
+                        ▼
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Row 3: เบอร์โทร และ เลขผู้เสียภาษี */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div><label className={labelClass}>เบอร์โทร <span className="text-red-500">*</span></label><input className={inputClass} value={form.custPhone} onChange={e => setField('custPhone', e.target.value)} /></div>
-                  <div><label className={labelClass}>เลขผู้เสียภาษี <span className="text-red-500">*</span></label><input className={inputClass} value={form.custTax} onChange={e => setField('custTax', e.target.value)} /></div>
+                  <div>
+                    <label className={labelClass}>
+                      เบอร์โทร <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      className={inputClass}
+                      value={form.custPhone}
+                      onChange={e => setField('custPhone', e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className={labelClass}>
+                      เลขผู้เสียภาษี <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      className={`${inputClass} font-mono`}
+                      maxLength={13}
+                      value={form.custTax}
+                      onChange={e => setField('custTax', e.target.value.replace(/\D/g, '').slice(0, 13))}
+                    />
+                  </div>
                 </div>
-                <div><label className={labelClass}>ที่อยู่ <span className="text-red-500">*</span></label><textarea className={`${inputClass} resize-y min-h-[60px]`} value={form.custAddr} onChange={e => setField('custAddr', e.target.value)} /></div>
+
+                {/* Row 4: Email */}
+                <div>
+                  <label className={labelClass}>
+                    Email <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="email"
+                    className={inputClass}
+                    value={form.custEmail}
+                    onChange={e => setField('custEmail', e.target.value)}
+                  />
+                </div>
+
+                {/* Row 5: ที่อยู่ */}
+                <div>
+                  <label className={labelClass}>
+                    ที่อยู่ <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    className={`${inputClass} resize-y min-h-[64px] leading-relaxed`}
+                    rows={3}
+                    value={form.custAddr}
+                    onChange={e => setField('custAddr', e.target.value)}
+                  />
+                </div>
+
+                {/* Row 6: หมายเหตุ */}
+                <div>
+                  <label className={labelClass}>
+                    หมายเหตุ <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    className={`${inputClass} resize-y min-h-[56px] leading-relaxed`}
+                    rows={2}
+                    value={form.custNote}
+                    onChange={e => setField('custNote', e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
@@ -2826,9 +3061,13 @@ const PreviewTab = ({
                 {[
                   ['ชื่อลูกค้า', q.customer?.name],
                   ['บริษัท', q.customer?.companyName || '-'],
+                  ['สาขา', q.customer?.branch || q.customerBranch || '-'],
+                  ['ภาค', q.customer?.region || q.customerRegion || '-'],
                   ['เบอร์โทร', q.customer?.phone || '-'],
                   ['เลขผู้เสียภาษี', q.customer?.taxId || '-'],
-                  ['ที่อยู่', q.customer?.address || '-']
+                  ['อีเมล', q.customer?.email || '-'],
+                  ['ที่อยู่', q.customer?.address || '-'],
+                  ['หมายเหตุ', q.customer?.note || q.customerNote || '-']
                 ].map(([l, v]) => (
                   <div key={l} className="flex gap-2 leading-relaxed">
                     <span className="text-[#555557] font-semibold min-w-[90px]">{l}</span>
@@ -3122,6 +3361,7 @@ export default function QuotationManage({
   companyInfo = {},
   currentUser,
   users = [],
+  customers = [],
   onSaveQuotation,
   onDeleteQuotation,
   addActivityLog,
@@ -3353,6 +3593,7 @@ export default function QuotationManage({
           sourceProposal={convertProposal}
           quotations={quotations}
           users={users}
+          customers={customers}
           docFormat={createDocFormat}
           setDocFormat={setCreateDocFormat}
         />

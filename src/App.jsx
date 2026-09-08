@@ -12,7 +12,33 @@ import Report from './components/Report';
 import UserManage from './components/UserManage';
 import ActivityLogView from './components/ActivityLogView';
 import QuotationManage from './components/QuotationManage';
+import CustomerManage from './components/CustomerManage';
 import PublicQuotationViewer from './components/PublicQuotationViewer';
+import { canAccessPage } from './utils/permissions';
+
+const customerBranchInfo = customer => {
+  const rawBranch = String(customer?.branch || '').trim();
+  const rawName = String(customer?.branchName || '').trim().replace(/^สาขา\s*/, '');
+  const isSub = customer?.branchType === 'sub' || (rawBranch && !rawBranch.includes('สำนักงานใหญ่') && rawBranch !== 'Head Office');
+  const fallbackName = rawBranch.replace(/^สาขา\s*/, '').trim();
+  const branchName = isSub ? (rawName || (fallbackName !== 'ย่อย' ? fallbackName : '')) : '';
+  return {
+    branchType: isSub ? 'sub' : 'head',
+    branchName,
+    branch: isSub ? (branchName ? `สาขา ${branchName}` : 'สาขาย่อย') : 'สำนักงานใหญ่'
+  };
+};
+
+const sameCustomerBranch = (a, b) => {
+  const aName = (a?.name || '').trim().toLowerCase();
+  const bName = (b?.name || '').trim().toLowerCase();
+  const aCompany = (a?.companyName || '').trim().toLowerCase();
+  const bCompany = (b?.companyName || '').trim().toLowerCase();
+  const aBranch = customerBranchInfo(a);
+  const bBranch = customerBranchInfo(b);
+  return aName === bName && aCompany === bCompany &&
+    aBranch.branchType === bBranch.branchType && aBranch.branchName.toLowerCase() === bBranch.branchName.toLowerCase();
+};
 
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
@@ -23,6 +49,7 @@ export default function App() {
   const [subcategories, setSubcategories] = useState({});
   const [users, setUsers] = useState([]);
   const [quotations, setQuotations] = useState([]);
+  const [customers, setCustomers] = useState([]);
   const [activityLog, setActivityLog] = useState([]);
   const [activeTab, setActiveTab] = useState(() => {
     try {
@@ -54,19 +81,72 @@ export default function App() {
       if (db.subcategories) setSubcategories(db.subcategories);
       if (db.users) setUsers(db.users);
       if (db.quotations) setQuotations(db.quotations);
+      if (db.customers && db.customers.length > 0) {
+        setCustomers(db.customers);
+      } else if (db.quotations && db.quotations.length > 0) {
+        const custMap = new Map();
+        db.quotations.forEach(q => {
+          if (q.customer && (q.customer.name || q.customer.companyName)) {
+            const name = (q.customer.name || '').trim();
+            const comp = (q.customer.companyName || '').trim();
+            if (!name && !comp) return;
+            const branch = customerBranchInfo({ ...q.customer, branch: q.customer.branch || q.customerBranch });
+            const key = `${name.toLowerCase()}__${comp.toLowerCase()}__${branch.branchType}__${branch.branchName.toLowerCase()}`;
+            if (!custMap.has(key)) {
+              custMap.set(key, {
+                id: crypto.randomUUID(),
+                name: name || comp,
+                companyName: comp,
+                ...branch,
+                region: q.customer.region || q.customerRegion || '',
+                phone: (q.customer.phone || '').trim(),
+                email: (q.customer.email || '').trim(),
+                taxId: (q.customer.taxId || '').trim(),
+                address: (q.customer.address || '').trim(),
+                note: `ดึงข้อมูลจากประวัติใบเสนอราคา ${q.quotationNumber || ''}`.trim(),
+                status: 'Active',
+                createdAt: q.issuedDate ? new Date(q.issuedDate).toISOString() : new Date().toISOString()
+              });
+            }
+          }
+        });
+        const extracted = Array.from(custMap.values());
+        if (extracted.length > 0) {
+          setCustomers(extracted);
+          saveCollection('customers', extracted).catch(() => {});
+        }
+      }
       if (db.activityLog) setActivityLog(db.activityLog);
       if (db.user) setCurrentUser(db.user);
     };
     const expired = () => {
-      setCurrentUser(null); setUsers([]); setProducts([]); setCategories([]); setSubcategories({}); setQuotations([]); setActivityLog([]);
+      setCurrentUser(null); setUsers([]); setProducts([]); setCategories([]); setSubcategories({}); setQuotations([]); setCustomers([]); setActivityLog([]);
       clearLegacyCache();
     };
     window.addEventListener('pim:database', apply);
     window.addEventListener('pim:session-expired', expired);
-    if (!new URLSearchParams(window.location.search).has('share')) request('/api/auth/session').then(async result => {
-      await loadDatabase(); setCurrentUser(result.user);
-    }).catch(() => {}).finally(() => setAuthLoading(false));
+    const safetyTimer = setTimeout(() => {
+      setAuthLoading(false);
+    }, 1500);
+
+    if (!new URLSearchParams(window.location.search).has('share')) {
+      request('/api/auth/session')
+        .then(async result => {
+          await loadDatabase();
+          setCurrentUser(result.user);
+        })
+        .catch(() => {})
+        .finally(() => {
+          clearTimeout(safetyTimer);
+          setAuthLoading(false);
+        });
+    } else {
+      clearTimeout(safetyTimer);
+      setAuthLoading(false);
+    }
+
     return () => {
+      clearTimeout(safetyTimer);
       window.removeEventListener('pim:database', apply);
       window.removeEventListener('pim:session-expired', expired);
     };
@@ -80,20 +160,29 @@ export default function App() {
   };
   const handleLogout = async () => {
     await request('/api/auth/logout', { method: 'POST' });
-    clearLegacyCache(); setCurrentUser(null); setUsers([]); setProducts([]); setCategories([]); setSubcategories({}); setQuotations([]); setActivityLog([]);
+    clearLegacyCache(); setCurrentUser(null); setUsers([]); setProducts([]); setCategories([]); setSubcategories({}); setQuotations([]); setCustomers([]); setActivityLog([]);
     handleTabChange('dashboard'); setEditProduct(null);
   };
   useEffect(() => {
     if (!currentUser) return;
     const navigate = event => {
+      // Ignore if modifier keys are pressed (Ctrl, Cmd, Alt) or if key is not ArrowLeft / ArrowRight
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+      if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+
       const element = document.activeElement;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(element?.tagName) || element?.isContentEditable) return;
-      if (!['ArrowLeft', 'ArrowRight'].includes(event.key)) return;
-      const tabs = ['dashboard', 'manage-products', 'brands', 'categories', 'quotations', 'reports'];
-      if (['admin', 'manager'].includes(currentUser.role)) tabs.push('users');
-      if (currentUser.role === 'admin') tabs.push('activity-log');
+
+      // Do not navigate if user is currently selecting text to copy
+      if (window.getSelection()?.toString()) return;
+
+      const allTabs = ['dashboard', 'manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log'];
+      const tabs = allTabs.filter(tab => canAccessPage(currentUser, tab));
       const index = tabs.indexOf(activeTab);
-      if (index >= 0) handleTabChange(tabs[(index + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length]);
+      if (index >= 0) {
+        const step = event.key === 'ArrowRight' ? 1 : -1;
+        handleTabChange(tabs[(index + step + tabs.length) % tabs.length]);
+      }
     };
     window.addEventListener('keydown', navigate);
     return () => window.removeEventListener('keydown', navigate);
@@ -175,9 +264,73 @@ export default function App() {
   const handleAddUser = data => saveCollection('users', [...users, data]);
   const handleUpdateUser = (data, oldUsername) => saveCollection('users', users.map(u => u.username === (oldUsername || data.username) ? data : u));
   const handleDeleteUser = username => saveCollection('users', users.filter(u => u.username !== username));
+  const handleAddCustomer = async customer => {
+    const updated = [customer, ...customers];
+    setCustomers(updated);
+    return saveCollection('customers', updated);
+  };
+  const handleUpdateCustomer = async customer => {
+    const updated = customers.map(c => c.id === customer.id ? customer : c);
+    setCustomers(updated);
+    return saveCollection('customers', updated);
+  };
+  const handleDeleteCustomer = async id => {
+    const updated = customers.filter(c => c.id !== id);
+    setCustomers(updated);
+    return saveCollection('customers', updated);
+  };
+  const handleImportCustomers = async newCustomers => {
+    const updated = [...newCustomers, ...customers];
+    setCustomers(updated);
+    return saveCollection('customers', updated);
+  };
   const handleSaveQuotation = async data => {
     const exists = quotations.some(q => q.id === data.id);
     const result = await saveCollection('quotations', exists ? quotations.map(q => q.id === data.id ? data : q) : [data, ...quotations]);
+    if (data.customer && (data.customer.name || data.customer.companyName)) {
+      const branch = customerBranchInfo(data.customer);
+      const customerWithBranch = { ...data.customer, ...branch };
+      if (customerWithBranch.name || customerWithBranch.companyName) {
+        const alreadyHas = customers.some(c => sameCustomerBranch(c, customerWithBranch));
+        if (!alreadyHas) {
+          const newCust = {
+            id: crypto.randomUUID(),
+            name: (data.customer.name || '').trim() || (data.customer.companyName || '').trim(),
+            companyName: (data.customer.companyName || '').trim(),
+            ...branch,
+            region: data.customer.region || data.customerRegion || '',
+            phone: (data.customer.phone || '').trim(),
+            email: (data.customer.email || '').trim(),
+            taxId: (data.customer.taxId || '').trim(),
+            address: (data.customer.address || '').trim(),
+            note: (data.customer.note || '').trim(),
+            status: 'Active',
+            createdAt: new Date().toISOString()
+          };
+          const updated = [newCust, ...customers];
+          setCustomers(updated);
+          saveCollection('customers', updated).catch(() => {});
+        } else {
+          const updated = customers.map(c => {
+            if (sameCustomerBranch(c, customerWithBranch)) {
+              return {
+                ...c,
+                ...branch,
+                region: c.region || data.customer.region || data.customerRegion || '',
+                phone: c.phone || data.customer.phone,
+                email: c.email || data.customer.email,
+                taxId: c.taxId || data.customer.taxId,
+                address: c.address || data.customer.address,
+                note: c.note || data.customer.note || ''
+              };
+            }
+            return c;
+          });
+          setCustomers(updated);
+          saveCollection('customers', updated).catch(() => {});
+        }
+      }
+    }
     return result.quotations.find(q => q.id === data.id);
   };
   const handleDeleteQuotation = id => saveCollection('quotations', quotations.filter(q => q.id !== id));
@@ -197,6 +350,29 @@ export default function App() {
 
   // Render view screen based on activeTab
   const renderScreen = () => {
+    if (activeTab !== 'dashboard' && !canAccessPage(currentUser, activeTab)) {
+      return (
+        <div className="bg-white rounded-3xl border border-[#d2d2d7]/50 p-12 text-center max-w-md mx-auto space-y-4 my-12 shadow-sm text-[#1d1d1f] animate-fade-in">
+          <div className="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto border border-red-100">
+            <i className="bi bi-shield-lock-fill text-2xl"></i>
+          </div>
+          <h2 className="font-bold text-[#1d1d1f] text-base">สิทธิ์การเข้าถึงหน้านี้ถูกจำกัด</h2>
+          <p className="text-xs text-[#555557] leading-relaxed">
+            บัญชีของคุณไม่ได้รับสิทธิ์ในการเข้าถึงหน้านี้ กรุณาติดต่อผู้ดูแลระบบ (Admin) เพื่อขอสิทธิ์การใช้งาน
+          </p>
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => handleTabChange('dashboard')}
+              className="px-5 py-2 bg-[#0071e3] text-white text-xs font-bold rounded-xl hover:bg-[#0077ed] transition-colors cursor-pointer shadow-xs"
+            >
+              กลับหน้าหลัก (Dashboard)
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case 'dashboard':
         return (
@@ -207,6 +383,8 @@ export default function App() {
             quotations={quotations}
             setActiveTab={handleTabChange}
             setEditProduct={handleEditProductRequest}
+            currentUser={currentUser}
+            users={users}
           />
         );
       case 'manage-products':
@@ -261,6 +439,20 @@ export default function App() {
           />
         );
 
+      case 'customers':
+        return (
+          <CustomerManage
+            customers={customers}
+            quotations={quotations}
+            onAddCustomer={handleAddCustomer}
+            onUpdateCustomer={handleUpdateCustomer}
+            onDeleteCustomer={handleDeleteCustomer}
+            onImportCustomers={handleImportCustomers}
+            currentUser={currentUser}
+            addActivityLog={addActivityLog}
+          />
+        );
+
       case 'reports':
         return (
           <Report
@@ -301,6 +493,7 @@ export default function App() {
           <QuotationManage
             quotations={quotations}
             products={products}
+            customers={customers}
             companyInfo={companyInfo}
             currentUser={currentUser}
             users={users}
@@ -324,7 +517,28 @@ export default function App() {
   }
 
   // Authenticated Screen vs Guest Login
-  if (authLoading) return null;
+  if (authLoading) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#f5f5f7] text-[#1d1d1f] select-none">
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
+          <div className="w-14 h-14 rounded-2xl bg-white shadow-md flex items-center justify-center border border-zinc-200/80">
+            <svg viewBox="0 0 80 90" className="w-8 h-9 fill-zinc-900" xmlns="http://www.w3.org/2000/svg">
+              <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
+              <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
+              <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
+            </svg>
+          </div>
+          <div className="flex items-center gap-2.5 text-xs font-bold text-zinc-500">
+            <svg className="animate-spin h-4 w-4 text-[#0071e3]" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>กำลังโหลดระบบ...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
   if (!currentUser) {
     return <Login onLogin={handleLogin} users={users} />;
   }

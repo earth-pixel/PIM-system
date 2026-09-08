@@ -9,6 +9,19 @@ const fail = (status, message) => { throw Object.assign(new Error(message), { st
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const digest = value => createHash('sha256').update(value).digest('hex');
 const validId = id => (typeof id === 'string' && id.length > 0 && id.length <= 200) || (typeof id === 'number' && Number.isSafeInteger(id));
+const quotationBranchInfo = customer => {
+  const value = customer && typeof customer === 'object' ? customer : {};
+  const rawBranch = String(value.branch || '').trim();
+  const rawName = String(value.branchName || '').trim().replace(/^สาขา\s*/, '');
+  const isSub = value.branchType === 'sub' || (rawBranch && !rawBranch.includes('สำนักงานใหญ่') && rawBranch !== 'Head Office');
+  const fallbackName = rawBranch.replace(/^สาขา\s*/, '').trim();
+  const branchName = isSub ? (rawName || (fallbackName !== 'ย่อย' ? fallbackName : '')) : '';
+  return {
+    branchType: isSub ? 'sub' : 'head',
+    branchName,
+    branch: isSub ? (branchName ? `สาขา ${branchName}` : 'สาขาย่อย') : 'สำนักงานใหญ่'
+  };
+};
 const hashPassword = password => {
   const salt = randomBytes(16).toString('hex');
   return `${salt}:${scryptSync(password, salt, 64).toString('hex')}`;
@@ -38,7 +51,8 @@ function logCollectionChange(db, user, key, before) {
     brands: 'แบรนด์',
     categories: 'หมวดหมู่',
     subcategories: 'หมวดหมู่ย่อย',
-    activityLog: 'ประวัติการดำเนินงาน'
+    activityLog: 'ประวัติการดำเนินงาน',
+    customers: 'ข้อมูลลูกค้า'
   };
 
   const after = db[key] || (key === 'subcategories' ? {} : []);
@@ -85,11 +99,17 @@ function logCollectionChange(db, user, key, before) {
       if (typeof value === 'object') {
         const FIELD_MAP = {
           name: 'ชื่อ', code: 'รหัส SKU', username: 'ชื่อผู้ใช้', role: 'สิทธิ์', brand: 'แบรนด์', category: 'หมวดหมู่',
-          retailPrice: 'ราคาขายปลีก', wholesalePrice: 'ราคาขายส่ง', capFee: 'ค่าฝา', stock: 'สต็อก', status: 'สถานะ', totalAmount: 'ยอดรวม'
+          retailPrice: 'ราคาขายปลีก', wholesalePrice: 'ราคาขายส่ง', capFee: 'ค่าฝา', stock: 'สต็อก', status: 'สถานะ', totalAmount: 'ยอดรวม',
+          permissions: 'สิทธิ์การเข้าถึงหน้า/ปุ่ม',
+          phone: 'เบอร์โทร', email: 'อีเมล', companyName: 'ชื่อบริษัท', taxId: 'เลขผู้เสียภาษี', address: 'ที่อยู่', note: 'หมายเหตุ'
         };
         for (const [fKey, fLabel] of Object.entries(FIELD_MAP)) {
           if (!same(previous[fKey], value[fKey])) {
-            changes.push({ field: `${name}: ${fLabel}`, before: String(previous[fKey] ?? '-'), after: String(value[fKey] ?? '-') });
+            if (fKey === 'permissions') {
+              changes.push({ field: `${name}: ${fLabel}`, before: 'สิทธิ์เดิม', after: 'กำหนดสิทธิ์การใช้งานใหม่' });
+            } else {
+              changes.push({ field: `${name}: ${fLabel}`, before: String(previous[fKey] ?? '-'), after: String(value[fKey] ?? '-') });
+            }
           }
         }
         if (previous.image !== value.image) changes.push({ field: `${name}: รูปภาพ`, before: '(รูปเดิม)', after: '(รูปใหม่)' });
@@ -114,6 +134,9 @@ function logCollectionChange(db, user, key, before) {
           } else if (key === 'users') {
             itemLabel = `ผู้ใช้ ${value.name || value.username} (สิทธิ์: ${value.role || 'user'})`;
             beforeDesc = `บัญชีผู้ใช้: ${value.username}`;
+          } else if (key === 'customers') {
+            itemLabel = `ลูกค้า ${value.name || 'ลูกค้า'}${value.companyName ? ` (${value.companyName})` : ''}`;
+            beforeDesc = `เบอร์โทร: ${value.phone || '-'}`;
           } else {
             itemLabel = value.name || value.id || 'รายการเดิม';
           }
@@ -186,8 +209,8 @@ function normalizeUsers(incoming, db, caller) {
     const before = old.find(u => raw.id ? u.id === raw.id : u.username === raw.username);
     const username = normalizeCode(raw.username);
     if (typeof raw.username !== 'string' || !username || typeof raw.name !== 'string' || !raw.name.trim() || !['admin', 'manager', 'user'].includes(raw.role) || names.has(username)) fail(400, 'ชื่อผู้ใช้ซ้ำหรือข้อมูลไม่ครบถ้วน');
-    names.add(username);
     const candidate = { ...before, id: before?.id || randomUUID(), username, name: raw.name.trim(), role: raw.role, createdAt: before ? before.createdAt : new Date().toISOString() };
+    if (raw.permissions !== undefined) candidate.permissions = raw.permissions;
     if (ids.has(candidate.id)) fail(400, 'รหัสผู้ใช้ซ้ำ');
     ids.add(candidate.id);
     const changed = !before || !same(publicUser(before), publicUser(candidate)) || Boolean(raw.password);
@@ -236,6 +259,11 @@ function normalizeQuotations(incoming, db, user) {
     if (before && before.documentType !== type) fail(400, 'ไม่สามารถเปลี่ยนประเภทเอกสารเดิม');
     if (type === 'quotation' && ['approved', 'rejected'].includes(raw.status) && user.role !== 'admin') fail(403, 'เฉพาะ Admin ที่อนุมัติหรือปฏิเสธใบเสนอราคาได้');
     if (type === 'quotation' && raw.status === 'rejected' && before?.status !== 'sent') fail(400, 'ปฏิเสธได้เฉพาะเอกสารที่รออนุมัติ');
+    const branch = quotationBranchInfo(raw.customer);
+    if (type === 'quotation' && branch.branchType === 'sub' && !branch.branchName) fail(400, 'กรุณาระบุชื่อหรือรหัสสาขาย่อย');
+    const normalizedRaw = type === 'quotation'
+      ? { ...raw, customer: { ...(raw.customer || {}), ...branch }, customerBranch: branch.branch, customerRegion: raw.customerRegion || raw.customer?.region || '' }
+      : raw;
     const issuedDate = before?.issuedDate || new Date().toLocaleDateString('sv-SE');
     if (type === 'quotation' && raw.status !== 'draft') {
       for (const key of ['name', 'companyName', 'phone', 'taxId', 'address']) if (!String(raw.customer?.[key] || '').trim()) fail(400, 'กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน');
@@ -252,7 +280,7 @@ function normalizeQuotations(incoming, db, user) {
       numbers.add(quotationNumber);
     }
     let calculated;
-    try { calculated = calculateQuotation({ ...raw, documentType: type }); }
+    try { calculated = calculateQuotation({ ...normalizedRaw, documentType: type }); }
     catch (error) { fail(400, error.message); }
     return { ...calculated, quotationNumber, issuedDate, createdBy: before?.createdBy || user.username, approvedBy: raw.status === 'approved' ? user.name || user.username : undefined, approvedDate: raw.status === 'approved' ? new Date().toISOString() : undefined, customerAcceptedAt: before?.customerAcceptedAt };
   });
@@ -400,6 +428,23 @@ export function createApi(dbPath) {
       else if (key === 'activityLog') {
         if (data.length > 1) fail(400, 'ประวัติแก้ไขย้อนหลังไม่ได้');
         db.activityLog = [];
+      } else if (key === 'customers') {
+        if (!Array.isArray(data)) fail(400, 'ข้อมูลลูกค้าไม่ถูกต้อง');
+        const now = new Date().toISOString();
+        db.customers = data.map(c => ({
+          ...c,
+          id: c.id || randomUUID(),
+          name: typeof c.name === 'string' ? c.name.trim() : '',
+          companyName: typeof c.companyName === 'string' ? c.companyName.trim() : '',
+          phone: typeof c.phone === 'string' ? c.phone.trim() : '',
+          email: typeof c.email === 'string' ? c.email.trim() : '',
+          taxId: typeof c.taxId === 'string' ? c.taxId.trim() : '',
+          address: typeof c.address === 'string' ? c.address.trim() : '',
+          note: typeof c.note === 'string' ? c.note.trim() : '',
+          createdAt: c.createdAt || now,
+          updatedAt: now,
+          updatedBy: req.user.username
+        }));
       } else {
         if (data.some(v => typeof v !== 'string' || !v.trim()) || new Set(data.map(normalizeCode)).size !== data.length) fail(400, 'ชื่อซ้ำหรือไม่ถูกต้อง');
         db[key] = data.map(v => v.trim());

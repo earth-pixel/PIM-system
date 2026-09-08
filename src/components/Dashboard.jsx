@@ -2,14 +2,66 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { Package, Award, FolderKanban, FileText, X } from 'lucide-react';
 import { createPortal } from 'react-dom';
 
-export default function Dashboard({ products, brands, categories, quotations = [], setActiveTab }) {
+export default function Dashboard({ products, brands, categories, quotations = [], setActiveTab, currentUser, users = [] }) {
+  // Check if a quotation belongs to a specific user
+  const isDocOfUser = (q, targetUser) => {
+    if (!targetUser) return false;
+    const username = typeof targetUser === 'string' ? targetUser : targetUser.username;
+    const name = typeof targetUser === 'string' ? '' : (targetUser.name || '');
+    const creator = (q.createdBy || '').toLowerCase();
+    const salesName = (q.salespersonName || '').toLowerCase();
+    const uLower = (username || '').toLowerCase();
+    const nLower = (name || '').toLowerCase();
+
+    return (uLower && (creator === uLower || salesName.includes(uLower))) ||
+           (nLower && salesName.includes(nLower));
+  };
+
+  // Check if a quotation belongs to an Admin user
+  const isDocOfAdmin = (q) => {
+    const creator = (q.createdBy || '').toLowerCase();
+    const salesName = (q.salespersonName || '').toLowerCase();
+
+    // Check if creator or salesperson matches any user with role 'admin'
+    const hasAdmin = users.some(u => u.role === 'admin' && (
+      (u.username && (creator === u.username.toLowerCase() || salesName.includes(u.username.toLowerCase()))) ||
+      (u.name && salesName.includes(u.name.toLowerCase()))
+    ));
+    if (hasAdmin) return true;
+
+    // Check if creator or salesperson matches any user with other roles (manager, user, etc.)
+    const hasNonAdmin = users.some(u => u.role !== 'admin' && (
+      (u.username && (creator === u.username.toLowerCase() || salesName.includes(u.username.toLowerCase()))) ||
+      (u.name && salesName.includes(u.name.toLowerCase()))
+    ));
+    if (hasNonAdmin) return false;
+
+    // Fallback: if creator is 'admin' or system/empty, treat as admin
+    return creator === 'admin' || creator === 'administrator' || !creator || creator === 'system';
+  };
+
+  const isAdmin = currentUser?.role === 'admin';
+
+  // Filtered quotations for dashboard card:
+  // "เอาแค่ของแอดมิน ของrole อื่นไม่ต้องรวม"
+  // - If not admin: filter to currentUser only
+  // - If admin: ONLY include quotations of Admin role (exclude manager, user, etc.)
+  const displayQuotations = useMemo(() => {
+    if (!currentUser) return quotations;
+    if (!isAdmin) {
+      return quotations.filter(q => isDocOfUser(q, currentUser));
+    }
+    // Only include documents belonging to Admin role
+    return quotations.filter(q => isDocOfAdmin(q));
+  }, [quotations, currentUser, isAdmin, users]);
+
   // Stats calculations (Overall static stats)
   const totalProducts = products.length;
   const activeProducts = useMemo(() => products.filter(p => p.status === 'Active').length, [products]);
   const totalBrands = brands.length;
   const totalCategories = categories.length;
-  const totalQuotations = quotations.length;
-  const approvedQuotations = useMemo(() => quotations.filter(q => q.status === 'approved').length, [quotations]);
+  const totalQuotations = displayQuotations.length;
+  const approvedQuotations = useMemo(() => displayQuotations.filter(q => q.status === 'approved').length, [displayQuotations]);
 
   // Dynamic Chart States
   const [chartType, setChartType] = useState('brand'); // 'brand' | 'category'
@@ -235,15 +287,21 @@ export default function Dashboard({ products, brands, categories, quotations = [
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setActiveTab('quotations'); } }}
           className="relative overflow-hidden bg-white px-3 py-3 sm:px-4 sm:py-3.5 rounded-2xl border border-emerald-100 flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3 shadow-sm hover:shadow-[0_12px_30px_rgba(16,185,129,0.15)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer select-none group premium-card-shine"
         >
-          <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-emerald-50/60 group-hover:bg-emerald-100/50 transition-colors duration-300" />
+          <div className="absolute -right-3 -top-3 w-16 h-16 rounded-full bg-emerald-50/60 group-hover:bg-emerald-100/50 transition-colors duration-300 pointer-events-none" />
           <div className="absolute left-0 top-3 bottom-3 w-[3px] rounded-r-full bg-gradient-to-b from-emerald-400 to-teal-500" />
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-500 flex items-center justify-center text-white shrink-0 shadow-sm shadow-emerald-300/40">
             <FileText className="w-4 h-4" />
           </div>
-          <div className="min-w-0 relative">
-            <p className="text-[9px] font-semibold text-emerald-500 uppercase tracking-widest truncate">ใบเสนอราคา</p>
-            <h3 className="text-2xl font-extrabold text-[#1d1d1f] leading-none tracking-tight">{totalQuotations}</h3>
-            <p className="text-[9px] text-[#8e8e93] mt-0.5 truncate">อนุมัติแล้ว {approvedQuotations} รายการ</p>
+          <div className="min-w-0 relative flex-1 w-full">
+            <div className="flex items-center justify-between gap-1">
+              <p className="text-[9px] font-semibold text-emerald-500 uppercase tracking-widest truncate">
+                ใบเสนอราคา {!isAdmin ? '(ของฉัน)' : ''}
+              </p>
+            </div>
+            <h3 className="text-2xl font-extrabold text-[#1d1d1f] leading-none tracking-tight mt-0.5">{totalQuotations}</h3>
+            <p className="text-[9px] text-[#8e8e93] mt-0.5 truncate">
+              อนุมัติแล้ว {approvedQuotations} รายการ
+            </p>
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { canAccessPage } from '../utils/permissions';
 
 function getActionStyle(action) {
   if (action.includes('แก้ไข')) {
@@ -296,19 +297,22 @@ export default function DashboardLayout({
   }, [isMobileMenuOpen]);
 
   const menuItems = [
-    { key: 'dashboard',       name: 'Dashboard',               icon: "bi bi-grid-1x2-fill", minRole: 'user' },
-    { key: 'manage-products', name: 'จัดการข้อมูลสินค้า',        icon: "bi bi-pencil-square",           minRole: 'user' },
-    { key: 'quotations',      name: 'ใบเสนอราคา',               icon: "bi bi-file-earmark-text-fill",  minRole: 'user' },
-    { key: 'brands',          name: 'จัดการแบรนด์',             icon: "bi bi-award-fill",           minRole: 'user' },
-    { key: 'categories',      name: 'จัดการหมวดหมู่สินค้า',    icon: "bi bi-folder-fill",    minRole: 'user' },
-    { key: 'reports',         name: 'รายงานสินค้า',             icon: "bi bi-bar-chart-fill",        minRole: 'user' },
+    { key: 'dashboard',   name: 'Dashboard',   icon: "bi bi-grid-1x2-fill", minRole: 'user' },
+    { key: 'manage-data', name: 'จัดการข้อมูล', icon: "bi bi-database-fill", minRole: 'user' },
+    { key: 'quotations',  name: 'ใบเสนอราคา',   icon: "bi bi-file-earmark-text-fill",  minRole: 'user' },
+    { key: 'reports',     name: 'รายงานสินค้า', icon: "bi bi-bar-chart-fill",        minRole: 'user' },
   ];
 
-  const hasAccess = (minRole) => {
+  const hasAccess = (itemOrKey) => {
     if (!currentUser) return false;
-    if (currentUser.role === 'admin')   return true;
-    if (currentUser.role === 'manager') return minRole === 'manager' || minRole === 'user';
-    return minRole === 'user';
+    const pageKey = typeof itemOrKey === 'string' ? itemOrKey : itemOrKey?.key;
+    if (pageKey === 'manage-data') {
+      return canAccessPage(currentUser, 'manage-products') ||
+             canAccessPage(currentUser, 'brands') ||
+             canAccessPage(currentUser, 'categories') ||
+             canAccessPage(currentUser, 'customers');
+    }
+    return canAccessPage(currentUser, pageKey);
   };
 
   const getRoleBadge = (role) => {
@@ -325,8 +329,8 @@ export default function DashboardLayout({
   // Determine if activeTab belongs to users group
   const isUserGroupActive = activeTab === 'users' || activeTab === 'activity-log';
 
-  // Determine if activeTab belongs to products group
-  const isProductGroupActive = activeTab === 'manage-products' || activeTab === 'brands' || activeTab === 'categories';
+  // Determine if activeTab belongs to data group (products, brands, categories, customers)
+  const isDataGroupActive = activeTab === 'manage-products' || activeTab === 'brands' || activeTab === 'categories' || activeTab === 'customers';
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f5f5f7] font-sans text-[#1d1d1f]">
@@ -353,15 +357,18 @@ export default function DashboardLayout({
           {/* Center: Desktop Minimalist Menu Links */}
           <nav className="hidden lg:flex items-center justify-center gap-1 flex-1">
             {menuItems.map((item) => {
-              if (!hasAccess(item.minRole)) return null;
+              if (!hasAccess(item.key)) return null;
 
-              // Skip brands and categories at the top level
-              if (item.key === 'brands' || item.key === 'categories') return null;
+              if (item.key === 'manage-data') {
+                const canProducts = canAccessPage(currentUser, 'manage-products');
+                const canBrands = canAccessPage(currentUser, 'brands');
+                const canCategories = canAccessPage(currentUser, 'categories');
+                const canCustomers = canAccessPage(currentUser, 'customers');
+                if (!canProducts && !canBrands && !canCategories && !canCustomers) return null;
 
-              if (item.key === 'manage-products') {
                 return (
                   <div 
-                    key="products-dropdown"
+                    key="data-dropdown"
                     className="relative" 
                     ref={productsDropdownRef}
                     onMouseEnter={handleMouseEnterProducts}
@@ -371,37 +378,79 @@ export default function DashboardLayout({
                       onClick={() => setIsProductsDropdownOpen(!isProductsDropdownOpen)}
                       className={`
                         px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1
-                        ${isProductGroupActive
+                        ${isDataGroupActive
                           ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
                           : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
                         }
                       `}
                     >
-                      <span>จัดการข้อมูลสินค้า</span>
+                      <span>จัดการข้อมูล</span>
                       <i className={`bi bi-chevron-down text-[10px] transition-transform duration-200 ${isProductsDropdownOpen ? 'rotate-180' : ''}`}></i>
                     </button>
 
                     {isProductsDropdownOpen && (
-                      <div className="absolute top-full left-0 w-52 pt-2 z-30">
-                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-1.5 space-y-0.5 animate-scale-in">
-                          <button type="button"
-                            onClick={() => handleNavClick('manage-products')}
-                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'manage-products' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
-                          >
-                            <span>ข้อมูลสินค้า</span>
-                          </button>
-                          <button type="button"
-                            onClick={() => handleNavClick('brands')}
-                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'brands' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
-                          >
-                            <span>จัดการแบรนด์สินค้า</span>
-                          </button>
-                          <button type="button"
-                            onClick={() => handleNavClick('categories')}
-                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'categories' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
-                          >
-                            <span>จัดการหมวดหมู่สินค้า</span>
-                          </button>
+                      <div className="absolute top-full left-0 w-60 pt-2 z-30">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-2 space-y-1.5 animate-scale-in">
+                          
+                          {/* Section 1: ข้อมูลสินค้า */}
+                          {(canProducts || canBrands || canCategories) && (
+                            <div>
+                              <div className="px-3 pt-1 pb-1 text-[10.5px] font-black text-[#86868b] tracking-wider uppercase flex items-center gap-1.5">
+                                <i className="bi bi-box-seam text-xs text-[#0071e3]"></i>
+                                <span>ข้อมูลสินค้า</span>
+                              </div>
+                              <div className="space-y-0.5 mt-0.5">
+                                {canProducts && (
+                                  <button type="button"
+                                    onClick={() => handleNavClick('manage-products')}
+                                    className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${activeTab === 'manage-products' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-black'}`}
+                                  >
+                                    <span>จัดการข้อมูลสินค้า</span>
+                                  </button>
+                                )}
+                                {canBrands && (
+                                  <button type="button"
+                                    onClick={() => handleNavClick('brands')}
+                                    className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${activeTab === 'brands' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-black'}`}
+                                  >
+                                    <span>จัดการแบรนด์สินค้า</span>
+                                  </button>
+                                )}
+                                {canCategories && (
+                                  <button type="button"
+                                    onClick={() => handleNavClick('categories')}
+                                    className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${activeTab === 'categories' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-black'}`}
+                                  >
+                                    <span>จัดการหมวดหมู่สินค้า</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Section Divider */}
+                          {((canProducts || canBrands || canCategories) && canCustomers) && (
+                            <div className="border-t border-[#d2d2d7]/50 my-1 mx-1" />
+                          )}
+
+                          {/* Section 2: ข้อมูลลูกค้า */}
+                          {canCustomers && (
+                            <div>
+                              <div className="px-3 pt-1 pb-1 text-[10.5px] font-black text-[#86868b] tracking-wider uppercase flex items-center gap-1.5">
+                                <i className="bi bi-people text-xs text-[#0071e3]"></i>
+                                <span>ข้อมูลลูกค้า</span>
+                              </div>
+                              <div className="space-y-0.5 mt-0.5">
+                                <button type="button"
+                                  onClick={() => handleNavClick('customers')}
+                                  className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${activeTab === 'customers' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-black'}`}
+                                >
+                                  <span>จัดการข้อมูลลูกค้า</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     )}
@@ -433,67 +482,91 @@ export default function DashboardLayout({
               );
             })}
 
-            {/* Dropdown for Manage Users (Admin / Manager only) */}
-            {hasAccess('manager') && (
-              currentUser.role === 'admin' ? (
-                <div 
-                  className="relative" 
-                  ref={usersDropdownRef}
-                  onMouseEnter={handleMouseEnterUsers}
-                  onMouseLeave={handleMouseLeaveUsers}
-                >
+            {/* Dropdown for Manage Users (Respecting page permissions) */}
+            {(() => {
+              const canUsers = canAccessPage(currentUser, 'users');
+              const canActivityLog = canAccessPage(currentUser, 'activity-log');
+              if (!canUsers && !canActivityLog) return null;
+
+              if (canUsers && canActivityLog) {
+                return (
+                  <div 
+                    className="relative" 
+                    ref={usersDropdownRef}
+                    onMouseEnter={handleMouseEnterUsers}
+                    onMouseLeave={handleMouseLeaveUsers}
+                  >
+                    <button type="button"
+                      onClick={() => setIsUsersDropdownOpen(!isUsersDropdownOpen)}
+                      className={`
+                        px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1
+                        ${isUserGroupActive
+                          ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
+                          : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
+                        }
+                      `}
+                    >
+                      <span>จัดการผู้ใช้งาน</span>
+                      <i className={`bi bi-chevron-down text-[10px] transition-transform duration-200 ${isUsersDropdownOpen ? 'rotate-180' : ''}`}></i>
+                    </button>
+
+                    {isUsersDropdownOpen && (
+                      <div className="absolute top-full left-0 w-52 pt-2 z-30">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-1.5 space-y-0.5 animate-scale-in">
+                          <button type="button"
+                            onClick={() => handleNavClick('users')}
+                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
+                          >
+                            <i className="bi bi-people-fill"></i>
+                            <span>บัญชีผู้ใช้งาน</span>
+                          </button>
+
+                          <button type="button"
+                            onClick={() => handleNavClick('activity-log')}
+                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
+                          >
+                            <i className="bi bi-clock-history"></i>
+                            <span>ประวัติการดำเนินงาน</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+
+              if (canUsers) {
+                return (
                   <button type="button"
-                    onClick={() => setIsUsersDropdownOpen(!isUsersDropdownOpen)}
+                    onClick={() => handleNavClick('users')}
                     className={`
-                      px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap flex items-center gap-1
-                      ${isUserGroupActive
+                      px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap
+                      ${activeTab === 'users'
                         ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
                         : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
                       }
                     `}
                   >
-                    <span>จัดการผู้ใช้งาน</span>
-                    <i className={`bi bi-chevron-down text-[10px] transition-transform duration-200 ${isUsersDropdownOpen ? 'rotate-180' : ''}`}></i>
+                    จัดการผู้ใช้งาน
                   </button>
+                );
+              }
 
-                  {isUsersDropdownOpen && (
-                    <div className="absolute top-full left-0 w-52 pt-2 z-30">
-                      <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-1.5 space-y-0.5 animate-scale-in">
-                        <button type="button"
-                          onClick={() => handleNavClick('users')}
-                          className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
-                        >
-                          <i className="bi bi-people-fill"></i>
-                          <span>บัญชีผู้ใช้งาน</span>
-                        </button>
-
-                        <button type="button"
-                          onClick={() => handleNavClick('activity-log')}
-                          className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
-                        >
-                          <i className="bi bi-clock-history"></i>
-                          <span>ประวัติการดำเนินงาน</span>
-                        </button>
-
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ) : (
+              return (
                 <button type="button"
-                  onClick={() => handleNavClick('users')}
+                  onClick={() => handleNavClick('activity-log')}
                   className={`
                     px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap
-                    ${activeTab === 'users'
+                    ${activeTab === 'activity-log'
                       ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
                       : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
                     }
                   `}
                 >
-                  จัดการผู้ใช้งาน
+                  ประวัติการดำเนินงาน
                 </button>
-              )
-            )}
+              );
+            })()}
           </nav>
 
           {/* Right: User Profile & Mobile Toggle */}
@@ -925,58 +998,65 @@ export default function DashboardLayout({
             <div className="space-y-1.5">
               <span className="text-[10px] font-bold text-[#555557] tracking-wider uppercase block px-1.5 menu-title">เมนูการทำงาน</span>
               {menuItems.map((item) => {
-                if (!hasAccess(item.minRole)) return null;
+                if (!hasAccess(item.key)) return null;
 
-                // Skip rendering brands and categories at the top level
-                if (item.key === 'brands' || item.key === 'categories') return null;
+                if (item.key === 'manage-data') {
+                  const canProducts = canAccessPage(currentUser, 'manage-products');
+                  const canBrands = canAccessPage(currentUser, 'brands');
+                  const canCategories = canAccessPage(currentUser, 'categories');
+                  const canCustomers = canAccessPage(currentUser, 'customers');
+                  if (!canProducts && !canBrands && !canCategories && !canCustomers) return null;
 
-                if (item.key === 'manage-products') {
                   return (
-                    <div key="products-group" className="space-y-1">
-                      {/* Manage Products button */}
-                      <button type="button"
-                        onClick={() => handleNavClick('manage-products')}
-                        className={`
-                          w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
-                          ${activeTab === 'manage-products'
-                            ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                            : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'
-                          }
-                        `}
-                      >
-                        <i className="bi bi-pencil-square text-sm"></i>
-                        <span>จัดการข้อมูลสินค้า</span>
-                      </button>
-                      
-                      {/* Indented Brands button */}
-                      <button type="button"
-                        onClick={() => handleNavClick('brands')}
-                        className={`
-                          w-full flex items-center gap-3 pl-8 pr-4 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item
-                          ${activeTab === 'brands'
-                            ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                            : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'
-                          }
-                        `}
-                      >
-                        <i className="bi bi-award-fill text-[11px]"></i>
-                        <span>จัดการแบรนด์</span>
-                      </button>
-                      
-                      {/* Indented Categories button */}
-                      <button type="button"
-                        onClick={() => handleNavClick('categories')}
-                        className={`
-                          w-full flex items-center gap-3 pl-8 pr-4 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item
-                          ${activeTab === 'categories'
-                            ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                            : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'
-                          }
-                        `}
-                      >
-                        <i className="bi bi-folder-fill text-[11px]"></i>
-                        <span>จัดการหมวดหมู่สินค้า</span>
-                      </button>
+                    <div key="data-group" className="space-y-1 bg-zinc-50/70 p-2 rounded-2xl border border-zinc-200/50">
+                      <div className="px-2 py-1 flex items-center gap-2 text-xs font-black text-zinc-800">
+                        <i className="bi bi-database-fill text-[#0071e3]"></i>
+                        <span>จัดการข้อมูล</span>
+                      </div>
+
+                      {/* Section 1: ข้อมูลสินค้า */}
+                      {(canProducts || canBrands || canCategories) && (
+                        <div className="space-y-0.5">
+                          <span className="text-[10px] font-bold text-zinc-400 block px-2 pt-1">ข้อมูลสินค้า</span>
+                          {canProducts && (
+                            <button type="button"
+                              onClick={() => handleNavClick('manage-products')}
+                              className={`w-full flex items-center px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'manage-products' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}`}
+                            >
+                              <span>จัดการข้อมูลสินค้า</span>
+                            </button>
+                          )}
+                          {canBrands && (
+                            <button type="button"
+                              onClick={() => handleNavClick('brands')}
+                              className={`w-full flex items-center px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'brands' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'}`}
+                            >
+                              <span>จัดการแบรนด์สินค้า</span>
+                            </button>
+                          )}
+                          {canCategories && (
+                            <button type="button"
+                              onClick={() => handleNavClick('categories')}
+                              className={`w-full flex items-center px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'categories' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'}`}
+                            >
+                              <span>จัดการหมวดหมู่สินค้า</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Section 2: ข้อมูลลูกค้า */}
+                      {canCustomers && (
+                        <div className="space-y-0.5 pt-1">
+                          <span className="text-[10px] font-bold text-zinc-400 block px-2 pt-1">ข้อมูลลูกค้า</span>
+                          <button type="button"
+                            onClick={() => handleNavClick('customers')}
+                            className={`w-full flex items-center px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'customers' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}`}
+                          >
+                            <span>จัดการข้อมูลลูกค้า</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 }
@@ -1007,35 +1087,31 @@ export default function DashboardLayout({
                 );
               })}
 
-              {/* Admin/Manager specific submenus */}
-              {hasAccess('manager') && (
-                <>
-                  <button type="button"
-                    onClick={() => handleNavClick('users')}
-                    className={`
-                      w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
-                      ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
-                    `}
-                  >
-                    <i className="bi bi-people-fill text-sm"></i>
-                    <span>จัดการบัญชีผู้ใช้</span>
-                  </button>
+              {/* User management & Activity Log submenus in Mobile Drawer */}
+              {canAccessPage(currentUser, 'users') && (
+                <button type="button"
+                  onClick={() => handleNavClick('users')}
+                  className={`
+                    w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
+                    ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
+                  `}
+                >
+                  <i className="bi bi-people-fill text-sm"></i>
+                  <span>จัดการบัญชีผู้ใช้</span>
+                </button>
+              )}
 
-                  {currentUser?.role === 'admin' && (
-                    <>
-                      <button type="button"
-                        onClick={() => handleNavClick('activity-log')}
-                        className={`
-                          w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
-                          ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
-                        `}
-                      >
-                        <i className="bi bi-clock-history text-sm"></i>
-                        <span>ประวัติการดำเนินงาน</span>
-                      </button>
-                    </>
-                  )}
-                </>
+              {canAccessPage(currentUser, 'activity-log') && (
+                <button type="button"
+                  onClick={() => handleNavClick('activity-log')}
+                  className={`
+                    w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
+                    ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
+                  `}
+                >
+                  <i className="bi bi-clock-history text-sm"></i>
+                  <span>ประวัติการดำเนินงาน</span>
+                </button>
               )}
             </div>
 

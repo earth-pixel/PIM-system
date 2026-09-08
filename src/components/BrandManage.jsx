@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
+import { canPerformAction } from '../utils/permissions';
 export default function BrandManage({ brands, products, onAddBrand, onEditBrand, onDeleteBrand, currentUser }) {
   const [newBrand, setNewBrand]   = useState('');
   const [errorMsg, setErrorMsg]   = useState('');
@@ -126,7 +127,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
           </div>
           <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">จัดการข้อมูลแบรนด์สินค้า</h1>
         </div>
-        {currentUser?.role === 'admin' && (
+        {currentUser?.role === 'admin' && canPerformAction(currentUser, 'brands.create') && (
           <button
             type="button"
             onClick={() => {
@@ -191,15 +192,17 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                     {currentUser?.role === 'admin' && (
                       <td className="p-2 sm:p-3.5 text-center">
                         <div className="flex justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(brand)}
-                            className="p-1.5 text-[#0071e3] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                            title="แก้ไขชื่อแบรนด์"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          {currentUser.role === 'admin' && (
+                          {canPerformAction(currentUser, 'brands.edit') && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(brand)}
+                              className="p-1.5 text-[#0071e3] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="แก้ไขชื่อแบรนด์"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {currentUser.role === 'admin' && canPerformAction(currentUser, 'brands.delete') && (
                             <button
                               type="button"
                               onClick={() => handleDeleteClick(brand, productCount)}

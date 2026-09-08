@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
+import { canPerformAction } from '../utils/permissions';
 
 export default function CategoryManage({ categories, subcategories = {}, products, onAddCategory, onEditCategory, onDeleteCategory, onAddSubCategory, onEditSubCategory, onDeleteSubCategory, currentUser }) {
   const [newCategory, setNewCategory] = useState('');
@@ -160,7 +161,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
           </div>
           <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">จัดการข้อมูลหมวดหมู่สินค้า</h1>
         </div>
-        {currentUser?.role === 'admin' && (
+        {currentUser?.role === 'admin' && canPerformAction(currentUser, 'categories.create') && (
           <button
             type="button"
             onClick={() => {
@@ -225,18 +226,22 @@ export default function CategoryManage({ categories, subcategories = {}, product
                               <span>{sub}</span>
                               {currentUser?.role === 'admin' && (
                                 <div className="flex items-center gap-0.5 opacity-60 group-hover/chip:opacity-100 transition-opacity">
-                                  <button type="button" onClick={() => setEditingSub({ category: cat, oldName: sub, name: sub })} className="p-0.5 hover:text-blue-900 cursor-pointer" title="แก้ไข">
-                                    <Edit className="w-3 h-3" />
-                                  </button>
-                                  <button type="button" onClick={() => { if (confirm(`ยืนยันการลบหมวดหมู่ย่อย "${sub}" ในหมวดหมู่ "${cat}"?`)) onDeleteSubCategory?.(cat, sub); }} className="p-0.5 hover:text-red-650 cursor-pointer" title="ลบ">
-                                    <Trash2 className="w-3 h-3" />
-                                  </button>
+                                  {canPerformAction(currentUser, 'categories.edit') && (
+                                    <button type="button" onClick={() => setEditingSub({ category: cat, oldName: sub, name: sub })} className="p-0.5 hover:text-blue-900 cursor-pointer" title="แก้ไข">
+                                      <Edit className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                  {canPerformAction(currentUser, 'categories.delete') && (
+                                    <button type="button" onClick={() => { if (confirm(`ยืนยันการลบหมวดหมู่ย่อย "${sub}" ในหมวดหมู่ "${cat}"?`)) onDeleteSubCategory?.(cat, sub); }} className="p-0.5 hover:text-red-650 cursor-pointer" title="ลบ">
+                                      <Trash2 className="w-3 h-3" />
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </span>
                           ))
                         )}
-                        {currentUser?.role === 'admin' && (
+                        {currentUser?.role === 'admin' && canPerformAction(currentUser, 'categories.create') && (
                           <button
                             type="button"
                             onClick={() => { setActiveSubModalCat(cat); setNewSubName(''); setSubErrorMsg(''); }}
@@ -258,15 +263,17 @@ export default function CategoryManage({ categories, subcategories = {}, product
                     {currentUser?.role === 'admin' && (
                       <td className="p-2 sm:p-3.5 text-center">
                         <div className="flex justify-center gap-1.5">
-                          <button
-                            type="button"
-                            onClick={() => handleStartEdit(cat)}
-                            className="p-1.5 text-[#0071e3] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                            title="แก้ไขชื่อหมวดหมู่หลัก"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          {currentUser.role === 'admin' && (
+                          {canPerformAction(currentUser, 'categories.edit') && (
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(cat)}
+                              className="p-1.5 text-[#0071e3] hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="แก้ไขชื่อหมวดหมู่หลัก"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          )}
+                          {currentUser.role === 'admin' && canPerformAction(currentUser, 'categories.delete') && (
                             <button
                               type="button"
                               onClick={() => handleDeleteClick(cat, productCount)}

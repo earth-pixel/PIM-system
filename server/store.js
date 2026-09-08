@@ -3,7 +3,7 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import process from 'node:process';
 
-export const keys = ['products', 'brands', 'categories', 'subcategories', 'users', 'quotations', 'activityLog'];
+export const keys = ['products', 'brands', 'categories', 'subcategories', 'users', 'quotations', 'activityLog', 'customers'];
 export const revision = value => createHash('sha256').update(JSON.stringify(value ?? [])).digest('hex');
 export const publicUser = user => Object.fromEntries(Object.entries(user).filter(([key]) => !['password', 'passwordHash'].includes(key)));
 export const revisions = db => Object.fromEntries(keys.map(key => [key, revision(db[key])]));

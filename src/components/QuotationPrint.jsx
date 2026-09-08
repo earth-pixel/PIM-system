@@ -772,12 +772,20 @@ export default function QuotationPrint({
               <tbody>
                 <tr>
                   <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>ชื่อลูกค้า</td>
-                  <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{customer.name || '-'}</td>
+                  <td style={{ padding: '3px 0', border: 'none', color: DARK }}>{customer.name || '-'}</td>
                 </tr>
                 <tr>
                   <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>บริษัท</td>
-                  <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{customer.companyName || '-'}</td>
+                  <td style={{ padding: '3px 0', border: 'none', color: DARK }}>{customer.companyName || '-'}</td>
                 </tr>
+                {(customer.branch || quotation.customerBranch) && (
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>
+                      {(customer.branch || quotation.customerBranch) === 'สำนักงานใหญ่' ? 'สำนักงานใหญ่' : 'สาขา'}
+                    </td>
+                    <td style={{ padding: '3px 0', border: 'none', color: DARK }}>{customer.branch || quotation.customerBranch}</td>
+                  </tr>
+                )}
                 {customer.contactPerson && (
                   <tr>
                     <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ผู้ติดต่อ</td>
@@ -800,6 +808,12 @@ export default function QuotationPrint({
                   <tr>
                     <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>อีเมล</td>
                     <td style={{ padding: '3px 0', border: 'none' }}>{customer.email}</td>
+                  </tr>
+                )}
+                {(customer.note || quotation.customerNote) && (
+                  <tr>
+                    <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>หมายเหตุ</td>
+                    <td style={{ padding: '3px 0', border: 'none', color: DARK, lineHeight: 1.4 }}>{customer.note || quotation.customerNote}</td>
                   </tr>
                 )}
               </tbody>
@@ -826,7 +840,7 @@ export default function QuotationPrint({
                 )}
                 <tr>
                   <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เลขที่เอกสาร</td>
-                  <td style={{ padding: '3px 0', border: 'none', fontWeight: 'bold', color: DARK }}>{quotation.referenceNumber || quotation.quotationNumber || '-'}</td>
+                  <td style={{ padding: '3px 0', border: 'none', color: DARK }}>{quotation.referenceNumber || quotation.quotationNumber || '-'}</td>
                 </tr>
                 <tr>
                   <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>วันที่ออกเอกสาร</td>

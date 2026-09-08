@@ -1,4 +1,5 @@
 import { findHeaderRow, parseNumericCell, validateProduct, normalizeCode } from '../utils/validation';
+import { canPerformAction } from '../utils/permissions';
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
@@ -1580,22 +1581,24 @@ export default function ProductManage({
         </div>
         <div className="flex flex-wrap gap-2.5 items-center self-start sm:self-auto">
           {/* Import Button */}
-          <button
-            type="button"
-            onClick={() => {
-              setParsedProducts([]);
-              setImportError('');
-              setShowImportModal(true);
-            }}
-            className="group relative overflow-hidden px-4 py-2.5 bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border border-[#d2d2d7] text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <span className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-            <Upload className="w-4 h-4" />
-            นำเข้าสินค้า
-          </button>
+          {canPerformAction(currentUser, 'products.import') && (
+            <button
+              type="button"
+              onClick={() => {
+                setParsedProducts([]);
+                setImportError('');
+                setShowImportModal(true);
+              }}
+              className="group relative overflow-hidden px-4 py-2.5 bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border border-[#d2d2d7] text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <span className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <Upload className="w-4 h-4" />
+              นำเข้าสินค้า
+            </button>
+          )}
 
           {/* Delete All Products Button */}
-          {products.length > 0 && currentUser?.role === 'admin' && (
+          {products.length > 0 && currentUser?.role === 'admin' && canPerformAction(currentUser, 'products.clear') && (
             <button
               type="button"
               onClick={() => setShowClearAllConfirm(true)}
@@ -1609,94 +1612,98 @@ export default function ProductManage({
           )}
 
           {/* Export Dropdown */}
-          <div
-            className={`relative ${showExportDropdown ? 'z-50' : ''}`}
-            onMouseEnter={() => setShowExportDropdown(true)}
-            onMouseLeave={() => setShowExportDropdown(false)}
-          >
+          {canPerformAction(currentUser, 'products.export') && (
+            <div
+              className={`relative ${showExportDropdown ? 'z-50' : ''}`}
+              onMouseEnter={() => setShowExportDropdown(true)}
+              onMouseLeave={() => setShowExportDropdown(false)}
+            >
+              <button
+                type="button"
+                onClick={() => setShowExportDropdown(!showExportDropdown)}
+                className="group relative overflow-hidden px-4 py-2.5 bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border border-[#d2d2d7] text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
+              >
+                <span className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+                <Download className="w-4 h-4" />
+                นำออกสินค้า
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+              </button>
+              {showExportDropdown && (
+                <div className="absolute right-0 top-full pt-1.5 w-52 z-50">
+                  <div className="bg-white border border-[#d2d2d7]/80 rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.18),0_4px_12px_rgba(0,0,0,0.08)] overflow-hidden py-2 animate-scale-in text-[#1d1d1f]">
+                    <span className="text-[9px] font-bold text-[#8e8e93] px-4 py-1 block uppercase tracking-wider">ดาวน์โหลดเทมเพลต</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportShopee(filteredProducts);
+                        if (addActivityLog) {
+                          addActivityLog(`นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                        }
+                        setShowExportDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      Shopee Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportLazada(filteredProducts);
+                        if (addActivityLog) {
+                          addActivityLog(`นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                        }
+                        setShowExportDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      Lazada Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportTikTok(filteredProducts);
+                        if (addActivityLog) {
+                          addActivityLog(`นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                        }
+                        setShowExportDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      TikTok Shop Excel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        exportToExcel(filteredProducts);
+                        if (addActivityLog) {
+                          addActivityLog(`นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`);
+                        }
+                        setShowExportDropdown(false);
+                      }}
+                      className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
+                    >
+                      ส่งออก Excel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {canPerformAction(currentUser, 'products.create') && (
             <button
               type="button"
-              onClick={() => setShowExportDropdown(!showExportDropdown)}
-              className="group relative overflow-hidden px-4 py-2.5 bg-white hover:bg-[#f5f5f7] text-[#1d1d1f] border border-[#d2d2d7] text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
+              onClick={() => {
+                resetForm();
+                setShowForm(true);
+              }}
+              className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
             >
-              <span className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-              <Download className="w-4 h-4" />
-              นำออกสินค้า
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-500" />
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <Plus className="w-4 h-4" />
+              เพิ่มสินค้าใหม่
             </button>
-            {showExportDropdown && (
-              <div className="absolute right-0 top-full pt-1.5 w-52 z-50">
-                <div className="bg-white border border-[#d2d2d7]/80 rounded-2xl shadow-[0_16px_40px_rgba(0,0,0,0.18),0_4px_12px_rgba(0,0,0,0.08)] overflow-hidden py-2 animate-scale-in text-[#1d1d1f]">
-                  <span className="text-[9px] font-bold text-[#8e8e93] px-4 py-1 block uppercase tracking-wider">ดาวน์โหลดเทมเพลต</span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportShopee(filteredProducts);
-                      if (addActivityLog) {
-                        addActivityLog(`นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    Shopee Excel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportLazada(filteredProducts);
-                      if (addActivityLog) {
-                        addActivityLog(`นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    Lazada Excel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportTikTok(filteredProducts);
-                      if (addActivityLog) {
-                        addActivityLog(`นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    TikTok Shop Excel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      exportToExcel(filteredProducts);
-                      if (addActivityLog) {
-                        addActivityLog(`นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                      }
-                      setShowExportDropdown(false);
-                    }}
-                    className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
-                  >
-                    ส่งออก Excel
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => {
-              resetForm();
-              setShowForm(true);
-            }}
-            className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-            <Plus className="w-4 h-4" />
-            เพิ่มสินค้าใหม่
-          </button>
+          )}
         </div>
       </div>
 
@@ -1902,18 +1909,20 @@ export default function ProductManage({
                           >
                             <Eye className="w-3.5 h-3.5" />
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onEditProduct(product);
-                              setShowForm(true);
-                            }}
-                            className="p-1 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
-                            title="แก้ไขข้อมูลสินค้า"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          {currentUser?.role === 'admin' && (
+                          {canPerformAction(currentUser, 'products.edit') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onEditProduct(product);
+                                setShowForm(true);
+                              }}
+                              className="p-1 text-blue-600 hover:bg-blue-50 rounded-md transition-colors cursor-pointer"
+                              title="แก้ไขข้อมูลสินค้า"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {currentUser?.role === 'admin' && canPerformAction(currentUser, 'products.delete') && (
                             <button
                               type="button"
                               onClick={() => setProductToDelete(product)}
@@ -1985,18 +1994,20 @@ export default function ProductManage({
                         </button>
 
                         <div className="flex gap-1.5 mt-0.5 no-print" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              onEditProduct(product);
-                              setShowForm(true);
-                            }}
-                            className="w-7 h-7 bg-white text-zinc-700 hover:text-[#0071e3] rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
-                            title="แก้ไขสินค้า"
-                          >
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          {currentUser?.role === 'admin' && (
+                          {canPerformAction(currentUser, 'products.edit') && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                onEditProduct(product);
+                                setShowForm(true);
+                              }}
+                              className="w-7 h-7 bg-white text-zinc-700 hover:text-[#0071e3] rounded-full flex items-center justify-center shadow-xs active:scale-90 transition-all cursor-pointer"
+                              title="แก้ไขสินค้า"
+                            >
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                          {currentUser?.role === 'admin' && canPerformAction(currentUser, 'products.delete') && (
                             <button
                               type="button"
                               onClick={() => setProductToDelete(product)}
@@ -2059,18 +2070,20 @@ export default function ProductManage({
                       >
                         รายละเอียด
                       </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onEditProduct(product);
-                          setShowForm(true);
-                        }}
-                        className="px-2.5 py-1.5 border border-zinc-200 text-zinc-650 hover:text-[#0071e3] rounded-lg flex items-center justify-center active:scale-90 transition-all cursor-pointer"
-                        title="แก้ไขสินค้า"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                      </button>
-                      {currentUser?.role === 'admin' && (
+                      {canPerformAction(currentUser, 'products.edit') && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onEditProduct(product);
+                            setShowForm(true);
+                          }}
+                          className="px-2.5 py-1.5 border border-zinc-200 text-zinc-650 hover:text-[#0071e3] rounded-lg flex items-center justify-center active:scale-90 transition-all cursor-pointer"
+                          title="แก้ไขสินค้า"
+                        >
+                          <Edit className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                      {currentUser?.role === 'admin' && canPerformAction(currentUser, 'products.delete') && (
                         <button
                           type="button"
                           onClick={() => setProductToDelete(product)}

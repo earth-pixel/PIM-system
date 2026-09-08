@@ -6,6 +6,7 @@ import ProductProposalReport from './ProductProposalReport';
 import QuotationReport from './QuotationReport';
 import ArchiveManage from './ArchiveManage';
 import DropdownFilter from './DropdownFilter';
+import { canPerformAction } from '../utils/permissions';
 
 // All roles can view all documents in reports
 const isOwnDocument = () => true;
@@ -169,29 +170,29 @@ export default function Report({ products, brands, categories, subcategories = {
         </div>
 
         <div className="flex gap-2 items-center w-full sm:w-auto">
-          <button
-            type="button"
-            disabled={isExporting}
-            onClick={handleExportExcel}
-            className={`group flex-1 sm:flex-initial justify-center relative overflow-hidden px-4 py-2.5 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg ${
-              isExporting
-                ? 'bg-emerald-700 opacity-80 cursor-wait'
-                : 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
-            }`}
-          >
-            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-            {isExporting ? (
-              <>
-                <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                <span>กำลังเตรียม...</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-3.5 h-3.5" />
-                <span>Export Excel</span>
-              </>
-            )}
-          </button>
+          {canPerformAction(currentUser, 'reports.export') && (
+            <button
+              type="button"
+              onClick={handleExportExcel}
+              disabled={isExporting}
+              className={`group flex-1 sm:flex-initial justify-center relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-emerald-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 ${
+                isExporting ? 'opacity-80 cursor-wait' : ''
+              }`}
+            >
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              {isExporting ? (
+                <>
+                  <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  <span>กำลังเตรียม...</span>
+                </>
+              ) : (
+                <>
+                  <Download className="w-3.5 h-3.5" />
+                  <span>Export Excel</span>
+                </>
+              )}
+            </button>
+          )}
           <button
             type="button"
             onClick={handlePrint}
