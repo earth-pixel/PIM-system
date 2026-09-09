@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
 import { canPerformAction } from '../utils/permissions';
+import { useToast } from '../contexts/ToastContext';
 
 export default function CategoryManage({ categories, subcategories = {}, products, onAddCategory, onEditCategory, onDeleteCategory, onAddSubCategory, onEditSubCategory, onDeleteSubCategory, currentUser }) {
+  const showToast = useToast();
   const [newCategory, setNewCategory] = useState('');
   const [errorMsg, setErrorMsg]   = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -88,7 +90,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
   const handleDeleteClick = (catName, productCount) => {
     if (currentUser.role !== 'admin') return;
     if (productCount > 0 && currentUser.role !== 'admin') {
-      alert("ไม่สามารถลบหมวดหมู่ได้ เนื่องจากยังมีสินค้าที่อยู่ในหมวดหมู่นี้อยู่");
+      showToast('ไม่สามารถลบหมวดหมู่ได้ เนื่องจากยังมีสินค้าที่อยู่ในหมวดหมู่นี้อยู่', 'error');
       return;
     }
     setDeleteProductCount(productCount);
@@ -161,7 +163,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
           </div>
           <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">จัดการข้อมูลหมวดหมู่สินค้า</h1>
         </div>
-        {currentUser?.role === 'admin' && canPerformAction(currentUser, 'categories.create') && (
+        {canPerformAction(currentUser, 'categories.create') && (
           <button
             type="button"
             onClick={() => {
@@ -196,7 +198,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
                 <th className="p-2 sm:p-3.5 w-1/4">หมวดหมู่หลัก</th>
                 <th className="p-2 sm:p-3.5">หมวดหมู่ย่อย (Sub-categories)</th>
                 <th className="p-2 sm:p-3.5 text-center w-36">สินค้าที่เปิดใช้งาน</th>
-                {currentUser?.role === 'admin' && <th className="p-2 sm:p-3.5 text-center w-28">การจัดการ</th>}
+                {(canPerformAction(currentUser, 'categories.edit') || canPerformAction(currentUser, 'categories.delete')) && <th className="p-2 sm:p-3.5 text-center w-28">การจัดการ</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f0f5]">
@@ -224,7 +226,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
                           subs.map(sub => (
                             <span key={sub} className="inline-flex items-center gap-1 px-2.5 py-1 bg-blue-50 text-[#0071e3] border border-blue-200/60 rounded-lg text-xs font-semibold group/chip">
                               <span>{sub}</span>
-                              {currentUser?.role === 'admin' && (
+                              {(canPerformAction(currentUser, 'categories.edit') || canPerformAction(currentUser, 'categories.delete')) && (
                                 <div className="flex items-center gap-0.5 opacity-60 group-hover/chip:opacity-100 transition-opacity">
                                   {canPerformAction(currentUser, 'categories.edit') && (
                                     <button type="button" onClick={() => setEditingSub({ category: cat, oldName: sub, name: sub })} className="p-0.5 hover:text-blue-900 cursor-pointer" title="แก้ไข">
@@ -241,7 +243,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
                             </span>
                           ))
                         )}
-                        {currentUser?.role === 'admin' && canPerformAction(currentUser, 'categories.create') && (
+                        {canPerformAction(currentUser, 'categories.create') && (
                           <button
                             type="button"
                             onClick={() => { setActiveSubModalCat(cat); setNewSubName(''); setSubErrorMsg(''); }}
@@ -260,7 +262,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
                       </span>
                       <span className="ml-1 text-xs">รายการ</span>
                     </td>
-                    {currentUser?.role === 'admin' && (
+                    {(canPerformAction(currentUser, 'categories.edit') || canPerformAction(currentUser, 'categories.delete')) && (
                       <td className="p-2 sm:p-3.5 text-center">
                         <div className="flex justify-center gap-1.5">
                           {canPerformAction(currentUser, 'categories.edit') && (
@@ -273,7 +275,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
                               <Edit className="w-4 h-4" />
                             </button>
                           )}
-                          {currentUser.role === 'admin' && canPerformAction(currentUser, 'categories.delete') && (
+                          {canPerformAction(currentUser, 'categories.delete') && (
                             <button
                               type="button"
                               onClick={() => handleDeleteClick(cat, productCount)}

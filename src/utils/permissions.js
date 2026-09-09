@@ -130,8 +130,7 @@ export const ACTION_GROUPS = [
     actions: [
       { id: 'users.create', name: 'ปุ่มลงทะเบียนผู้ใช้ใหม่', description: 'สามารถกดสร้างบัญชีผู้ใช้งานใหม่ได้' },
       { id: 'users.edit', name: 'ปุ่มแก้ไขผู้ใช้งาน', description: 'สามารถกดแก้ไขข้อมูลผู้ใช้งานได้' },
-      { id: 'users.delete', name: 'ปุ่มลบผู้ใช้งาน', description: 'สามารถลบบัญชีผู้ใช้งานออกจากระบบได้' },
-      { id: 'users.permissions', name: 'ปุ่มตั้งค่าสิทธิ์ (ปุ่มฟันเฟือง)', description: 'สามารถเปิดหน้าตั้งค่าสิทธิ์การใช้งานของผู้ใช้อื่นได้' }
+      { id: 'users.delete', name: 'ปุ่มลบผู้ใช้งาน', description: 'สามารถลบบัญชีผู้ใช้งานออกจากระบบได้' }
     ]
   },
   {
@@ -189,7 +188,6 @@ export const DEFAULT_PERMISSIONS = {
       'users.create': true,
       'users.edit': true,
       'users.delete': true,
-      'users.permissions': true,
     }
   },
   manager: {
@@ -232,7 +230,6 @@ export const DEFAULT_PERMISSIONS = {
       'users.create': true,
       'users.edit': true,
       'users.delete': false,
-      'users.permissions': false,
     }
   },
   user: {
@@ -275,7 +272,6 @@ export const DEFAULT_PERMISSIONS = {
       'users.create': false,
       'users.edit': false,
       'users.delete': false,
-      'users.permissions': false,
     }
   }
 };
@@ -354,16 +350,20 @@ export function getUserPermissions(user) {
  */
 export function canAccessPage(user, pageKey) {
   if (!user) return false;
-  if (user.role === 'admin') return true;
 
+  // 1. Explicit user-level override takes absolute precedence (even for admin)
   if (user.permissions?.pages && user.permissions.pages[pageKey] !== undefined) {
     return Boolean(user.permissions.pages[pageKey]);
   }
 
+  // 2. Role default
   const roleDefault = DEFAULT_PERMISSIONS[user.role]?.pages;
   if (roleDefault && roleDefault[pageKey] !== undefined) {
     return Boolean(roleDefault[pageKey]);
   }
+
+  // 3. Admin fallback for unconfigured pages
+  if (user.role === 'admin') return true;
 
   return false;
 }
@@ -373,16 +373,20 @@ export function canAccessPage(user, pageKey) {
  */
 export function canPerformAction(user, actionKey) {
   if (!user) return false;
-  if (user.role === 'admin') return true;
 
+  // 1. Explicit user-level override takes absolute precedence (even for admin)
   if (user.permissions?.actions && user.permissions.actions[actionKey] !== undefined) {
     return Boolean(user.permissions.actions[actionKey]);
   }
 
+  // 2. Role default
   const roleDefault = DEFAULT_PERMISSIONS[user.role]?.actions;
   if (roleDefault && roleDefault[actionKey] !== undefined) {
     return Boolean(roleDefault[actionKey]);
   }
+
+  // 3. Admin fallback for unconfigured actions
+  if (user.role === 'admin') return true;
 
   return false;
 }

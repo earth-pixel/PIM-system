@@ -12,6 +12,8 @@ import { checkIsInAppBrowser } from '../utils/browserUtils';
 import { playScanBeep, findProductByBarcodeOrCode } from '../utils/scannerUtils';
 import { isExpiredQuotation, getExpiryStatus } from '../utils/validation';
 import DropdownFilter from './DropdownFilter';
+import { useToast } from '../contexts/ToastContext';
+import { canPerformAction } from '../utils/permissions';
 
 export const THAI_REGIONS = [
   'ภาคกลาง',
@@ -93,7 +95,8 @@ const formatDate = (d) => {
 };
 
 const canDeleteDocument = (q, currentUser) => {
-  if (!currentUser) return true;
+  if (!currentUser) return false;
+  if (!canPerformAction(currentUser, 'quotations.delete')) return false;
   if (currentUser.role === 'admin') return true;
   if (currentUser.role === 'manager' || currentUser.role === 'user') {
     if (q.documentType === 'product_proposal') {
@@ -723,6 +726,7 @@ const generateItemId = () => Date.now() + Math.floor(Math.random() * 1000);
 
 // ── AdminApprovedReport ──────────────────────────────────────────────────
 const AdminApprovedReport = ({ quotations, addActivityLog }) => {
+  const showToast = useToast();
   const [search, setSearch] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
@@ -836,7 +840,7 @@ const AdminApprovedReport = ({ quotations, addActivityLog }) => {
       if (addActivityLog) addActivityLog(`ดาวน์โหลดรายงานเอกสารอนุมัติ (${filteredRows.length} รายการ)`);
     } catch (err) {
       console.error(err);
-      alert('ไม่สามารถส่งออกไฟล์ Excel ได้');
+      showToast('ไม่สามารถส่งออกไฟล์ Excel ได้', 'error');
     }
   };
 
@@ -1035,6 +1039,7 @@ const AdminApprovedReport = ({ quotations, addActivityLog }) => {
 };
 // ── List Tab ───────────────────────────────────────────────────────────────
 const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, onCopyAsNew }) => {
+  const showToast = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [docTypeFilter, setDocTypeFilter] = useState('All');
@@ -1297,7 +1302,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
       }
     } catch (error) {
       console.error('Export Excel Error:', error);
-      alert('ไม่สามารถส่งออกไฟล์ Excel ได้');
+      showToast('ไม่สามารถส่งออกไฟล์ Excel ได้', 'error');
     }
   };
 
@@ -1671,7 +1676,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
                             <Badge status={q.status} expired={isExpiredQuotation(q)} />
                           )}
 
-                          {isExpiredQuotation(q) && onCopyAsNew && (
+                          {isExpiredQuotation(q) && onCopyAsNew && canPerformAction(currentUser, 'quotations.create') && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -2098,7 +2103,14 @@ const CreateTab = ({
       ? 'บันทึกใบเสนอสินค้าเรียบร้อย!'
       : (effectiveStatus === 'approved' ? 'อนุมัติและบันทึกใบเสนอราคาเรียบร้อย!' : effectiveStatus === 'sent' ? 'ส่งใบเสนอราคาเรียบร้อย!' : 'บันทึกร่างเรียบร้อย!');
     setAlert({ type: 'success', msg: successMsg });
-    setTimeout(onCancel, 1200);
+  };
+
+  const handleCloseAlert = () => {
+    const isSuccess = alert?.type === 'success';
+    setAlert(null);
+    if (isSuccess) {
+      onCancel();
+    }
   };
 
   const labelClass = 'text-xs text-[#555557] font-semibold mb-1 block';
@@ -2116,12 +2128,16 @@ const CreateTab = ({
         />
       )}
 
-      {alert && (
+      {alert && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in">
-          <div onClick={() => setAlert(null)} className="absolute inset-0 bg-black/30 backdrop-blur-xs" />
+          <div onClick={handleCloseAlert} className="absolute inset-0 bg-black/30 backdrop-blur-xs" />
           <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-2xl z-10 animate-scale-in text-center flex flex-col items-center gap-4">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${alert.type === 'error' ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}`}>
-              <AlertCircle className="w-6 h-6" />
+              {alert.type === 'error' ? (
+                <AlertCircle className="w-6 h-6" />
+              ) : (
+                <Check className="w-6 h-6 stroke-[2.5]" />
+              )}
             </div>
             <div>
               <h2 className="font-bold text-sm uppercase tracking-wide text-[#1d1d1f]">
@@ -2130,14 +2146,16 @@ const CreateTab = ({
               <p className="text-xs text-[#555557] mt-1.5 leading-relaxed">{alert.msg}</p>
             </div>
             <button
-              onClick={() => setAlert(null)}
+              onClick={handleCloseAlert}
               className="w-full py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-full text-xs font-bold transition-colors cursor-pointer"
             >
               ตกลง
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
+
 
       {/* Source Proposal Badge — shown when converting from product proposal */}
       {sourceProposal && (
@@ -2147,8 +2165,8 @@ const CreateTab = ({
         </div>
       )}
 
-      {/* Document Format Toggle — hidden when converting from proposal */}
-      {!sourceProposal && (
+      {/* Document Format Toggle — hidden when converting from proposal or when lacking permission */}
+      {!sourceProposal && canPerformAction(currentUser, 'quotations.createProposal') && (
         <label
           className={`mb-5 flex items-center justify-between gap-3.5 rounded-2xl p-3.5 sm:p-4 border cursor-pointer transition-all duration-200 select-none ${docFormat === 'product_proposal'
             ? 'bg-violet-50/80 border-violet-400 shadow-xs'
@@ -2323,7 +2341,7 @@ const CreateTab = ({
                   {/* ภาค 6 ภาค */}
                   <div>
                     <label className={labelClass}>
-                      ภาค (6 ภาค) <span className="text-red-500">*</span>
+                      ภาค  <span className="text-red-500">*</span>
                     </label>
                     <div className="relative">
                       <select
@@ -2861,8 +2879,8 @@ const PreviewTab = ({
   }
 
 
-  const canPrint = q.status === 'approved' || q.documentType === 'product_proposal';
-  const canEdit = !isExpiredQuotation(q) && (currentUser?.role === 'admin' || (
+  const canPrint = canPerformAction(currentUser, 'quotations.print') && (q.status === 'approved' || q.documentType === 'product_proposal');
+  const canEdit = canPerformAction(currentUser, 'quotations.edit') && !isExpiredQuotation(q) && (currentUser?.role === 'admin' || (
     (currentUser?.role === 'manager' || currentUser?.role === 'user') &&
     isOwnDocument(q, currentUser) &&
     (q.documentType === 'product_proposal' || q.status !== 'approved')
@@ -2908,7 +2926,7 @@ const PreviewTab = ({
         </div>
 
         <div className="flex flex-wrap gap-2 items-center self-start md:self-auto">
-          {!isExpiredQuotation(q) && currentUser?.role === 'admin' && q.documentType !== 'product_proposal' && (q.status === 'sent' || q.status === 'draft') && (
+          {!isExpiredQuotation(q) && canPerformAction(currentUser, 'quotations.approve') && q.documentType !== 'product_proposal' && (q.status === 'sent' || q.status === 'draft') && (
             <>
               <button
                 onClick={() => onStatusChange(q, 'approved')}
@@ -2972,7 +2990,7 @@ const PreviewTab = ({
           )}
 
           {/* Convert to Quotation — only for product proposals */}
-          {q.documentType === 'product_proposal' && onConvert && (
+          {q.documentType === 'product_proposal' && onConvert && canPerformAction(currentUser, 'quotations.create') && (
             <button
               onClick={() => onConvert(q)}
               className="px-3.5 py-2 text-xs font-bold bg-amber-50 hover:bg-amber-100 text-amber-700 border border-amber-200 rounded-xl cursor-pointer transition-colors flex items-center gap-1.5"
@@ -3366,6 +3384,7 @@ export default function QuotationManage({
   onDeleteQuotation,
   addActivityLog,
 }) {
+  const showToast = useToast();
   const [tab, setTabState] = useState(() => {
     try {
       return localStorage.getItem('pim_quotation_tab') || 'list';
@@ -3658,14 +3677,31 @@ export default function QuotationManage({
           </div>
         </div>
         <div className="flex flex-wrap gap-2.5 items-center self-start sm:self-auto">
-          <button
-            onClick={handleCreate}
-            className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
-          >
-            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-            <Plus className="w-4 h-4" />
-            สร้างใบเสนอราคา
-          </button>
+          {canPerformAction(currentUser, 'quotations.create') && (
+            <button
+              onClick={handleCreate}
+              className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <Plus className="w-4 h-4" />
+              สร้างใบเสนอราคา
+            </button>
+          )}
+          {canPerformAction(currentUser, 'quotations.createProposal') && (
+            <button
+              onClick={() => {
+                setEditQt(null);
+                setConvertProposal(null);
+                setCreateDocFormat('product_proposal');
+                setTab('create');
+              }}
+              className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-500 hover:from-violet-500 hover:to-purple-400 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-purple-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
+            >
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+              <Package className="w-4 h-4" />
+              สร้างใบเสนอสินค้า
+            </button>
+          )}
         </div>
       </div>
 

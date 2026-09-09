@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { canPerformAction } from '../utils/permissions';
+import { useToast } from '../contexts/ToastContext';
 
 export const THAI_REGIONS = [
   'ภาคกลาง',
@@ -28,6 +29,7 @@ export default function CustomerManage({
   currentUser,
   addActivityLog
 }) {
+  const showToast = useToast();
   // Search & Filter State
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all'); // all, corporate, individual, with_quotes
@@ -285,7 +287,7 @@ export default function CustomerManage({
   // Export Customers to Excel
   const handleExportExcel = () => {
     if (customers.length === 0) {
-      alert('ไม่มีข้อมูลลูกค้าให้ส่งออก');
+      showToast('ไม่มีข้อมูลลูกค้าให้ส่งออก', 'warning');
       return;
     }
 
@@ -344,7 +346,7 @@ export default function CustomerManage({
       const rawRows = XLSX.utils.sheet_to_json(firstSheet);
 
       if (!rawRows || rawRows.length === 0) {
-        alert('ไฟล์ Excel ไม่มีข้อมูล');
+        showToast('ไฟล์ Excel ไม่มีข้อมูล', 'warning');
         return;
       }
 
@@ -391,7 +393,7 @@ export default function CustomerManage({
       });
 
       if (importedCustomers.length === 0) {
-        alert('ไม่พบข้อมูลลูกค้าใหม่ หรือรายชื่อลูกค้าในไฟล์มีอยู่ในระบบแล้วทั้งหมด');
+        showToast('ไม่พบข้อมูลลูกค้าใหม่ หรือรายชื่อลูกค้าในไฟล์มีอยู่ในระบบแล้วทั้งหมด', 'info');
         return;
       }
 
@@ -399,9 +401,9 @@ export default function CustomerManage({
       if (addActivityLog) {
         addActivityLog(`นำเข้าข้อมูลลูกค้าใหม่ ${importedCustomers.length} รายการจากไฟล์ Excel`);
       }
-      alert(`นำเข้าข้อมูลลูกค้าสำเร็จ ${importedCustomers.length} รายการ!`);
+      showToast(`นำเข้าข้อมูลลูกค้าสำเร็จ ${importedCustomers.length} รายการ!`, 'success');
     } catch (err) {
-      alert(`เกิดข้อผิดพลาดในการอ่านไฟล์ Excel: ${err.message}`);
+      showToast(`เกิดข้อผิดพลาดในการอ่านไฟล์ Excel: ${err.message}`, 'error');
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
@@ -441,7 +443,7 @@ export default function CustomerManage({
   // Sync customers from quotations
   const handleSyncFromQuotations = async () => {
     if (unimportedQuotationsCustomers.length === 0) {
-      alert('ข้อมูลลูกค้าจากใบเสนอราคาทั้งหมดมีอยู่ในระบบแล้ว');
+      showToast('ข้อมูลลูกค้าจากใบเสนอราคาทั้งหมดมีอยู่ในระบบแล้ว', 'info');
       return;
     }
     try {
@@ -450,9 +452,9 @@ export default function CustomerManage({
       if (addActivityLog) {
         addActivityLog(`ดึงข้อมูลลูกค้าจากประวัติใบเสนอราคา ${unimportedQuotationsCustomers.length} รายการ`);
       }
-      alert(`ดึงข้อมูลลูกค้าจากใบเสนอราคาสำเร็จ ${unimportedQuotationsCustomers.length} รายการ! คุณสามารถตรวจสอบและแก้ไขข้อมูลเพิ่มเติมได้ตามต้องการ`);
+      showToast(`ดึงข้อมูลลูกค้าจากใบเสนอราคาสำเร็จ ${unimportedQuotationsCustomers.length} รายการ`, 'success');
     } catch (err) {
-      alert(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${err.message}`);
+      showToast(`เกิดข้อผิดพลาดในการดึงข้อมูล: ${err.message}`, 'error');
     } finally {
       setIsSyncing(false);
     }

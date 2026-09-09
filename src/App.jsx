@@ -156,13 +156,29 @@ export default function App() {
     const result = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
     await loadDatabase();
     setCurrentUser(result.user);
-    handleTabChange('dashboard');
+    const targetTab = canAccessPage(result.user, 'dashboard')
+      ? 'dashboard'
+      : (['manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log'].find(t => canAccessPage(result.user, t)) || 'manage-products');
+    handleTabChange(targetTab);
   };
   const handleLogout = async () => {
     await request('/api/auth/logout', { method: 'POST' });
     clearLegacyCache(); setCurrentUser(null); setUsers([]); setProducts([]); setCategories([]); setSubcategories({}); setQuotations([]); setCustomers([]); setActivityLog([]);
     handleTabChange('dashboard'); setEditProduct(null);
   };
+
+  // Auto redirect if activeTab is not permitted for current user
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!canAccessPage(currentUser, activeTab)) {
+      const allTabs = ['dashboard', 'manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log'];
+      const firstAllowed = allTabs.find(t => canAccessPage(currentUser, t));
+      if (firstAllowed && firstAllowed !== activeTab) {
+        handleTabChange(firstAllowed);
+      }
+    }
+  }, [currentUser, activeTab, handleTabChange]);
+
   useEffect(() => {
     if (!currentUser) return;
     const navigate = event => {
@@ -262,7 +278,12 @@ export default function App() {
   const handleEditCategory = (oldName, newName) => updateCatalog('categories', oldName, newName);
   const handleDeleteCategory = name => updateCatalog('categories', name, null);
   const handleAddUser = data => saveCollection('users', [...users, data]);
-  const handleUpdateUser = (data, oldUsername) => saveCollection('users', users.map(u => u.username === (oldUsername || data.username) ? data : u));
+  const handleUpdateUser = (data, oldUsername) => {
+    if (currentUser && (currentUser.username === (oldUsername || data.username) || currentUser.id === data.id)) {
+      setCurrentUser(prev => ({ ...prev, ...data }));
+    }
+    return saveCollection('users', users.map(u => u.username === (oldUsername || data.username) ? data : u));
+  };
   const handleDeleteUser = username => saveCollection('users', users.filter(u => u.username !== username));
   const handleAddCustomer = async customer => {
     const updated = [customer, ...customers];
@@ -350,7 +371,9 @@ export default function App() {
 
   // Render view screen based on activeTab
   const renderScreen = () => {
-    if (activeTab !== 'dashboard' && !canAccessPage(currentUser, activeTab)) {
+    if (!canAccessPage(currentUser, activeTab)) {
+      const allTabs = ['manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log', 'dashboard'];
+      const firstAllowed = allTabs.find(t => canAccessPage(currentUser, t)) || 'manage-products';
       return (
         <div className="bg-white rounded-3xl border border-[#d2d2d7]/50 p-12 text-center max-w-md mx-auto space-y-4 my-12 shadow-sm text-[#1d1d1f] animate-fade-in">
           <div className="w-14 h-14 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto border border-red-100">
@@ -363,10 +386,10 @@ export default function App() {
           <div className="pt-2">
             <button
               type="button"
-              onClick={() => handleTabChange('dashboard')}
+              onClick={() => handleTabChange(firstAllowed)}
               className="px-5 py-2 bg-[#0071e3] text-white text-xs font-bold rounded-xl hover:bg-[#0077ed] transition-colors cursor-pointer shadow-xs"
             >
-              กลับหน้าหลัก (Dashboard)
+              ไปยังหน้าที่สามารถเข้าถึงได้
             </button>
           </div>
         </div>
@@ -385,6 +408,7 @@ export default function App() {
             setEditProduct={handleEditProductRequest}
             currentUser={currentUser}
             users={users}
+            customers={customers}
           />
         );
       case 'manage-products':
@@ -478,8 +502,8 @@ export default function App() {
         );
 
       case 'activity-log':
-        if (currentUser.role !== 'admin') {
-          return <div className="p-8 text-center text-red-500 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">ขออภัย เฉพาะผู้ดูแลระบบ (Admin) เท่านั้นที่เข้าถึงหน้านี้ได้</div>;
+        if (!canAccessPage(currentUser, 'activity-log')) {
+          return <div className="p-8 text-center text-red-500 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">ขออภัย คุณไม่ได้รับสิทธิ์ในการเข้าถึงหน้านี้</div>;
         }
         return (
           <ActivityLogView

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { canAccessPage } from '../utils/permissions';
+import { useToast } from '../contexts/ToastContext';
 
 function getActionStyle(action) {
   if (action.includes('แก้ไข')) {
@@ -107,9 +108,11 @@ export default function DashboardLayout({
   quotations = [],
   onLogin,
 }) {
+  const showToast = useToast();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [switchingRole, setSwitchingRole] = useState(false);
+
 
   const handleSandboxSwitch = async (targetRole) => {
     if (!onLogin || switchingRole) return;
@@ -135,7 +138,7 @@ export default function DashboardLayout({
     }
 
     if (!success) {
-      alert(`ไม่สามารถสลับไปยังสิทธิ์ ${targetRole.toUpperCase()} (${targetUsername}) ได้: ${lastError?.message || 'โปรดตรวจสอบชื่อผู้ใช้หรือรหัสผ่าน'}`);
+      showToast(`ไม่สามารถสลับไปยังสิทธิ์ ${targetRole.toUpperCase()} (${targetUsername}) ได้: ${lastError?.message || 'โปรดตรวจสอบชื่อผู้ใช้หรือรหัสผ่าน'}`, 'error');
     }
     setSwitchingRole(false);
   };
@@ -143,6 +146,7 @@ export default function DashboardLayout({
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showEditProfile, setShowEditProfile] = useState(false);
+
   const [editProfileForm, setEditProfileForm] = useState({ name: '', username: '' });
   const [editProfileError, setEditProfileError] = useState('');
   const [editProfileSuccess, setEditProfileSuccess] = useState(false);
@@ -332,6 +336,16 @@ export default function DashboardLayout({
   // Determine if activeTab belongs to data group (products, brands, categories, customers)
   const isDataGroupActive = activeTab === 'manage-products' || activeTab === 'brands' || activeTab === 'categories' || activeTab === 'customers';
 
+  const handleLogoClick = () => {
+    if (canAccessPage(currentUser, 'dashboard')) {
+      handleNavClick('dashboard');
+    } else {
+      const allTabs = ['manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log'];
+      const firstAllowed = allTabs.find(t => canAccessPage(currentUser, t));
+      if (firstAllowed) handleNavClick(firstAllowed);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-[#f5f5f7] font-sans text-[#1d1d1f]">
       
@@ -340,7 +354,7 @@ export default function DashboardLayout({
         <div className="w-full h-full px-4 sm:px-6 lg:px-12 flex items-center justify-between">
                 
           {/* Left: Brand Logo */}
-          <div className="flex items-center gap-2.5 cursor-pointer group lg:w-[320px] shrink-0" onClick={() => handleNavClick('dashboard')}>
+          <div className="flex items-center gap-2.5 cursor-pointer group lg:w-[320px] shrink-0" onClick={handleLogoClick}>
             <div className="w-7 h-8 shrink-0 transition-transform duration-300 group-hover:scale-110">
               <svg viewBox="0 0 80 90" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
                 <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" fill="#000000" />
@@ -753,11 +767,8 @@ export default function DashboardLayout({
               <button
                 type="button"
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-[#d2d2d7]/60 bg-white/90 hover:bg-white hover:border-[#d2d2d7] hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition-all duration-200 cursor-pointer text-xs group shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#d2d2d7]/60 bg-white/90 hover:bg-white hover:border-[#d2d2d7] hover:shadow-[0_2px_12px_rgba(0,0,0,0.08)] transition-all duration-200 cursor-pointer text-xs group shadow-[0_1px_4px_rgba(0,0,0,0.06)]"
               >
-                <div className="w-6 h-6 rounded-full bg-gradient-to-br from-zinc-800 to-zinc-950 flex items-center justify-center text-white font-bold text-xs shadow-[0_1px_4px_rgba(0,0,0,0.2)]">
-                  {(currentUser?.name || currentUser?.username || 'U').charAt(0)}
-                </div>
                 <span className="font-bold text-[#1d1d1f] group-hover:text-black">{currentUser?.name || currentUser?.username || 'User'}</span>
                 <i className={`bi bi-chevron-down text-[10px] text-zinc-400 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`}></i>
               </button>
@@ -765,10 +776,7 @@ export default function DashboardLayout({
               {isProfileOpen && (
                 <div className="absolute right-0 top-full w-64 pt-2 z-30">
                   <div className="bg-white/95 backdrop-blur-xl rounded-3xl border border-[#d2d2d7]/40 shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] p-4 space-y-4 animate-scale-in">
-                    <div className="flex items-center gap-3">
-                      <div className="w-11 h-11 rounded-full bg-gradient-to-br from-zinc-700 to-zinc-950 flex items-center justify-center text-white font-bold text-sm shadow-[0_2px_8px_rgba(0,0,0,0.25)]">
-                        {(currentUser?.name || currentUser?.username || 'U').charAt(0)}
-                      </div>
+                    <div className="flex items-center">
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm font-bold text-[#1d1d1f] truncate leading-tight">{currentUser?.name || currentUser?.username || 'User'}</span>
                         <span className="text-[10px] text-[#86868b] truncate mt-0.5">@{currentUser?.username || 'user'}</span>
@@ -929,10 +937,7 @@ export default function DashboardLayout({
             <div className="flex-1 overflow-y-auto flex flex-col gap-3 p-3 pt-2 scrollbar-thin">
 
             {/* User Profile Info */}
-            <div className="bg-[#f5f5f7] p-3 rounded-2xl border border-[#d2d2d7]/35 flex items-center gap-3 user-card shrink-0">
-              <div className="w-10 h-10 rounded-full bg-zinc-950 flex items-center justify-center text-white font-semibold text-sm user-avatar shrink-0">
-                {(currentUser?.name || currentUser?.username || 'U').charAt(0)}
-              </div>
+            <div className="bg-[#f5f5f7] p-3 rounded-2xl border border-[#d2d2d7]/35 flex items-center user-card shrink-0">
               <div className="flex flex-col min-w-0">
                 <span className="text-sm font-bold text-[#1d1d1f] truncate leading-tight user-name">{currentUser?.name || currentUser?.username || 'User'}</span>
                 <span className="text-[10px] text-[#555557] truncate mt-0.5 user-username">@{currentUser?.username || 'user'}</span>

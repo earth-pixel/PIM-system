@@ -7,12 +7,14 @@ import QuotationReport from './QuotationReport';
 import ArchiveManage from './ArchiveManage';
 import DropdownFilter from './DropdownFilter';
 import { canPerformAction } from '../utils/permissions';
+import { useToast } from '../contexts/ToastContext';
 
 // All roles can view all documents in reports
 const isOwnDocument = () => true;
 
 
 export default function Report({ products, brands, categories, subcategories = {}, quotations = [], currentUser, addActivityLog, onArchiveDeleteQuotations }) {
+  const showToast = useToast();
   const [reportType, setReportTypeState] = useState(() => {
     try {
       return localStorage.getItem('pim_report_type') || 'products';
@@ -111,7 +113,7 @@ export default function Report({ products, brands, categories, subcategories = {
       await downloadWorkbook(workbook, filename);
     } catch (error) {
       console.error('เกิดข้อผิดพลาดในการ Export Excel:', error);
-      alert('ไม่สามารถดาวน์โหลดรายงานได้');
+      showToast('ไม่สามารถดาวน์โหลดรายงานได้', 'error');
     }
   };
 

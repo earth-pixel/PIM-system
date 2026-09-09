@@ -2,7 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Plus, Edit, Trash2, Save, AlertTriangle, Check, AlertCircle } from 'lucide-react';
 import { canPerformAction } from '../utils/permissions';
+import { useToast } from '../contexts/ToastContext';
 export default function BrandManage({ brands, products, onAddBrand, onEditBrand, onDeleteBrand, currentUser }) {
+  const showToast = useToast();
   const [newBrand, setNewBrand]   = useState('');
   const [errorMsg, setErrorMsg]   = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -82,7 +84,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
   const handleDeleteClick = (brandName, productCount) => {
     if (currentUser.role !== 'admin') return;
     if (productCount > 0 && currentUser.role !== 'admin') {
-      alert("ไม่สามารถลบแบรนด์ได้ เนื่องจากยังมีสินค้าที่ใช้แบรนด์นี้อยู่");
+      showToast('ไม่สามารถลบแบรนด์ได้ เนื่องจากยังมีสินค้าที่ใช้แบรนด์นี้อยู่', 'error');
       return;
     }
     setDeleteProductCount(productCount);
@@ -127,7 +129,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
           </div>
           <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">จัดการข้อมูลแบรนด์สินค้า</h1>
         </div>
-        {currentUser?.role === 'admin' && canPerformAction(currentUser, 'brands.create') && (
+        {canPerformAction(currentUser, 'brands.create') && (
           <button
             type="button"
             onClick={() => {
@@ -162,7 +164,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                 <th className="p-2 sm:p-3.5">แบรนด์</th>
                 <th className="p-2 sm:p-3.5 text-center">จำนวนผลิตภัณฑ์ในระบบ</th>
                 <th className="p-2 sm:p-3.5 text-right"></th>
-                {currentUser?.role === 'admin' && <th className="p-2 sm:p-3.5 text-center w-28">การจัดการ</th>}
+                {(canPerformAction(currentUser, 'brands.edit') || canPerformAction(currentUser, 'brands.delete')) && <th className="p-2 sm:p-3.5 text-center w-28">การจัดการ</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f0f5]">
@@ -189,7 +191,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                     </td>
                     <td className="p-2 sm:p-3.5 text-right">
                     </td>
-                    {currentUser?.role === 'admin' && (
+                    {(canPerformAction(currentUser, 'brands.edit') || canPerformAction(currentUser, 'brands.delete')) && (
                       <td className="p-2 sm:p-3.5 text-center">
                         <div className="flex justify-center gap-1.5">
                           {canPerformAction(currentUser, 'brands.edit') && (
@@ -202,7 +204,7 @@ export default function BrandManage({ brands, products, onAddBrand, onEditBrand,
                               <Edit className="w-4 h-4" />
                             </button>
                           )}
-                          {currentUser.role === 'admin' && canPerformAction(currentUser, 'brands.delete') && (
+                          {canPerformAction(currentUser, 'brands.delete') && (
                             <button
                               type="button"
                               onClick={() => handleDeleteClick(brand, productCount)}

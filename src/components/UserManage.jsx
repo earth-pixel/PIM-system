@@ -16,6 +16,7 @@ import {
   Sparkles,
   CheckSquare,
   Square,
+  HelpCircle,
   X
 } from 'lucide-react';
 import DropdownFilter from './DropdownFilter';
@@ -49,6 +50,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   const [permissionTab, setPermissionTab] = useState('pages'); // 'pages' | 'actions'
   const [permissionSearch, setPermissionSearch] = useState('');
   const [permissionSaving, setPermissionSaving] = useState(false);
+  const [permissionConfirm, setPermissionConfirm] = useState(null);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('All');
@@ -71,7 +73,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   }, [users, currentUser.role, searchQuery, selectedRole]);
 
   useEffect(() => {
-    if (isModalOpen || confirmDeleteUser || alertPopup || editingPermissionsUser) {
+    if (isModalOpen || confirmDeleteUser || alertPopup || editingPermissionsUser || permissionConfirm) {
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -79,7 +81,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [isModalOpen, confirmDeleteUser, alertPopup, editingPermissionsUser]);
+  }, [isModalOpen, confirmDeleteUser, alertPopup, editingPermissionsUser, permissionConfirm]);
 
   if (currentUser.role !== 'admin' && currentUser.role !== 'manager') {
     return (
@@ -120,72 +122,138 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
     setErrorMsg('');
   };
 
-  const handleTogglePagePermission = (pageId) => {
-    setPermissionsForm(prev => ({
-      ...prev,
-      pages: {
-        ...prev.pages,
-        [pageId]: !prev.pages[pageId]
+  const handleTogglePagePermission = (page) => {
+    const isCurrent = Boolean(permissionsForm?.pages?.[page.id]);
+    const willEnable = !isCurrent;
+    setPermissionConfirm({
+      title: willEnable ? 'ยืนยันเปิดสิทธิ์การเข้าถึงหน้า' : 'ยืนยันปิดสิทธิ์การเข้าถึงหน้า',
+      message: `คุณต้องการ${willEnable ? 'เปิด' : 'ปิด'}สิทธิ์การมองเห็นหน้า "${page.name}" สำหรับ "${editingPermissionsUser?.name || editingPermissionsUser?.username}" ใช่หรือไม่?`,
+      type: willEnable ? 'primary' : 'warning',
+      confirmText: willEnable ? 'ยืนยันเปิด' : 'ยืนยันปิด',
+      onConfirm: () => {
+        setPermissionsForm(prev => ({
+          ...prev,
+          pages: {
+            ...prev.pages,
+            [page.id]: willEnable
+          }
+        }));
       }
-    }));
+    });
   };
 
-  const handleToggleActionPermission = (actionId) => {
-    setPermissionsForm(prev => ({
-      ...prev,
-      actions: {
-        ...prev.actions,
-        [actionId]: !prev.actions[actionId]
+  const handleToggleActionPermission = (action) => {
+    const isCurrent = Boolean(permissionsForm?.actions?.[action.id]);
+    const willEnable = !isCurrent;
+    setPermissionConfirm({
+      title: willEnable ? 'ยืนยันเปิดสิทธิ์ปุ่มคำสั่ง' : 'ยืนยันปิดสิทธิ์ปุ่มคำสั่ง',
+      message: `คุณต้องการ${willEnable ? 'เปิด' : 'ปิด'}สิทธิ์ปุ่ม "${action.name}" (${action.description}) ใช่หรือไม่?`,
+      type: willEnable ? 'primary' : 'warning',
+      confirmText: willEnable ? 'ยืนยันเปิด' : 'ยืนยันปิด',
+      onConfirm: () => {
+        setPermissionsForm(prev => ({
+          ...prev,
+          actions: {
+            ...prev.actions,
+            [action.id]: willEnable
+          }
+        }));
       }
-    }));
+    });
   };
 
   const handleApplyPreset = (presetType) => {
     if (!editingPermissionsUser) return;
-    if (presetType === 'role') {
-      setPermissionsForm(getDefaultPermissionsForRole(editingPermissionsUser.role));
-    } else if (presetType === 'full') {
-      setPermissionsForm(getFullPermissionsPreset());
-    } else if (presetType === 'readonly') {
-      setPermissionsForm(getReadOnlyPermissionsPreset());
-    }
-  };
-
-  const handleToggleGroupActions = (group, enableAll) => {
-    setPermissionsForm(prev => {
-      const nextActions = { ...prev.actions };
-      group.actions.forEach(a => {
-        nextActions[a.id] = enableAll;
-      });
-      return {
-        ...prev,
-        actions: nextActions
-      };
+    setPermissionConfirm({
+      title: 'ยืนยันรีเซ็ตสิทธิ์ตาม Role',
+      message: `คุณต้องการรีเซ็ตสิทธิ์ของ "${editingPermissionsUser.name}" กลับเป็นค่าเริ่มต้นตาม Role (${editingPermissionsUser.role}) ใช่หรือไม่? การตั้งค่าสิทธิ์เดิมจะถูกแทนที่`,
+      type: 'warning',
+      confirmText: 'ยืนยันรีเซ็ต',
+      onConfirm: () => {
+        if (presetType === 'role') {
+          setPermissionsForm(getDefaultPermissionsForRole(editingPermissionsUser.role));
+        } else if (presetType === 'full') {
+          setPermissionsForm(getFullPermissionsPreset());
+        } else if (presetType === 'readonly') {
+          setPermissionsForm(getReadOnlyPermissionsPreset());
+        }
+      }
     });
   };
 
-  const handleSavePermissions = async () => {
+  const handleToggleGroupActions = (group, enableAll) => {
+    setPermissionConfirm({
+      title: enableAll ? `ยืนยันเปิดสิทธิ์กลุ่ม ${group.name}` : `ยืนยันปิดสิทธิ์กลุ่ม ${group.name}`,
+      message: `คุณต้องการ${enableAll ? 'เปิด' : 'ปิด'}สิทธิ์ปุ่มคำสั่งทั้งหมดในกลุ่ม "${group.name}" (${group.actions.length} ปุ่ม) ใช่หรือไม่?`,
+      type: enableAll ? 'primary' : 'warning',
+      confirmText: enableAll ? 'เปิดทุกปุ่มในกลุ่ม' : 'ปิดทุกปุ่มในกลุ่ม',
+      onConfirm: () => {
+        setPermissionsForm(prev => {
+          const nextActions = { ...prev.actions };
+          group.actions.forEach(a => {
+            nextActions[a.id] = enableAll;
+          });
+          return {
+            ...prev,
+            actions: nextActions
+          };
+        });
+      }
+    });
+  };
+
+  const handleToggleAllPages = (enableAll) => {
+    setPermissionConfirm({
+      title: enableAll ? 'ยืนยันเปิดสิทธิ์ทุกหน้า' : 'ยืนยันปิดสิทธิ์ทุกหน้า',
+      message: `คุณต้องการ${enableAll ? 'เปิด' : 'ปิด'}สิทธิ์การมองเห็นหน้าทั้งหมด (${filteredPages.length} หน้า) ใช่หรือไม่?`,
+      type: enableAll ? 'primary' : 'warning',
+      confirmText: enableAll ? 'เปิดทั้งหมด' : 'ปิดทั้งหมด',
+      onConfirm: () => {
+        setPermissionsForm(prev => {
+          const next = { ...prev.pages };
+          filteredPages.forEach(p => { next[p.id] = enableAll; });
+          return { ...prev, pages: next };
+        });
+      }
+    });
+  };
+
+  const handleClosePermissionModal = () => {
+    setEditingPermissionsUser(null);
+    setPermissionsForm(null);
+  };
+
+  const handleSavePermissions = () => {
     if (!editingPermissionsUser || !permissionsForm) return;
-    setPermissionSaving(true);
-    try {
-      const updatedUser = {
-        ...editingPermissionsUser,
-        permissions: permissionsForm
-      };
-      await onUpdateUser(updatedUser, editingPermissionsUser.username);
-      const targetName = editingPermissionsUser.name || editingPermissionsUser.username;
-      setEditingPermissionsUser(null);
-      setPermissionsForm(null);
-      setAlertPopup({
-        type: 'success',
-        title: 'บันทึกสิทธิ์สำเร็จ!',
-        message: `กำหนดสิทธิ์การใช้งานสำหรับ "${targetName}" เรียบร้อยแล้ว`,
-      });
-    } catch (error) {
-      setErrorMsg(error.message || 'เกิดข้อผิดพลาดในการบันทึกสิทธิ์');
-    } finally {
-      setPermissionSaving(false);
-    }
+    setPermissionConfirm({
+      title: 'ยืนยันการบันทึกสิทธิ์การใช้งาน',
+      message: `คุณต้องการบันทึกการตั้งค่าสิทธิ์สำหรับผู้ใช้งาน "${editingPermissionsUser.name || editingPermissionsUser.username}" (@${editingPermissionsUser.username}) ใช่หรือไม่?`,
+      type: 'primary',
+      confirmText: 'ยืนยันบันทึก',
+      cancelText: 'ยกเลิก',
+      onConfirm: async () => {
+        setPermissionSaving(true);
+        try {
+          const updatedUser = {
+            ...editingPermissionsUser,
+            permissions: permissionsForm
+          };
+          await onUpdateUser(updatedUser, editingPermissionsUser.username);
+          const targetName = editingPermissionsUser.name || editingPermissionsUser.username;
+          setEditingPermissionsUser(null);
+          setPermissionsForm(null);
+          setAlertPopup({
+            type: 'success',
+            title: 'บันทึกสิทธิ์สำเร็จ!',
+            message: `กำหนดสิทธิ์การใช้งานสำหรับ "${targetName}" เรียบร้อยแล้ว`,
+          });
+        } catch (error) {
+          setErrorMsg(error.message || 'เกิดข้อผิดพลาดในการบันทึกสิทธิ์');
+        } finally {
+          setPermissionSaving(false);
+        }
+      }
+    });
   };
 
   const handleDeleteConfirm = async () => {
@@ -221,15 +289,8 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   };
 
   const canManagePermissions = (u) => {
-    // Admin can configure permissions for manager and user
-    if (currentUser.role === 'admin') {
-      return true;
-    }
-    // Manager can configure permissions for user if permitted
-    if (currentUser.role === 'manager') {
-      return u.role === 'user' && canPerformAction(currentUser, 'users.permissions');
-    }
-    return false;
+    // เฉพาะ Admin เท่านั้นที่กำหนดสิทธิ์ได้ ป้องกัน Admin เผลอปิดสิทธิ์ตัวเอง
+    return currentUser?.role === 'admin';
   };
 
   const canDelete = (u) => {
@@ -492,20 +553,9 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     }`}
                   >
                     <td className="p-2 sm:p-3.5 font-mono font-bold text-[#1d1d1f] text-[10px] sm:text-xs">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="bg-[#f5f5f7] px-1.5 py-0.5 rounded-md">
-                          {u.username}
-                        </span>
-                        {u.permissions && (
-                          <span
-                            className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[9px] font-bold bg-zinc-100 text-zinc-800 border border-zinc-200 rounded-md"
-                            title="มีสิทธิ์ที่กำหนดเองเฉพาะบุคคล"
-                          >
-                            <Settings className="w-2.5 h-2.5" />
-                            กำหนดเอง
-                          </span>
-                        )}
-                      </div>
+                      <span className="bg-[#f5f5f7] px-1.5 py-0.5 rounded-md">
+                        {u.username}
+                      </span>
                     </td>
                     <td className="p-2 sm:p-3.5 font-semibold text-[#1d1d1f] leading-snug">{u.name}</td>
                     <td className="p-2 sm:p-3.5">{getRoleBadge(u.role)}</td>
@@ -567,28 +617,20 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
             
             {/* Modal Header */}
             <div className="px-6 py-4 border-b border-[#e8e8ed] flex items-center justify-between flex-shrink-0 bg-gradient-to-r from-zinc-50/80 via-white to-zinc-50/30">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-zinc-100 text-black border border-zinc-200 flex items-center justify-center shadow-xs">
-                  <Settings className="w-5 h-5 text-black" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-base font-extrabold text-[#1d1d1f] tracking-tight">
+                    ตั้งค่าสิทธิ์การใช้งานระบบ
+                  </h3>
+                  {getRoleBadge(editingPermissionsUser.role)}
                 </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-extrabold text-[#1d1d1f] tracking-tight">
-                      ตั้งค่าสิทธิ์การใช้งานระบบ
-                    </h3>
-                    {getRoleBadge(editingPermissionsUser.role)}
-                  </div>
-                  <p className="text-xs text-[#555557] mt-0.5">
-                    กำหนดสิทธิ์สำหรับ <strong className="text-[#1d1d1f]">{editingPermissionsUser.name}</strong> (@{editingPermissionsUser.username})
-                  </p>
-                </div>
+                <p className="text-xs text-[#555557] mt-0.5">
+                  กำหนดสิทธิ์สำหรับ <strong className="text-[#1d1d1f]">{editingPermissionsUser.name}</strong> (@{editingPermissionsUser.username})
+                </p>
               </div>
               <button
                 type="button"
-                onClick={() => {
-                  setEditingPermissionsUser(null);
-                  setPermissionsForm(null);
-                }}
+                onClick={handleClosePermissionModal}
                 className="p-2 rounded-xl text-[#555557] hover:bg-zinc-100 hover:text-[#1d1d1f] transition-all cursor-pointer"
               >
                 <X className="w-5 h-5" />
@@ -597,18 +639,16 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
             {/* Quick Presets Bar */}
             <div className="px-6 py-3 bg-[#f8f9fa] border-b border-[#e8e8ed] flex flex-wrap items-center justify-between gap-2 text-xs">
-              <span className="font-bold text-[#555557] flex items-center gap-1.5 text-[11px] uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+              <span className="font-bold text-[#555557] text-[11px] uppercase tracking-wider">
                 ทางลัดกำหนดสิทธิ์:
               </span>
               <div className="flex flex-wrap gap-1.5">
                 <button
                   type="button"
                   onClick={() => handleApplyPreset('role')}
-                  className="px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200/80 rounded-lg font-semibold transition-all shadow-2xs hover:shadow-xs flex items-center gap-1 cursor-pointer"
+                  className="px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200/80 rounded-lg font-semibold transition-all shadow-2xs hover:shadow-xs cursor-pointer"
                   title="คืนค่าสิทธิ์ตาม Role เริ่มต้น"
                 >
-                  <RotateCcw className="w-3 h-3 text-zinc-500" />
                   ตาม Role ({editingPermissionsUser.role})
                 </button>
               </div>
@@ -627,7 +667,6 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       : 'text-zinc-600 hover:text-zinc-900'
                   }`}
                 >
-                  <i className="bi bi-layout-text-window text-sm"></i>
                   <span>สิทธิ์การมองเห็นหน้า</span>
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
                     permissionTab === 'pages' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'bg-zinc-200 text-zinc-600'
@@ -645,7 +684,6 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       : 'text-zinc-600 hover:text-zinc-900'
                   }`}
                 >
-                  <i className="bi bi-toggles2 text-sm"></i>
                   <span>สิทธิ์ปุ่มคำสั่งและการทำงาน</span>
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
                     permissionTab === 'actions' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-200 text-zinc-600'
@@ -696,13 +734,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => {
-                          setPermissionsForm(prev => {
-                            const next = { ...prev.pages };
-                            filteredPages.forEach(p => { next[p.id] = true; });
-                            return { ...prev, pages: next };
-                          });
-                        }}
+                        onClick={() => handleToggleAllPages(true)}
                         className="text-[11px] font-bold text-[#0071e3] hover:underline cursor-pointer"
                       >
                         เปิดทั้งหมด
@@ -710,13 +742,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       <span className="text-zinc-300">|</span>
                       <button
                         type="button"
-                        onClick={() => {
-                          setPermissionsForm(prev => {
-                            const next = { ...prev.pages };
-                            filteredPages.forEach(p => { next[p.id] = false; });
-                            return { ...prev, pages: next };
-                          });
-                        }}
+                        onClick={() => handleToggleAllPages(false)}
                         className="text-[11px] font-bold text-zinc-500 hover:underline cursor-pointer"
                       >
                         ปิดทั้งหมด
@@ -730,32 +756,25 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       return (
                         <div
                           key={page.id}
-                          onClick={() => handleTogglePagePermission(page.id)}
+                          onClick={() => handleTogglePagePermission(page)}
                           className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 select-none ${
                             isEnabled
                               ? 'bg-white border-[#0071e3]/30 shadow-xs hover:border-[#0071e3]/60 ring-1 ring-[#0071e3]/10'
                               : 'bg-white/60 border-zinc-200/80 opacity-75 hover:opacity-100'
                           }`}
                         >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
-                              isEnabled ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'bg-zinc-100 text-zinc-400'
-                            }`}>
-                              <i className={`${page.icon} text-base`}></i>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-[#1d1d1f] truncate">
+                                {page.name}
+                              </span>
+                              <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100 px-1.5 py-0.2 rounded">
+                                {page.category}
+                              </span>
                             </div>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-bold text-xs text-[#1d1d1f] truncate">
-                                  {page.name}
-                                </span>
-                                <span className="text-[10px] font-semibold text-zinc-400 bg-zinc-100 px-1.5 py-0.2 rounded">
-                                  {page.category}
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-zinc-500 truncate mt-0.5">
-                                {page.description}
-                              </p>
-                            </div>
+                            <p className="text-[11px] text-zinc-500 truncate mt-0.5">
+                              {page.description}
+                            </p>
                           </div>
 
                           {/* iOS Style Switch */}
@@ -791,18 +810,13 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       <div key={group.id} className="bg-white rounded-2xl border border-[#d2d2d7]/60 shadow-xs overflow-hidden">
                         {/* Group Header */}
                         <div className="px-4 py-3 bg-[#f5f5f7]/70 border-b border-[#e8e8ed] flex items-center justify-between gap-3">
-                          <div className="flex items-center gap-2.5">
-                            <div className="w-6 h-6 rounded-lg bg-[#0071e3]/10 text-[#0071e3] flex items-center justify-center text-xs">
-                              <i className={group.icon}></i>
-                            </div>
-                            <div>
-                              <span className="font-bold text-xs text-[#1d1d1f] block leading-tight">
-                                {group.name}
-                              </span>
-                              <span className="text-[10px] text-zinc-400">
-                                {group.description}
-                              </span>
-                            </div>
+                          <div>
+                            <span className="font-bold text-xs text-[#1d1d1f] block leading-tight">
+                              {group.name}
+                            </span>
+                            <span className="text-[10px] text-zinc-400">
+                              {group.description}
+                            </span>
                           </div>
                           
                           {/* Group Quick Toggle */}
@@ -827,7 +841,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                             return (
                               <div
                                 key={action.id}
-                                onClick={() => handleToggleActionPermission(action.id)}
+                                onClick={() => handleToggleActionPermission(action)}
                                 className={`px-4 py-3 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none hover:bg-blue-50/20 ${
                                   isEnabled ? 'bg-white' : 'bg-zinc-50/40 opacity-70 hover:opacity-100'
                                 }`}
@@ -874,10 +888,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
               <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditingPermissionsUser(null);
-                    setPermissionsForm(null);
-                  }}
+                  onClick={handleClosePermissionModal}
                   className="flex-1 sm:flex-initial px-4 py-2 border border-[#d2d2d7] hover:bg-zinc-100 text-zinc-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
                 >
                   ยกเลิก
@@ -894,10 +905,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       <span>กำลังบันทึก...</span>
                     </>
                   ) : (
-                    <>
-                      <Check className="w-4 h-4" />
-                      <span>บันทึกสิทธิ์การใช้งาน</span>
-                    </>
+                    <span>บันทึก</span>
                   )}
                 </button>
               </div>
@@ -1106,6 +1114,65 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                   }`}
               >
                 ตกลง
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Permission Action Confirmation Modal (ป๊อปอัปยืนยันก่อนกดทุกปุ่มในหน้าสิทธิ์) */}
+      {permissionConfirm && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in no-print">
+          <div onClick={() => setPermissionConfirm(null)} className="absolute inset-0" />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/60 max-w-sm w-full p-6 shadow-2xl space-y-4 z-10 animate-scale-in text-[#1d1d1f]">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto ${
+              permissionConfirm.type === 'danger'
+                ? 'bg-red-50 text-red-600'
+                : permissionConfirm.type === 'warning'
+                ? 'bg-amber-50 text-amber-600'
+                : 'bg-blue-50 text-[#0071e3]'
+            }`}>
+              {permissionConfirm.type === 'danger' ? (
+                <AlertCircle className="w-6 h-6" />
+              ) : permissionConfirm.type === 'warning' ? (
+                <AlertCircle className="w-6 h-6" />
+              ) : (
+                <HelpCircle className="w-6 h-6" />
+              )}
+            </div>
+            <div className="text-center">
+              <h3 className="font-bold text-sm text-[#1d1d1f] uppercase tracking-wide">
+                {permissionConfirm.title}
+              </h3>
+              <p className="text-[#555557] text-xs mt-1.5 leading-relaxed">
+                {permissionConfirm.message}
+              </p>
+            </div>
+            <div className="flex gap-2.5 text-xs font-semibold pt-2">
+              <button
+                type="button"
+                onClick={() => setPermissionConfirm(null)}
+                className="flex-1 py-2.5 border border-[#d2d2d7] hover:bg-[#f5f5f7] rounded-full transition-colors cursor-pointer text-[#1d1d1f]"
+              >
+                {permissionConfirm.cancelText || 'ยกเลิก'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const act = permissionConfirm.onConfirm;
+                  setPermissionConfirm(null);
+                  if (act) act();
+                }}
+                className={`flex-1 py-2.5 text-white rounded-full transition-colors cursor-pointer shadow-xs ${
+                  permissionConfirm.type === 'danger'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : permissionConfirm.type === 'warning'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'bg-[#0071e3] hover:bg-[#0077ed]'
+                }`}
+              >
+                {permissionConfirm.confirmText || 'ยืนยัน'}
               </button>
             </div>
           </div>

@@ -3,6 +3,7 @@ import { Archive, Download, Eye, FileCheck, FileSpreadsheet, Library, Package, P
 import * as XLSX from 'xlsx';
 import { isExpiredQuotation } from '../utils/validation';
 import { downloadWorkbook } from '../utils/exportUtils';
+import { useToast } from '../contexts/ToastContext';
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('th-TH', {
   minimumFractionDigits: 2,
@@ -64,11 +65,13 @@ export default function QuotationReport({
   isAdmin = false,
   onArchive,
 }) {
+  const showToast = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [isExporting, setIsExporting] = useState(false);
   const [hoveredRow, setHoveredRow] = useState(null);
+
   const [viewDoc, setViewDoc] = useState(null);
 
   // Filter only standard quotations (not product proposals) that are approved
@@ -205,7 +208,7 @@ export default function QuotationReport({
       addActivityLog?.(`ดาวน์โหลดรายงานใบเสนอราคาเป็นไฟล์ Excel (${filteredQuotations.length} เอกสาร, ${filterDescription()})`);
     } catch (error) {
       console.error('Error exporting quotation report:', error);
-      alert('ไม่สามารถดาวน์โหลดรายงานใบเสนอราคาได้');
+      showToast('ไม่สามารถดาวน์โหลดรายงานใบเสนอราคาได้', 'error');
     } finally {
       setIsExporting(false);
     }

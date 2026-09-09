@@ -1598,7 +1598,7 @@ export default function ProductManage({
           )}
 
           {/* Delete All Products Button */}
-          {products.length > 0 && currentUser?.role === 'admin' && canPerformAction(currentUser, 'products.clear') && (
+          {products.length > 0 && canPerformAction(currentUser, 'products.clear') && (
             <button
               type="button"
               onClick={() => setShowClearAllConfirm(true)}
@@ -1922,7 +1922,7 @@ export default function ProductManage({
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {currentUser?.role === 'admin' && canPerformAction(currentUser, 'products.delete') && (
+                          {canPerformAction(currentUser, 'products.delete') && (
                             <button
                               type="button"
                               onClick={() => setProductToDelete(product)}
@@ -2007,7 +2007,7 @@ export default function ProductManage({
                               <Edit className="w-3.5 h-3.5" />
                             </button>
                           )}
-                          {currentUser?.role === 'admin' && canPerformAction(currentUser, 'products.delete') && (
+                          {canPerformAction(currentUser, 'products.delete') && (
                             <button
                               type="button"
                               onClick={() => setProductToDelete(product)}
@@ -2083,7 +2083,7 @@ export default function ProductManage({
                           <Edit className="w-3.5 h-3.5" />
                         </button>
                       )}
-                      {currentUser?.role === 'admin' && canPerformAction(currentUser, 'products.delete') && (
+                      {canPerformAction(currentUser, 'products.delete') && (
                         <button
                           type="button"
                           onClick={() => setProductToDelete(product)}
