@@ -56,9 +56,26 @@ export default function CustomerManage({
     note: ''
   });
   const [formError, setFormError] = useState('');
+  const [errorFields, setErrorFields] = useState({});
   const [copiedId, setCopiedId] = useState(null);
   const [isSyncing, setIsSyncing] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Refs for scroll-to-error (customer form)
+  const refCustName = useRef(null);
+  const refCustCompany = useRef(null);
+  const refCustTaxId = useRef(null);
+  const refCustRegion = useRef(null);
+  const refCustBranchName = useRef(null);
+  const refCustPhone = useRef(null);
+  const refCustEmail = useRef(null);
+  const refCustAddress = useRef(null);
+  const refCustNote = useRef(null);
+
+  const scrollToError = (ref) => {
+    setTimeout(() => ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+  };
+  const clearCustFieldError = (field) => setErrorFields(prev => ({ ...prev, [field]: false }));
 
   // Map each customer to quotation history
   const customerQuotesMap = useMemo(() => {
@@ -153,6 +170,7 @@ export default function CustomerManage({
       note: ''
     });
     setFormError('');
+    setErrorFields({});
     setIsModalOpen(true);
   };
 
@@ -173,46 +191,67 @@ export default function CustomerManage({
       note: customer.note || ''
     });
     setFormError('');
+    setErrorFields({});
     setIsModalOpen(true);
   };
 
   // Save Customer (Add / Edit)
   const handleSave = async (e) => {
     e.preventDefault();
+    setFormError('');
+    setErrorFields({});
     const nameTrimmed = form.name.trim();
     if (!nameTrimmed) {
+      setErrorFields({ name: true });
+      scrollToError(refCustName);
       setFormError('กรุณากรอกชื่อลูกค้า');
       return;
     }
     if (!form.companyName.trim()) {
+      setErrorFields({ companyName: true });
+      scrollToError(refCustCompany);
       setFormError('กรุณากรอกชื่อบริษัท');
       return;
     }
     if (!form.taxId.trim()) {
+      setErrorFields({ taxId: true });
+      scrollToError(refCustTaxId);
       setFormError('กรุณากรอกเลขประจำตัวผู้เสียภาษี');
       return;
     }
     if (!form.region) {
+      setErrorFields({ region: true });
+      scrollToError(refCustRegion);
       setFormError('กรุณาเลือกภาค (6 ภูมิภาค)');
       return;
     }
     if (form.branchType === 'sub' && !form.branchName.trim()) {
+      setErrorFields({ branchName: true });
+      scrollToError(refCustBranchName);
       setFormError('กรุณาระบุชื่อหรือรหัสสาขาย่อย');
       return;
     }
     if (!form.phone.trim()) {
+      setErrorFields({ phone: true });
+      scrollToError(refCustPhone);
       setFormError('กรุณากรอกเบอร์โทร');
       return;
     }
     if (!form.email.trim()) {
+      setErrorFields({ email: true });
+      scrollToError(refCustEmail);
       setFormError('กรุณากรอก email');
       return;
     }
     if (!form.address.trim()) {
+      setErrorFields({ address: true });
+      scrollToError(refCustAddress);
       setFormError('กรุณากรอกที่อยู่');
       return;
     }
     if (!form.note.trim()) {
+      setErrorFields({ note: true });
+      scrollToError(refCustNote);
       setFormError('กรุณากรอกหมายเหตุ');
       return;
     }
@@ -708,13 +747,22 @@ export default function CustomerManage({
                           )}
 
                           {customer.email && (
-                            <div className="text-xs text-zinc-500 truncate max-w-[180px]">
-                              <a 
-                                href={`mailto:${customer.email}`}
-                                className="hover:text-[#0071e3] hover:underline truncate"
-                              >
+                            <div className="flex items-center gap-1.5 text-xs text-zinc-500 font-medium">
+                              <span className="truncate max-w-[170px]" title={customer.email}>
                                 {customer.email}
-                              </a>
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCopy(customer.email, `e-${customer.id}`)}
+                                className="text-zinc-400 hover:text-[#0071e3] transition-colors p-0.5 cursor-pointer shrink-0"
+                                title="คัดลอกอีเมล"
+                              >
+                                {copiedId === `e-${customer.id}` ? (
+                                  <Check className="w-3 h-3 text-emerald-600" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
                             </div>
                           )}
                         </div>
@@ -731,7 +779,7 @@ export default function CustomerManage({
                             <span className="text-[11px] text-zinc-400">- ไม่ระบุที่อยู่ -</span>
                           )}
                           {customer.note && (
-                            <div className="text-[11px] text-zinc-600 bg-zinc-100/80 rounded px-1.5 py-0.5 truncate border border-zinc-200/60" title={customer.note}>
+                            <div className="text-[11px] text-zinc-500 bg-transparent rounded px-1.5 py-0.5 truncate border border-zinc-200/40" title={customer.note}>
                               <span className="font-semibold text-zinc-500">หมายเหตุ:</span> {customer.note}
                             </div>
                           )}
@@ -837,12 +885,13 @@ export default function CustomerManage({
                           ชื่อลูกค้า <span className="text-red-500">*</span>
                         </label>
                         <input
+                          ref={refCustName}
                           type="text"
                           required
                           value={form.name}
-                          onChange={(e) => setForm(f => ({ ...f, name: e.target.value }))}
+                          onChange={(e) => { setForm(f => ({ ...f, name: e.target.value })); clearCustFieldError('name'); }}
                           placeholder="ระบุชื่อลูกค้า เช่น คุณสมชาย ใจดี"
-                          className="w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none"
+                          className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.name ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
 
@@ -851,12 +900,13 @@ export default function CustomerManage({
                           ชื่อบริษัท <span className="text-red-500">*</span>
                         </label>
                         <input
+                          ref={refCustCompany}
                           type="text"
                           required
                           value={form.companyName}
-                          onChange={(e) => setForm(f => ({ ...f, companyName: e.target.value }))}
+                          onChange={(e) => { setForm(f => ({ ...f, companyName: e.target.value })); clearCustFieldError('companyName'); }}
                           placeholder="เช่น บริษัท สยาม พัฒนา จำกัด"
-                          className="w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none"
+                          className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.companyName ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
                     </div>
@@ -868,13 +918,14 @@ export default function CustomerManage({
                           เลขประจำตัวผู้เสียภาษี <span className="text-red-500">*</span>
                         </label>
                         <input
+                          ref={refCustTaxId}
                           type="text"
                           required
                           maxLength={13}
                           value={form.taxId}
-                          onChange={(e) => setForm(f => ({ ...f, taxId: e.target.value.replace(/\D/g, '').slice(0, 13) }))}
+                          onChange={(e) => { setForm(f => ({ ...f, taxId: e.target.value.replace(/\D/g, '').slice(0, 13) })); clearCustFieldError('taxId'); }}
                           placeholder="เลข 13 หลัก เช่น 0105551234567"
-                          className="w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-mono font-semibold border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none"
+                          className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-mono font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.taxId ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
 
@@ -885,10 +936,11 @@ export default function CustomerManage({
                         </label>
                         <div className="relative">
                           <select
+                            ref={refCustRegion}
                             required
                             value={form.region}
-                            onChange={(e) => setForm(f => ({ ...f, region: e.target.value }))}
-                            className="w-full px-3.5 pr-8 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none cursor-pointer appearance-none"
+                            onChange={(e) => { setForm(f => ({ ...f, region: e.target.value })); clearCustFieldError('region'); }}
+                            className={`w-full px-3.5 pr-8 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none cursor-pointer appearance-none ${errorFields.region ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                           >
                             <option value="">-- เลือกภาค (ไม่ระบุ) --</option>
                             {THAI_REGIONS.map(r => (
@@ -935,13 +987,14 @@ export default function CustomerManage({
                             <span>↳ ระบุชื่อหรือรหัสสาขาย่อย: <span className="text-red-500">*</span></span>
                           </div>
                           <input
+                            ref={refCustBranchName}
                             type="text"
                             required={form.branchType === 'sub'}
                             placeholder="เช่น พระราม 9, ซอย 5 หรือ 00001"
                             value={form.branchName}
                             autoFocus
-                            onChange={(e) => setForm(f => ({ ...f, branchName: e.target.value }))}
-                            className="w-full px-3.5 py-2 bg-white rounded-xl text-xs font-semibold border border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20 transition-all outline-none shadow-2xs"
+                            onChange={(e) => { setForm(f => ({ ...f, branchName: e.target.value })); clearCustFieldError('branchName'); }}
+                            className={`w-full px-3.5 py-2 bg-white rounded-xl text-xs font-semibold border transition-all outline-none shadow-2xs ${errorFields.branchName ? 'border-red-500 ring-1 ring-red-500/30' : 'border-amber-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-500/20'}`}
                           />
                         </div>
                       )}
@@ -954,12 +1007,13 @@ export default function CustomerManage({
                           เบอร์โทร <span className="text-red-500">*</span>
                         </label>
                         <input
+                          ref={refCustPhone}
                           type="tel"
                           required
                           value={form.phone}
-                          onChange={(e) => setForm(f => ({ ...f, phone: e.target.value }))}
+                          onChange={(e) => { setForm(f => ({ ...f, phone: e.target.value })); clearCustFieldError('phone'); }}
                           placeholder="เช่น 081-234-5678"
-                          className="w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none"
+                          className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.phone ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
 
@@ -968,12 +1022,13 @@ export default function CustomerManage({
                           email <span className="text-red-500">*</span>
                         </label>
                         <input
+                          ref={refCustEmail}
                           type="email"
                           required
                           value={form.email}
-                          onChange={(e) => setForm(f => ({ ...f, email: e.target.value }))}
+                          onChange={(e) => { setForm(f => ({ ...f, email: e.target.value })); clearCustFieldError('email'); }}
                           placeholder="เช่น contact@example.com"
-                          className="w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none"
+                          className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.email ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
                     </div>
@@ -984,12 +1039,13 @@ export default function CustomerManage({
                         ที่อยู่ <span className="text-red-500">*</span>
                       </label>
                       <textarea
+                        ref={refCustAddress}
                         rows={3}
                         required
                         value={form.address}
-                        onChange={(e) => setForm(f => ({ ...f, address: e.target.value }))}
+                        onChange={(e) => { setForm(f => ({ ...f, address: e.target.value })); clearCustFieldError('address'); }}
                         placeholder="เลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"
-                        className="w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none resize-none leading-relaxed"
+                        className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none resize-none leading-relaxed ${errorFields.address ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                       />
                     </div>
 
@@ -999,12 +1055,13 @@ export default function CustomerManage({
                         หมายเหตุ <span className="text-red-500">*</span>
                       </label>
                       <textarea
+                        ref={refCustNote}
                         rows={2}
                         required
                         value={form.note}
-                        onChange={(e) => setForm(f => ({ ...f, note: e.target.value }))}
+                        onChange={(e) => { setForm(f => ({ ...f, note: e.target.value })); clearCustFieldError('note'); }}
                         placeholder="ระบุหมายเหตุหรือข้อความเพิ่มเติมสำหรับลูกค้า"
-                        className="w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border border-transparent focus:bg-white focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none resize-none leading-relaxed"
+                        className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none resize-none leading-relaxed ${errorFields.note ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                       />
                     </div>
                   </div>

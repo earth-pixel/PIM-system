@@ -1103,8 +1103,16 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
           {/* Toggle pill group */}
           <div className="flex flex-wrap items-center gap-2">
-            {/* View Mode Toggle (แยกตามภาค / แยกตามเดือน) */}
-            <div className="relative bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/50 flex items-center">
+            {/* View Mode Toggle (แยกตามภาค / แยกตามเดือน) with animated sliding pill */}
+            <div className="relative bg-[#f5f5f7] p-0.5 rounded-xl border border-[#d2d2d7]/50 flex items-center shadow-2xs">
+              <div 
+                className="absolute top-0.5 bottom-0.5 left-0.5 rounded-lg bg-white shadow-sm border border-black/5 pointer-events-none"
+                style={{
+                  width: 'calc(50% - 2px)',
+                  transform: qtChartType === 'month' ? 'translateX(100%)' : 'translateX(0)',
+                  transition: 'transform 0.35s cubic-bezier(0.34, 1.25, 0.64, 1)'
+                }}
+              />
               {[
                 ['region', 'แยกตามภาค'],
                 ['month', 'แยกตามเดือน']
@@ -1113,11 +1121,11 @@ export default function Dashboard({ products, brands, categories, quotations = [
                   key={val}
                   type="button"
                   onClick={() => setQtChartType(val)}
-                  className={`relative z-10 px-2.5 sm:px-3 py-1 text-[10px] sm:text-xs font-bold rounded-md transition-all duration-200 cursor-pointer text-center ${
-                    qtChartType === val ? 'bg-white text-black shadow-xs' : 'text-[#555557] hover:text-black'
+                  className={`relative z-10 px-3 sm:px-3.5 py-1.5 text-[11px] sm:text-xs font-bold rounded-lg transition-all duration-200 cursor-pointer text-center flex items-center justify-center active:scale-95 select-none ${
+                    qtChartType === val ? 'text-[#1d1d1f]' : 'text-[#86868b] hover:text-[#1d1d1f]'
                   }`}
                 >
-                  {label}
+                  <span>{label}</span>
                 </button>
               ))}
             </div>
@@ -1215,16 +1223,21 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 </div>
 
                 {/* Bars & Hover tooltips */}
-                <div className="absolute inset-0 flex items-end pointer-events-auto z-20">
-                  {quotationBarData.map(({ name, fullName, count, gradient }) => {
+                <div key={`bars-${qtChartType}`} className="absolute inset-0 flex items-end pointer-events-auto z-20">
+                  {quotationBarData.map(({ name, fullName, count, gradient }, idx) => {
                     const heightPercent = qtMaxCount > 0 ? (count / qtMaxCount) * 100 : 0;
                     const isSelected = (qtChartType === 'region' && selectedPivotRegion === name) ||
                                        (qtChartType === 'branch' && pivotSearch === name);
                     const isClickable = qtChartType === 'region' || qtChartType === 'branch';
                     return (
                       <div
-                        key={name}
+                        key={`${qtChartType}-${name}`}
                         className="flex-1 flex flex-col items-center justify-end h-full group relative min-w-0"
+                        style={{
+                          transformOrigin: 'bottom',
+                          animation: 'barRise 0.55s cubic-bezier(0.34, 1.25, 0.64, 1) both',
+                          animationDelay: `${idx * 45}ms`
+                        }}
                       >
                         <div
                           onClick={() => handleBarClick({ name })}
@@ -1235,7 +1248,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                           {/* Bar wrapper sized precisely to heightPercent */}
                           <div
                             style={{
-                              height: `${Math.max(heightPercent, count > 0 ? 2 : 0)}%`,
+                              height: `${Math.max(heightPercent, count > 0 ? 3 : 0)}%`,
                               transition: 'height 0.6s cubic-bezier(0.34,1.2,0.64,1)',
                             }}
                             className="w-full relative group/bar"
@@ -1254,7 +1267,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                               <div className="flex items-center gap-1">
                                 <span className="text-[#34d399] font-extrabold text-xs">{count.toLocaleString()}</span>
                                 <span className="text-zinc-400 text-[9px]">ฉบับ</span>
-                                </div>
+                              </div>
                               {isClickable && (
                                 <span className="text-[8px] text-zinc-400 border-t border-white/10 pt-0.5 mt-0.5">
                                   คลิกเพื่อกรองใน Pivot Table
@@ -1266,14 +1279,17 @@ export default function Dashboard({ products, brands, categories, quotations = [
                             {count > 0 && (
                               <div
                                 className={`
-                                  w-full h-full rounded-t-md
+                                  w-full h-full rounded-t-lg
                                   bg-gradient-to-t ${gradient}
                                   ${isSelected ? 'ring-2 ring-black ring-offset-2 scale-105' : ''}
-                                  group-hover/bar:brightness-110
+                                  group-hover/bar:brightness-110 group-hover/bar:scale-y-[1.03]
                                   transition-all duration-200
-                                  shadow-[0_-2px_10px_rgba(16,185,129,0.2)]
+                                  shadow-[0_-2px_12px_rgba(0,113,227,0.2)]
+                                  relative overflow-hidden
                                 `}
-                              />
+                              >
+                                <div className="absolute top-0 inset-x-0 h-1 bg-white/40 rounded-t-lg pointer-events-none" />
+                              </div>
                             )}
                           </div>
                         </div>
@@ -1285,29 +1301,33 @@ export default function Dashboard({ products, brands, categories, quotations = [
             </div>
 
             {/* X-axis label row */}
-            <div className="flex items-start pl-9 sm:pl-11 pt-2.5">
-              {quotationBarData.map(({ name, fullName, count }) => {
+            <div key={`labels-${qtChartType}`} className="flex items-start pl-9 sm:pl-11 pt-2.5">
+              {quotationBarData.map(({ name, fullName, count }, idx) => {
                 const isSelected = (qtChartType === 'region' && selectedPivotRegion === name) ||
                                    (qtChartType === 'branch' && pivotSearch === name);
                 const isClickable = qtChartType === 'region' || qtChartType === 'branch';
                 return (
                   <div
-                    key={name}
+                    key={`${qtChartType}-${name}`}
                     onClick={() => handleBarClick({ name })}
                     className={`flex-1 text-center px-0.5 min-w-0 group relative ${
                       isClickable ? 'cursor-pointer' : 'cursor-default'
                     }`}
+                    style={{
+                      animation: 'labelSlideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both',
+                      animationDelay: `${idx * 35}ms`
+                    }}
                   >
                     <span
-                      className={`text-[11px] sm:text-xs font-semibold leading-tight block truncate transition-colors ${
+                      className={`text-[11px] sm:text-xs font-semibold leading-tight block truncate transition-all duration-200 ${
                         isSelected
-                          ? 'text-[#0071e3] font-bold'
-                          : 'text-[#555557] hover:text-black'
+                          ? 'text-[#0071e3] font-bold scale-105'
+                          : 'text-[#555557] hover:text-black group-hover:scale-105'
                       }`}
                     >
                       {name}
                     </span>
-                    <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
+                    <span className="text-[10px] text-zinc-400 font-mono block mt-0.5 font-medium">
                       {count}
                     </span>
 
@@ -1388,12 +1408,12 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
                   isSelected
                     ? 'bg-[#1d1d1f] text-white border-[#1d1d1f] shadow-xs'
-                    : 'bg-[#f5f5f7] text-[#555557] border-[#d2d2d7]/40 hover:bg-zinc-200/70 hover:text-black'
+                    : 'bg-transparent text-[#555557] border-[#d2d2d7]/60 hover:bg-zinc-200/40 hover:text-black'
                 }`}
               >
                 <span>{reg}</span>
                 <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-semibold ${
-                  isSelected ? 'bg-white/20 text-white' : 'bg-zinc-200/80 text-zinc-600'
+                  isSelected ? 'bg-white/20 text-white' : 'bg-zinc-400/20 text-zinc-500'
                 }`}>
                   {count}
                 </span>
@@ -1418,7 +1438,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
         {/* Pivot Table */}
         <div className="overflow-x-auto rounded-xl border border-[#e8e8ed]">
-          <table className="w-full text-left border-collapse min-w-[750px]">
+          <table className="w-full text-left border-collapse min-w-[850px]">
             <thead>
               <tr className="bg-[#f5f5f7] border-b border-[#e8e8ed] text-[11px] font-bold text-[#555557] uppercase tracking-wider">
                 <th className="py-3 px-4 text-center w-16">ลำดับ</th>
@@ -1427,13 +1447,14 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 <th className="py-3 px-4">ชื่อสำนักงาน</th>
                 <th className="py-3 px-4">สาขา</th>
                 <th className="py-3 px-4">ภาค</th>
+                <th className="py-3 px-4 text-right">ราคารวมสุทธิ</th>
                 <th className="py-3 px-4 text-center w-28">Insight</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f0f5]">
               {paginatedPivotDocs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-10 text-center text-zinc-400 text-xs">
+                  <td colSpan={8} className="py-10 text-center text-zinc-400 text-xs">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <TableIcon className="w-6 h-6 text-zinc-300" />
                       <span>ไม่พบข้อมูลใบเสนอราคาที่ตรงกับเงื่อนไข</span>
@@ -1450,6 +1471,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                   const qNum = q.quotationNumber || q.id;
 
                   const isSubBranch = branch !== 'สำนักงานใหญ่' && branch !== '-';
+                  const totalNet = Number(q.totalAmount ?? (q.items || []).reduce((sum, it) => sum + ((Number(it.quantity) || 1) * (Number(it.unitPrice || it.price) || 0)), 0));
 
                   return (
                     <tr key={q.id || idx} className="hover:bg-zinc-50/80 transition-colors group">
@@ -1460,14 +1482,9 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
                       {/* เลขที่ใบเสนอราคา */}
                       <td className="py-3 px-4 text-xs">
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('quotations')}
-                          className="font-mono font-bold text-[#0071e3] hover:underline cursor-pointer tracking-tight"
-                          title="ไปยังหน้าใบเสนอราคา"
-                        >
+                        <span className="font-mono font-bold text-[#1d1d1f] tracking-tight select-all">
                           {qNum}
-                        </button>
+                        </span>
                       </td>
 
                       {/* ชื่อลูกค้า */}
@@ -1504,6 +1521,11 @@ export default function Dashboard({ products, brands, categories, quotations = [
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${getRegionBadgeClass(region)}`}>
                           {region}
                         </span>
+                      </td>
+
+                      {/* ราคารวมสุทธิ */}
+                      <td className="py-3 px-4 text-xs text-right font-mono font-bold text-[#1d1d1f] whitespace-nowrap">
+                        ฿{formatMoney(totalNet)}
                       </td>
 
                       {/* Insight (คลิกดูสินค้าที่ขายและจำนวน) */}

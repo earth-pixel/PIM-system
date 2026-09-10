@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Printer, Download, ExternalLink } from 'lucide-react';
+import { X, Printer, Download, ExternalLink, Mail, CheckCircle2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { isExpiredQuotation } from '../utils/validation';
 
@@ -246,6 +246,7 @@ export default function QuotationPrint({
   const autoOpenInNewTabFiredRef = useRef(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [emailRedirectUrl, setEmailRedirectUrl] = useState('');
+  const [downloadedPdfName, setDownloadedPdfName] = useState('');
 
   // ── Measurement refs (used to compute REAL pagination, see below) ──
   const measureHeaderRef = useRef(null);
@@ -329,14 +330,21 @@ export default function QuotationPrint({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quotation, docFormat, rawItems.length]);
 
-  // Trigger mail redirection directly when requested
+  // Trigger Google Gmail web compose redirection directly when requested
   const handleOpenEmailApp = () => {
-    const a = document.createElement('a');
-    a.href = emailRedirectUrl;
-    a.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { if (document.body.contains(a)) document.body.removeChild(a); }, 200);
+    if (emailRedirectUrl) {
+      const win = window.open(emailRedirectUrl, '_blank', 'noopener,noreferrer');
+      if (!win) {
+        // Fallback in case browser blocks window.open
+        const a = document.createElement('a');
+        a.href = emailRedirectUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { if (document.body.contains(a)) document.body.removeChild(a); }, 200);
+      }
+    }
 
     // Close the print preview overlay
     setShowSuccessModal(false);
@@ -404,6 +412,7 @@ export default function QuotationPrint({
       const docLabel = docFormat === 'product_proposal' ? 'ใบเสนอสินค้า' : 'ใบเสนอราคา';
       const quotationCode = quotation.referenceNumber || quotation.quotationNumber || 'document';
       const filename = `${quotationCode}.pdf`;
+      setDownloadedPdfName(filename);
       await html2pdf()
         .set({
           margin: 0,
@@ -427,14 +436,23 @@ export default function QuotationPrint({
       }
 
       if (autoDownloadAndEmail) {
-        // ดาวน์โหลด PDF เสร็จเรียบร้อยแล้ว -> คำนวณลิงก์ส่งอีเมลแล้วแสดงโมดอลแจ้งผลดาวน์โหลด
+        // ดาวน์โหลด PDF เสร็จเรียบร้อยแล้ว -> คำนวณลิงก์ส่งอีเมลไปยัง Google Gmail แล้วแสดงโมดอลแจ้งผลดาวน์โหลด
         const email = quotation.customer?.email || '';
         const cleanSalesName = cleanSalespersonName(quotation.salespersonName);
-        const subject = encodeURIComponent(`[${docLabel}] เลขที่ ${quotation.quotationNumber || quotation.id} - โครงการ ${quotation.projectName || '-'}`);
-        const body = encodeURIComponent(`เรียนคุณ ${quotation.customer?.name || 'ลูกค้า'}${quotation.customer?.companyName ? ` (${quotation.customer.companyName})` : ''},\n\nเรื่อง: นำเสนอ${docLabel} เลขที่ ${quotation.quotationNumber || quotation.id}\n\nทางเรามีความยินดีเป็นอย่างยิ่งที่ได้รับโอกาสในการนำเสนอราคาสำหรับโครงการ "${quotation.projectName || '-'}"\n\nรายละเอียดรายการสินค้า ยอดรวม และเงื่อนไขการค้าต่างๆ ปรากฏตามเอกสาร${docLabel}แนบ PDF ในอีเมลฉบับนี้\n\nหากท่านมีข้อสงสัยประการใด โปรดติดต่อกลับที่เบอร์โทร ${quotation.salespersonPhone || '-'} ได้ทันทีครับ\n\nขอแสดงความนับถืออย่างสูง,\n${cleanSalesName || 'ผู้ประสานงานขาย'}`);
+        const companyLines = [
+          companyInfo.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
+          companyInfo.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
+          `โทร: ${companyInfo.phone && companyInfo.mobile ? `${companyInfo.phone} / ${companyInfo.mobile}` : (companyInfo.phone || companyInfo.mobile || '02-4315111 / 02-0055666')}`,
+          `อีเมล: ${companyInfo.email || 'info@phanvadee.co.th'}`,
+          `เว็บไซต์: ${companyInfo.website ? (companyInfo.website.startsWith('http') ? companyInfo.website : `https://${companyInfo.website}`) : 'https://www.phanvadee.co.th'}`,
+          `เลขประจำตัวผู้เสียภาษี: ${companyInfo.taxId || '0105546026064'}`
+        ].join('\n');
 
-        const mailtoUrl = `mailto:${email}?subject=${subject}&body=${body}`;
-        setEmailRedirectUrl(mailtoUrl);
+        const subject = encodeURIComponent(`[${docLabel}] เลขที่ ${quotation.quotationNumber || quotation.id} - โครงการ ${quotation.projectName || '-'}`);
+        const body = encodeURIComponent(`เรียนคุณ ${quotation.customer?.name || 'ลูกค้า'}${quotation.customer?.companyName ? ` (${quotation.customer.companyName})` : ''},\n\nเรื่อง: นำเสนอ${docLabel} เลขที่ ${quotation.quotationNumber || quotation.id}\n\nทางเรามีความยินดีเป็นอย่างยิ่งที่ได้รับโอกาสในการนำเสนอราคาสำหรับโครงการ "${quotation.projectName || '-'}"\n\nรายละเอียดรายการสินค้า ยอดรวม และเงื่อนไขการค้าต่างๆ ปรากฏตามเอกสาร${docLabel}แนบ PDF ในอีเมลฉบับนี้\n\nหากท่านมีข้อสงสัยประการใด โปรดติดต่อกลับที่เบอร์โทร ${quotation.salespersonPhone || '-'}\n\nขอแสดงความนับถืออย่างสูง\n${cleanSalesName || 'ผู้ประสานงานขาย'}\n\n${companyLines}`);
+
+        const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${subject}&body=${body}`;
+        setEmailRedirectUrl(gmailUrl);
         setShowSuccessModal(true); // แสดงโมดอลให้ผู้ใช้งานทราบว่าดาวน์โหลดเรียบร้อยแล้ว
       }
     } catch (err) {
@@ -771,16 +789,16 @@ export default function QuotationPrint({
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <tbody>
                 <tr>
-                  <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>ชื่อลูกค้า</td>
+                  <td style={{ width: '110px', fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none', verticalAlign: 'top' }}>ชื่อลูกค้า</td>
                   <td style={{ padding: '3px 0', border: 'none', color: DARK }}>{customer.name || '-'}</td>
                 </tr>
                 <tr>
-                  <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>บริษัท</td>
+                  <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none', verticalAlign: 'top' }}>บริษัท</td>
                   <td style={{ padding: '3px 0', border: 'none', color: DARK }}>{customer.companyName || '-'}</td>
                 </tr>
                 {(customer.branch || quotation.customerBranch) && (
                   <tr>
-                    <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>
+                    <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none', verticalAlign: 'top' }}>
                       {(customer.branch || quotation.customerBranch) === 'สำนักงานใหญ่' ? 'สำนักงานใหญ่' : 'สาขา'}
                     </td>
                     <td style={{ padding: '3px 0', border: 'none', color: DARK }}>{customer.branch || quotation.customerBranch}</td>
@@ -788,31 +806,31 @@ export default function QuotationPrint({
                 )}
                 {customer.contactPerson && (
                   <tr>
-                    <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ผู้ติดต่อ</td>
+                    <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>ผู้ติดต่อ</td>
                     <td style={{ padding: '3px 0', border: 'none' }}>{customer.contactPerson}</td>
                   </tr>
                 )}
                 <tr>
-                  <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', verticalAlign: 'top', border: 'none' }}>ที่อยู่</td>
+                  <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', verticalAlign: 'top', border: 'none' }}>ที่อยู่</td>
                   <td style={{ padding: '3px 0', border: 'none', lineHeight: 1.5 }}>{customer.address || '-'}</td>
                 </tr>
                 <tr>
-                  <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เลขผู้เสียภาษี</td>
+                  <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>เลขผู้เสียภาษี</td>
                   <td style={{ padding: '3px 0', border: 'none' }}>{customer.taxId || '-'}</td>
                 </tr>
                 <tr>
-                  <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>โทรศัพท์</td>
+                  <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>โทรศัพท์</td>
                   <td style={{ padding: '3px 0', border: 'none' }}>{customer.phone || '-'}</td>
                 </tr>
                 {customer.email && (
                   <tr>
-                    <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>อีเมล</td>
+                    <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>อีเมล</td>
                     <td style={{ padding: '3px 0', border: 'none' }}>{customer.email}</td>
                   </tr>
                 )}
                 {(customer.note || quotation.customerNote) && (
                   <tr>
-                    <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none', verticalAlign: 'top' }}>หมายเหตุ</td>
+                    <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none', verticalAlign: 'top' }}>หมายเหตุ</td>
                     <td style={{ padding: '3px 0', border: 'none', color: DARK, lineHeight: 1.4 }}>{customer.note || quotation.customerNote}</td>
                   </tr>
                 )}
@@ -825,29 +843,29 @@ export default function QuotationPrint({
             <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}>
               <tbody>
                 <tr>
-                  <td style={{ width: '110px', fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ชื่อผู้ขาย</td>
+                  <td style={{ width: '110px', fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>ชื่อผู้ขาย</td>
                   <td style={{ padding: '3px 0', border: 'none' }}>{quotation.salespersonName || '-'}</td>
                 </tr>
                 <tr>
-                  <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เบอร์ติดต่อ</td>
+                  <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>เบอร์ติดต่อ</td>
                   <td style={{ padding: '3px 0', border: 'none' }}>{quotation.salespersonPhone || '-'}</td>
                 </tr>
                 {quotation.projectName && (
                   <tr>
-                    <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ชื่อโปรเจกต์</td>
+                    <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>ชื่อโปรเจกต์</td>
                     <td style={{ padding: '3px 0', border: 'none' }}>{quotation.projectName}</td>
                   </tr>
                 )}
                 <tr>
-                  <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>เลขที่เอกสาร</td>
+                  <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>เลขที่เอกสาร</td>
                   <td style={{ padding: '3px 0', border: 'none', color: DARK }}>{quotation.referenceNumber || quotation.quotationNumber || '-'}</td>
                 </tr>
                 <tr>
-                  <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>วันที่ออกเอกสาร</td>
+                  <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>วันที่ออกเอกสาร</td>
                   <td style={{ padding: '3px 0', border: 'none' }}>{fmtDate(quotation.issuedDate)}</td>
                 </tr>
                 <tr>
-                  <td style={{ fontWeight: 'bold', color: GRAY, padding: '3px 0', border: 'none' }}>ใช้ได้ถึงวันที่</td>
+                  <td style={{ fontWeight: 700, color: '#000000', padding: '3px 0', border: 'none' }}>ใช้ได้ถึงวันที่</td>
                   <td style={{ padding: '3px 0', border: 'none' }}>
                     {fmtDate(quotation.validUntilDate)}
                     {isExpiredQuotation(quotation) && (
@@ -1456,12 +1474,20 @@ export default function QuotationPrint({
             <div className="w-14 h-14 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center animate-bounce">
               <Download className="w-7 h-7" />
             </div>
-            <div>
-              <h2 className="font-extrabold text-sm uppercase tracking-wide text-emerald-600">ดาวน์โหลด PDF สำเร็จแล้ว! 📥</h2>
-              <p className="text-xs text-[#555557] mt-2 font-semibold leading-relaxed">
-                ไฟล์เอกสารเซฟลงโทรศัพท์ของคุณเรียบร้อยแล้ว<br />
-                <span className="text-zinc-500 font-normal">กรุณารอจนกว่าการดาวน์โหลดในแถบแจ้งเตือนของเครื่องจะเสร็จสิ้น จากนั้นกดปุ่มสีน้ำเงินด้านล่างเพื่อเปิดแอปส่งอีเมล</span>
-              </p>
+            <div className="w-full">
+              <h2 className="font-extrabold text-sm uppercase tracking-wide text-emerald-600 flex items-center justify-center gap-1.5">
+                <CheckCircle2 className="w-4 h-4" /> ดาวน์โหลด PDF สำเร็จแล้ว!
+              </h2>
+              {downloadedPdfName && (
+                <div className="my-2.5 py-1.5 px-3 bg-slate-100 rounded-xl text-[11px] font-mono font-bold text-slate-700 truncate border border-slate-200">
+                  📄 {downloadedPdfName}
+                </div>
+              )}
+              <div className="text-xs text-[#555557] mt-2 leading-relaxed text-left bg-blue-50/70 p-3 rounded-xl border border-blue-100/70 space-y-1">
+                <p className="font-bold text-blue-900">💡 ขั้นตอนการส่ง:</p>
+                <p>1. กดปุ่มสีแดง <span className="font-semibold text-red-600">"เปิด Google Gmail"</span> ด้านล่าง</p>
+                <p>2. ในหน้าต่าง Gmail ให้คลิกไอคอนคลิปหนีบกระดาษ <b>📎 แนบไฟล์</b> แล้วเลือกไฟล์ PDF เพื่อส่งได้ทันที</p>
+              </div>
             </div>
             <div className="flex gap-2.5 w-full text-xs font-bold mt-2">
               <button
@@ -1477,9 +1503,10 @@ export default function QuotationPrint({
               <button
                 type="button"
                 onClick={handleOpenEmailApp}
-                className="flex-1 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-xl cursor-pointer transition-colors shadow-xs"
+                className="flex-1 py-2.5 bg-[#ea4335] hover:bg-[#d93025] text-white rounded-xl cursor-pointer transition-colors shadow-xs flex items-center justify-center gap-1.5 font-bold"
               >
-                เปิดแอปส่งอีเมล
+                <Mail className="w-4 h-4" />
+                เปิด Google Gmail
               </button>
             </div>
           </div>

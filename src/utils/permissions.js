@@ -6,31 +6,23 @@
 export const PAGE_DEFINITIONS = [
   {
     id: 'dashboard',
-    name: 'Dashboard (แดชบอร์ด)',
-    description: 'หน้าภาพรวม สถิติสินค้า กราฟยอดขายและสถานะใบเสนอราคา',
+    name: 'Dashboard ',
     icon: 'bi bi-grid-1x2-fill',
-    category: 'ภาพรวมระบบ'
   },
   {
     id: 'manage-products',
     name: 'จัดการข้อมูลสินค้า',
-    description: 'ดูรายการสินค้าทั้งหมด ข้อมูล SKU ราคา สต็อก และรายละเอียดสินค้า',
     icon: 'bi bi-box-seam-fill',
-    category: 'สินค้า'
   },
   {
     id: 'brands',
     name: 'จัดการแบรนด์สินค้า',
-    description: 'ดูและจัดการรายชื่อแบรนด์สินค้าในระบบ',
     icon: 'bi bi-award-fill',
-    category: 'สินค้า'
   },
   {
     id: 'categories',
     name: 'จัดการหมวดหมู่สินค้า',
-    description: 'ดูและจัดการหมวดหมู่หลักและหมวดหมู่ย่อย',
     icon: 'bi bi-folder-fill',
-    category: 'สินค้า'
   },
   {
     id: 'customers',
@@ -81,7 +73,7 @@ export const ACTION_GROUPS = [
       { id: 'products.delete', name: 'ปุ่มลบสินค้า', description: 'สามารถกดปุ่มถังขยะเพื่อลบรายการสินค้าได้' },
       { id: 'products.import', name: 'ปุ่มนำเข้าไฟล์ Excel', description: 'สามารถกดปุ่มนำเข้าสินค้าจากไฟล์ Excel เข้าสู่ระบบได้' },
       { id: 'products.export', name: 'ปุ่มส่งออกข้อมูล (Export)', description: 'สามารถส่งออกเป็น Excel, Shopee, Lazada, TikTok ได้' },
-      { id: 'products.print', name: 'ปุ่มพิมพ์บาร์โค้ด / ป้ายราคา', description: 'สามารถกดปุ่มพิมพ์ Barcode หรือป้ายราคาสินค้าได้' },
+      { id: 'products.print', name: 'ปุ่มพิมพ์บาร์โค้ด / ป้ายราคา', description: 'สามารถกดปุ่มพิมพ์ Barcode หรือป้ายราคาสินค้าได้', hidden: true },
       { id: 'products.clear', name: 'ปุ่มล้างสินค้าทั้งหมด', description: 'สามารถกดปุ่มรีเซ็ตหรือล้างข้อมูลสินค้าทั้งหมดได้' }
     ]
   },
@@ -130,7 +122,8 @@ export const ACTION_GROUPS = [
     actions: [
       { id: 'users.create', name: 'ปุ่มลงทะเบียนผู้ใช้ใหม่', description: 'สามารถกดสร้างบัญชีผู้ใช้งานใหม่ได้' },
       { id: 'users.edit', name: 'ปุ่มแก้ไขผู้ใช้งาน', description: 'สามารถกดแก้ไขข้อมูลผู้ใช้งานได้' },
-      { id: 'users.delete', name: 'ปุ่มลบผู้ใช้งาน', description: 'สามารถลบบัญชีผู้ใช้งานออกจากระบบได้' }
+      { id: 'users.delete', name: 'ปุ่มลบผู้ใช้งาน', description: 'สามารถลบบัญชีผู้ใช้งานออกจากระบบได้' },
+      { id: 'users.permissions', name: 'ปุ่มตั้งค่าสิทธิ์การใช้งาน', description: 'สามารถกดปุ่มฟันเฟืองเพื่อตั้งค่าสิทธิ์การใช้งาน (หน้า/ปุ่ม) ของผู้ใช้ได้' }
     ]
   },
   {
@@ -188,6 +181,7 @@ export const DEFAULT_PERMISSIONS = {
       'users.create': true,
       'users.edit': true,
       'users.delete': true,
+      'users.permissions': true,
     }
   },
   manager: {
@@ -230,6 +224,7 @@ export const DEFAULT_PERMISSIONS = {
       'users.create': true,
       'users.edit': true,
       'users.delete': false,
+      'users.permissions': false,
     }
   },
   user: {
@@ -272,6 +267,7 @@ export const DEFAULT_PERMISSIONS = {
       'users.create': false,
       'users.edit': false,
       'users.delete': false,
+      'users.permissions': false,
     }
   }
 };

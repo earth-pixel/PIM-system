@@ -1834,6 +1834,35 @@ const CreateTab = ({
   const [quickScanBanner, setQuickScanBanner] = useState(null);
   const quickScanInputRef = useRef(null);
 
+  const [errorFields, setErrorFields] = useState({});
+  const fieldRefs = {
+    custName: useRef(null),
+    custCompany: useRef(null),
+    custBranchName: useRef(null),
+    custRegion: useRef(null),
+    custPhone: useRef(null),
+    custTax: useRef(null),
+    custEmail: useRef(null),
+    custAddr: useRef(null),
+    custNote: useRef(null),
+    salesName: useRef(null),
+    salesPhone: useRef(null),
+    projName: useRef(null),
+    validDate: useRef(null),
+    items: useRef(null),
+  };
+
+  const scrollToField = (ref) => {
+    if (ref && ref.current) {
+      setTimeout(() => {
+        ref.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (typeof ref.current.focus === 'function') {
+          ref.current.focus();
+        }
+      }, 50);
+    }
+  };
+
   useEffect(() => {
     if (!quickScanBanner) return;
     const t = setTimeout(() => setQuickScanBanner(null), 3500);
@@ -1842,12 +1871,14 @@ const CreateTab = ({
 
   const setField = (k, v) => {
     setForm(f => ({ ...f, [k]: v }));
+    setErrorFields(prev => ({ ...prev, [k]: false }));
     if (['custName', 'custCompany', 'custPhone', 'custEmail', 'custTax', 'custAddr', 'custRegion', 'custNote'].includes(k)) {
       setSelectedCustName('');
     }
   };
 
   const handleSelectCustomer = (cust) => {
+    setErrorFields({});
     if (!cust) {
       setSelectedCustName('');
       setForm(f => ({
@@ -1893,7 +1924,10 @@ const CreateTab = ({
     }));
   };
 
-  const addItem = () => setItems(prev => [...prev, { id: generateItemId(), productName: '', productCode: '', barcode: '', productImage: '', description: '', size: '', weight: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent', lineTotal: 0 }]);
+  const addItem = () => {
+    setErrorFields(prev => ({ ...prev, items: false }));
+    setItems(prev => [...prev, { id: generateItemId(), productName: '', productCode: '', barcode: '', productImage: '', description: '', size: '', weight: '', quantity: 1, unit: 'ชิ้น', unitPrice: 0, discount: 0, discountType: 'percent', lineTotal: 0 }]);
+  };
   const removeItem = (id) => { setItems(prev => prev.filter(it => it.id !== id)); };
 
   const handleSelectProduct = (selectedInput, variantData) => {
@@ -1907,6 +1941,8 @@ const CreateTab = ({
     }
 
     if (itemsToAdd.length === 0) return;
+
+    setErrorFields(prev => ({ ...prev, items: false }));
 
     const newItems = itemsToAdd.map(({ product, variant }) => {
       const price = variant?.price ?? product.retailPrice ?? 0;
@@ -2002,6 +2038,7 @@ const CreateTab = ({
           });
         }
 
+        setErrorFields(prev => ({ ...prev, items: false }));
         playScanBeep('success');
         setQuickBarcode('');
         setTimeout(() => quickScanInputRef.current?.focus(), 30);
@@ -2023,33 +2060,103 @@ const CreateTab = ({
 
   const handleSave = (status) => {
     if (docFormat === 'quotation') {
-      if (!form.custName.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกชื่อลูกค้า' }); return; }
-      if (!form.custCompany.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกบริษัท' }); return; }
-      if (form.custBranchType === 'sub' && !form.custBranchName.trim()) {
-        setAlert({ type: 'error', msg: 'กรุณาระบุชื่อหรือรหัสสาขาย่อย' });
+      if (!form.custName.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกชื่อลูกค้า' });
+        setErrorFields({ custName: true });
+        scrollToField(fieldRefs.custName);
         return;
       }
-      if (!form.custRegion.trim()) { setAlert({ type: 'error', msg: 'กรุณาเลือกภาค (6 ภาค)' }); return; }
-      if (!form.custPhone.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกเบอร์โทร' }); return; }
-      if (!form.custTax.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกเลขผู้เสียภาษี' }); return; }
-      if (!form.custEmail.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอก Email' }); return; }
-      if (!form.custAddr.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกที่อยู่' }); return; }
-      if (!form.custNote.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกหมายเหตุ' }); return; }
-      if (!form.salesName.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกชื่อพนักงานขาย' }); return; }
-      if (!form.salesPhone.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกเบอร์ติดต่อพนักงานขาย' }); return; }
-      if (!form.projName.trim()) { setAlert({ type: 'error', msg: 'กรุณากรอกชื่อโปรเจกต์' }); return; }
-      if (!form.validDate) { setAlert({ type: 'error', msg: 'กรุณาเลือกวันหมดอายุ' }); return; }
+      if (!form.custCompany.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกบริษัท' });
+        setErrorFields({ custCompany: true });
+        scrollToField(fieldRefs.custCompany);
+        return;
+      }
+      if (form.custBranchType === 'sub' && !form.custBranchName.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณาระบุชื่อหรือรหัสสาขาย่อย' });
+        setErrorFields({ custBranchName: true });
+        scrollToField(fieldRefs.custBranchName);
+        return;
+      }
+      if (!form.custRegion.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณาเลือกภาค (6 ภาค)' });
+        setErrorFields({ custRegion: true });
+        scrollToField(fieldRefs.custRegion);
+        return;
+      }
+      if (!form.custPhone.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกเบอร์โทร' });
+        setErrorFields({ custPhone: true });
+        scrollToField(fieldRefs.custPhone);
+        return;
+      }
+      if (!form.custTax.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกเลขผู้เสียภาษี' });
+        setErrorFields({ custTax: true });
+        scrollToField(fieldRefs.custTax);
+        return;
+      }
+      if (!form.custEmail.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอก Email' });
+        setErrorFields({ custEmail: true });
+        scrollToField(fieldRefs.custEmail);
+        return;
+      }
+      if (!form.custAddr.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกที่อยู่' });
+        setErrorFields({ custAddr: true });
+        scrollToField(fieldRefs.custAddr);
+        return;
+      }
+      if (!form.custNote.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกหมายเหตุ' });
+        setErrorFields({ custNote: true });
+        scrollToField(fieldRefs.custNote);
+        return;
+      }
+      if (!form.salesName.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกชื่อพนักงานขาย' });
+        setErrorFields({ salesName: true });
+        scrollToField(fieldRefs.salesName);
+        return;
+      }
+      if (!form.salesPhone.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกเบอร์ติดต่อพนักงานขาย' });
+        setErrorFields({ salesPhone: true });
+        scrollToField(fieldRefs.salesPhone);
+        return;
+      }
+      if (!form.projName.trim()) {
+        setAlert({ type: 'error', msg: 'กรุณากรอกชื่อโปรเจกต์' });
+        setErrorFields({ projName: true });
+        scrollToField(fieldRefs.projName);
+        return;
+      }
+      if (!form.validDate) {
+        setAlert({ type: 'error', msg: 'กรุณาเลือกวันหมดอายุ' });
+        setErrorFields({ validDate: true });
+        scrollToField(fieldRefs.validDate);
+        return;
+      }
 
       const minDate = (editQt && editQt.issuedDate) ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE');
       if (form.validDate < minDate) {
         setAlert({ type: 'error', msg: 'วันหมดอายุต้องไม่น้อยกว่าวันที่ออกเอกสาร' });
+        setErrorFields({ validDate: true });
+        scrollToField(fieldRefs.validDate);
         return;
       }
     }
     const isProductProposalDraft = docFormat === 'product_proposal' && status === 'draft';
     if (!isProductProposalDraft) {
-      if (!items.some(it => it.productName.trim())) { setAlert({ type: 'error', msg: 'กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ' }); return; }
+      if (!items.some(it => it.productName.trim())) {
+        setAlert({ type: 'error', msg: 'กรุณาเพิ่มรายการสินค้าอย่างน้อย 1 รายการ' });
+        setErrorFields({ items: true });
+        scrollToField(fieldRefs.items);
+        return;
+      }
     }
+    setErrorFields({});
 
     const validItems = items.filter(it => it.productName && it.productName.trim());
 
@@ -2115,6 +2222,10 @@ const CreateTab = ({
 
   const labelClass = 'text-xs text-[#555557] font-semibold mb-1 block';
   const inputClass = 'w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all';
+  const getInputClass = (fieldName, extra = '') => {
+    const isErr = errorFields[fieldName];
+    return `w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border rounded-xl px-3 py-2.5 focus:outline-none focus:bg-white transition-all ${isErr ? 'border-red-500 ring-1 ring-red-500/30' : 'border-[#d2d2d7]/50 focus:border-[#0071e3]'} ${extra}`;
+  };
   const cardClass = 'bg-white border border-[#d2d2d7]/50 rounded-2xl p-5 shadow-xs';
   const titleClass = 'text-xs font-bold text-[#1d1d1f] border-b border-[#e8e8ed] pb-2 uppercase tracking-wider mb-4 flex items-center gap-2';
 
@@ -2272,7 +2383,8 @@ const CreateTab = ({
                       ชื่อลูกค้า <span className="text-red-500">*</span>
                     </label>
                     <input
-                      className={inputClass}
+                      ref={fieldRefs.custName}
+                      className={getInputClass('custName')}
                       value={form.custName}
                       onChange={e => setField('custName', e.target.value)}
                     />
@@ -2282,7 +2394,8 @@ const CreateTab = ({
                       บริษัท <span className="text-red-500">*</span>
                     </label>
                     <input
-                      className={inputClass}
+                      ref={fieldRefs.custCompany}
+                      className={getInputClass('custCompany')}
                       value={form.custCompany}
                       onChange={e => setField('custCompany', e.target.value)}
                     />
@@ -2325,12 +2438,14 @@ const CreateTab = ({
                           <span>↳ ระบุชื่อหรือรหัสสาขาย่อย: <span className="text-red-500">*</span></span>
                         </div>
                         <input
-                          className={`${inputClass} border-amber-300 focus:border-amber-500 focus:ring-amber-500/20`}
+                          ref={fieldRefs.custBranchName}
+                          className={getInputClass('custBranchName', 'border-amber-300 focus:border-amber-500 focus:ring-amber-500/20')}
                           value={form.custBranchName}
                           autoFocus
                           onChange={e => {
                             const val = e.target.value;
                             setForm(f => ({ ...f, custBranchName: val, custBranch: val ? `สาขา ${val}` : 'สาขาย่อย' }));
+                            setErrorFields(prev => ({ ...prev, custBranchName: false }));
                             setSelectedCustName('');
                           }}
                         />
@@ -2345,9 +2460,10 @@ const CreateTab = ({
                     </label>
                     <div className="relative">
                       <select
+                        ref={fieldRefs.custRegion}
                         value={form.custRegion}
                         onChange={e => setField('custRegion', e.target.value)}
-                        className={`${inputClass} px-3.5 pr-8 cursor-pointer appearance-none`}
+                        className={getInputClass('custRegion', 'px-3.5 pr-8 cursor-pointer appearance-none')}
                       >
                         <option value="">-- เลือกภาค (จำเป็น) --</option>
                         {THAI_REGIONS.map(r => (
@@ -2368,7 +2484,8 @@ const CreateTab = ({
                       เบอร์โทร <span className="text-red-500">*</span>
                     </label>
                     <input
-                      className={inputClass}
+                      ref={fieldRefs.custPhone}
+                      className={getInputClass('custPhone')}
                       value={form.custPhone}
                       onChange={e => setField('custPhone', e.target.value)}
                     />
@@ -2378,7 +2495,8 @@ const CreateTab = ({
                       เลขผู้เสียภาษี <span className="text-red-500">*</span>
                     </label>
                     <input
-                      className={`${inputClass} font-mono`}
+                      ref={fieldRefs.custTax}
+                      className={getInputClass('custTax', 'font-mono')}
                       maxLength={13}
                       value={form.custTax}
                       onChange={e => setField('custTax', e.target.value.replace(/\D/g, '').slice(0, 13))}
@@ -2392,8 +2510,9 @@ const CreateTab = ({
                     Email <span className="text-red-500">*</span>
                   </label>
                   <input
+                    ref={fieldRefs.custEmail}
                     type="email"
-                    className={inputClass}
+                    className={getInputClass('custEmail')}
                     value={form.custEmail}
                     onChange={e => setField('custEmail', e.target.value)}
                   />
@@ -2405,7 +2524,8 @@ const CreateTab = ({
                     ที่อยู่ <span className="text-red-500">*</span>
                   </label>
                   <textarea
-                    className={`${inputClass} resize-y min-h-[64px] leading-relaxed`}
+                    ref={fieldRefs.custAddr}
+                    className={getInputClass('custAddr', 'resize-y min-h-[64px] leading-relaxed')}
                     rows={3}
                     value={form.custAddr}
                     onChange={e => setField('custAddr', e.target.value)}
@@ -2418,7 +2538,8 @@ const CreateTab = ({
                     หมายเหตุ <span className="text-red-500">*</span>
                   </label>
                   <textarea
-                    className={`${inputClass} resize-y min-h-[56px] leading-relaxed`}
+                    ref={fieldRefs.custNote}
+                    className={getInputClass('custNote', 'resize-y min-h-[56px] leading-relaxed')}
                     rows={2}
                     value={form.custNote}
                     onChange={e => setField('custNote', e.target.value)}
@@ -2438,7 +2559,8 @@ const CreateTab = ({
                   <div>
                     <label className={labelClass}>พนักงานขาย <span className="text-red-500">*</span></label>
                     <input
-                      className={inputClass}
+                      ref={fieldRefs.salesName}
+                      className={getInputClass('salesName')}
                       list="salesperson-datalist"
                       value={form.salesName}
                       onChange={e => {
@@ -2467,11 +2589,11 @@ const CreateTab = ({
                       ))}
                     </datalist>
                   </div>
-                  <div><label className={labelClass}>เบอร์ติดต่อ <span className="text-red-500">*</span></label><input className={inputClass} value={form.salesPhone} onChange={e => setField('salesPhone', e.target.value)} /></div>
+                  <div><label className={labelClass}>เบอร์ติดต่อ <span className="text-red-500">*</span></label><input ref={fieldRefs.salesPhone} className={getInputClass('salesPhone')} value={form.salesPhone} onChange={e => setField('salesPhone', e.target.value)} /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div><label className={labelClass}>ชื่อโปรเจกต์ <span className="text-red-500">*</span></label><input className={inputClass} value={form.projName} onChange={e => setField('projName', e.target.value)} /></div>
-                  <div><label className={labelClass}>วันหมดอายุ <span className="text-red-500">*</span></label><input className={inputClass} type="date" value={form.validDate} min={(editQt && editQt.issuedDate) ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE')} onChange={e => setField('validDate', e.target.value)} /></div>
+                  <div><label className={labelClass}>ชื่อโปรเจกต์ <span className="text-red-500">*</span></label><input ref={fieldRefs.projName} className={getInputClass('projName')} value={form.projName} onChange={e => setField('projName', e.target.value)} /></div>
+                  <div><label className={labelClass}>วันหมดอายุ <span className="text-red-500">*</span></label><input ref={fieldRefs.validDate} className={getInputClass('validDate')} type="date" value={form.validDate} min={(editQt && editQt.issuedDate) ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE')} onChange={e => setField('validDate', e.target.value)} /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
@@ -2507,7 +2629,10 @@ const CreateTab = ({
             {/* Barcode Scanner Quick
             
             Bar */}
-            <div className="mb-4 p-3 bg-gradient-to-r from-blue-50/50 via-[#fbfbfb] to-white border border-[#d2d2d7]/70 rounded-2xl shadow-xs">
+            <div
+              ref={fieldRefs.items}
+              className={`mb-4 p-3 bg-gradient-to-r from-blue-50/50 via-[#fbfbfb] to-white border rounded-2xl shadow-xs transition-all ${errorFields.items ? 'border-red-500 ring-2 ring-red-500/30' : 'border-[#d2d2d7]/70'}`}
+            >
               <div className="relative w-full">
                 <Barcode className="w-4 h-4 text-[#0071e3] absolute left-3 top-2.5" />
                 <input
@@ -2983,9 +3108,9 @@ const PreviewTab = ({
             <button
               onClick={() => onSendMailDirect(q)}
               className="px-3.5 py-2 text-xs font-bold bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 rounded-xl cursor-pointer transition-colors flex items-center gap-1.5"
-              title="ดาวน์โหลดเอกสาร PDF และเปิดแอปส่งอีเมล"
+              title="ดาวน์โหลดเอกสาร PDF และเปิด Google Gmail เพื่อส่งอีเมล"
             >
-              <Mail className="w-3.5 h-3.5" /> ส่งอีเมล
+              <Mail className="w-3.5 h-3.5 text-[#ea4335]" /> ส่งอีเมล (Gmail)
             </button>
           )}
 
@@ -3698,7 +3823,7 @@ export default function QuotationManage({
               className="group relative overflow-hidden px-4 py-2.5 bg-gradient-to-r from-violet-600 to-purple-500 hover:from-violet-500 hover:to-purple-400 text-white text-xs font-bold rounded-xl shadow-lg hover:shadow-purple-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1.5 cursor-pointer"
             >
               <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
-              <Package className="w-4 h-4" />
+              <Plus className="w-4 h-4" />
               สร้างใบเสนอสินค้า
             </button>
           )}

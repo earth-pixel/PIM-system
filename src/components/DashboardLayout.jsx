@@ -149,13 +149,19 @@ export default function DashboardLayout({
 
   const [editProfileForm, setEditProfileForm] = useState({ name: '', username: '' });
   const [editProfileError, setEditProfileError] = useState('');
+  const [editProfileErrorField, setEditProfileErrorField] = useState(false);
   const [editProfileSuccess, setEditProfileSuccess] = useState(false);
+  const refEditUsername = useRef(null);
+
   const [showChangePwd, setShowChangePwd] = useState(false);
   const [changePwdForm, setChangePwdForm] = useState({ oldPwd: '', newPwd: '', confirmPwd: '' });
   const [changePwdError, setChangePwdError] = useState('');
+  const [changePwdErrorFields, setChangePwdErrorFields] = useState({});
   const [changePwdSuccess, setChangePwdSuccess] = useState(false);
   const [showOldPwd, setShowOldPwd] = useState(false);  
   const [showNewPwd, setShowNewPwd] = useState(false);
+  const refOldPwd = useRef(null);
+  const refNewPwd = useRef(null);
 
   const pendingQuotationsCount = useMemo(() => {
     return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation').length;
@@ -787,7 +793,7 @@ export default function DashboardLayout({
                     <hr className="border-zinc-100" />
 
                     {/* Sandbox Role Switcher Section */}
-                    <div className="space-y-2 bg-[#f8f9fa] p-2.5 rounded-2xl border border-zinc-200/60">
+                    <div className="space-y-2 bg-transparent p-2.5 rounded-2xl border border-zinc-200/60">
                       <div className="flex items-center justify-between px-0.5">
                         <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
                           <i className="bi bi-[#0071e3] bi-person-gear text-[#0071e3]"></i>
@@ -859,6 +865,7 @@ export default function DashboardLayout({
                           username: currentUser?.username || ''
                         });
                         setEditProfileError('');
+                        setEditProfileErrorField(false);
                         setEditProfileSuccess(false);
                         setShowEditProfile(true);
                       }}
@@ -873,6 +880,7 @@ export default function DashboardLayout({
                         setIsProfileOpen(false);
                         setChangePwdForm({ oldPwd: '', newPwd: '', confirmPwd: '' });
                         setChangePwdError('');
+                        setChangePwdErrorFields({});
                         setChangePwdSuccess(false);
                         setShowChangePwd(true);
                       }}
@@ -946,7 +954,7 @@ export default function DashboardLayout({
             </div>
 
             {/* Sandbox Role Switcher for Mobile Drawer */}
-            <div className="bg-[#f8f9fa] p-2.5 rounded-2xl border border-zinc-200/60 space-y-2 shrink-0">
+            <div className="bg-transparent p-2.5 rounded-2xl border border-zinc-200/60 space-y-2 shrink-0">
               <div className="flex items-center justify-between px-0.5">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
                   <i className="bi bi-person-gear text-[#0071e3]"></i>
@@ -1013,7 +1021,7 @@ export default function DashboardLayout({
                   if (!canProducts && !canBrands && !canCategories && !canCustomers) return null;
 
                   return (
-                    <div key="data-group" className="space-y-1 bg-zinc-50/70 p-2 rounded-2xl border border-zinc-200/50">
+                    <div key="data-group" className="space-y-1 bg-transparent p-2 rounded-2xl border border-zinc-200/50">
                       <div className="px-2 py-1 flex items-center gap-2 text-xs font-black text-zinc-800">
                         <i className="bi bi-database-fill text-[#0071e3]"></i>
                         <span>จัดการข้อมูล</span>
@@ -1224,11 +1232,16 @@ export default function DashboardLayout({
                   <div className="relative">
                     
                     <input
+                      ref={refEditUsername}
                       type="text"
                       value={editProfileForm.username}
-                      onChange={e => setEditProfileForm(f => ({ ...f, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }))}
+                      onChange={e => {
+                        setEditProfileForm(f => ({ ...f, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }));
+                        setEditProfileErrorField(false);
+                        setEditProfileError('');
+                      }}
                       placeholder="เช่น somsak_r"
-                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all lowercase font-mono"
+                      className={`w-full text-xs bg-[#f5f5f7] border rounded-xl px-3.5 py-2.5 focus:outline-none focus:bg-white transition-all lowercase font-mono ${editProfileErrorField ? 'border-red-500 ring-1 ring-red-500/30' : 'border-[#d2d2d7]/50 focus:border-[#0071e3]'}`}
                     />
                   </div>
                   <p className="text-[9.5px] text-zinc-400 mt-1">ใช้สำหรับเข้าสู่ระบบ (ภาษาอังกฤษ ตัวเลข และ _ เท่านั้น)</p>
@@ -1252,28 +1265,44 @@ export default function DashboardLayout({
                       const cleanUsername = editProfileForm.username.trim().toLowerCase();
                       if (!cleanUsername) {
                         setEditProfileError('กรุณากรอกชื่อผู้ใช้ (Username)');
+                        setEditProfileErrorField(true);
+                        refEditUsername.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        refEditUsername.current?.focus();
                         return;
                       }
                       if (cleanUsername.length < 3) {
                         setEditProfileError('ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร');
+                        setEditProfileErrorField(true);
+                        refEditUsername.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        refEditUsername.current?.focus();
                         return;
                       }
                       if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
                         setEditProfileError('ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษ (a-z), ตัวเลข (0-9) และ _ เท่านั้น');
+                        setEditProfileErrorField(true);
+                        refEditUsername.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        refEditUsername.current?.focus();
                         return;
                       }
                       // Check if unchanged
                       if (cleanUsername === currentUser?.username?.toLowerCase()) {
                         setEditProfileError('ชื่อผู้ใช้นี้ตรงกับชื่อผู้ใช้ปัจจุบันอยู่แล้ว');
+                        setEditProfileErrorField(true);
+                        refEditUsername.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        refEditUsername.current?.focus();
                         return;
                       }
                       // Check for duplicate username among other users
                       const duplicate = users.find(u => u.username?.toLowerCase() === cleanUsername);
                       if (duplicate) {
                         setEditProfileError(`ชื่อผู้ใช้ "@${cleanUsername}" มีผู้ใช้งานแล้ว`);
+                        setEditProfileErrorField(true);
+                        refEditUsername.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        refEditUsername.current?.focus();
                         return;
                       }
                       setEditProfileError('');
+                      setEditProfileErrorField(false);
                       if (onUpdateProfile) {
                         try { await onUpdateProfile({ username: cleanUsername }); } catch (error) { setEditProfileError(error.message); return; }
                       }
@@ -1322,11 +1351,16 @@ export default function DashboardLayout({
                   <label className="text-[10px] text-[#555557] font-semibold block mb-1">รหัสผ่านปัจจุบัน <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <input
+                      ref={refOldPwd}
                       type={showOldPwd ? 'text' : 'password'}
                       value={changePwdForm.oldPwd}
-                      onChange={e => setChangePwdForm(f => ({ ...f, oldPwd: e.target.value }))}
+                      onChange={e => {
+                        setChangePwdForm(f => ({ ...f, oldPwd: e.target.value }));
+                        setChangePwdErrorFields(prev => ({ ...prev, oldPwd: false }));
+                        setChangePwdError('');
+                      }}
                       placeholder="กรอกรหัสผ่านปัจจุบัน"
-                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3 py-2.5 pr-9 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
+                      className={`w-full text-xs bg-[#f5f5f7] border rounded-xl px-3 py-2.5 pr-9 focus:outline-none focus:bg-white transition-all ${changePwdErrorFields.oldPwd ? 'border-red-500 ring-1 ring-red-500/30' : 'border-[#d2d2d7]/50 focus:border-[#0071e3]'}`}
                     />
                     <button type="button" onClick={() => setShowOldPwd(v => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 cursor-pointer">
@@ -1340,11 +1374,16 @@ export default function DashboardLayout({
                   <label className="text-[10px] text-[#555557] font-semibold block mb-1">รหัสผ่านใหม่ <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <input
+                      ref={refNewPwd}
                       type={showNewPwd ? 'text' : 'password'}
                       value={changePwdForm.newPwd}
-                      onChange={e => setChangePwdForm(f => ({ ...f, newPwd: e.target.value }))}
+                      onChange={e => {
+                        setChangePwdForm(f => ({ ...f, newPwd: e.target.value }));
+                        setChangePwdErrorFields(prev => ({ ...prev, newPwd: false }));
+                        setChangePwdError('');
+                      }}
                       placeholder="กรอกรหัสผ่านใหม่"
-                      className="w-full text-xs bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3 py-2.5 pr-9 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all"
+                      className={`w-full text-xs bg-[#f5f5f7] border rounded-xl px-3 py-2.5 pr-9 focus:outline-none focus:bg-white transition-all ${changePwdErrorFields.newPwd ? 'border-red-500 ring-1 ring-red-500/30' : 'border-[#d2d2d7]/50 focus:border-[#0071e3]'}`}
                     />
                     <button type="button" onClick={() => setShowNewPwd(v => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 cursor-pointer">
@@ -1369,10 +1408,29 @@ export default function DashboardLayout({
                   <button type="button"
                     onClick={async () => {
                       const { oldPwd, newPwd } = changePwdForm;
-                      if (!oldPwd) { setChangePwdError('กรุณากรอกรหัสผ่านปัจจุบัน'); return; }
-                      if (!newPwd || newPwd.length < 4) { setChangePwdError('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร'); return; }
-                      if (newPwd === oldPwd) { setChangePwdError('รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม'); return; }
+                      if (!oldPwd) {
+                        setChangePwdError('กรุณากรอกรหัสผ่านปัจจุบัน');
+                        setChangePwdErrorFields({ oldPwd: true });
+                        refOldPwd.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        refOldPwd.current?.focus();
+                        return;
+                      }
+                      if (!newPwd || newPwd.length < 4) {
+                        setChangePwdError('รหัสผ่านใหม่ต้องมีอย่างน้อย 4 ตัวอักษร');
+                        setChangePwdErrorFields({ newPwd: true });
+                        refNewPwd.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        refNewPwd.current?.focus();
+                        return;
+                      }
+                      if (newPwd === oldPwd) {
+                        setChangePwdError('รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสเดิม');
+                        setChangePwdErrorFields({ newPwd: true });
+                        refNewPwd.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        refNewPwd.current?.focus();
+                        return;
+                      }
                       setChangePwdError('');
+                      setChangePwdErrorFields({});
                       try { if (onChangePassword) await onChangePassword(newPwd, oldPwd); } catch (error) { setChangePwdError(error.message); return; }
                       setChangePwdSuccess(true);
                     }}

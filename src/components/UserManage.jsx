@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   UserPlus,
@@ -40,6 +40,17 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   const [errorMsg, setErrorMsg] = useState('');
   const [alertPopup, setAlertPopup] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errorFields, setErrorFields] = useState({});
+
+  // Refs for scroll-to-error
+  const refUsername = useRef(null);
+  const refPassword = useRef(null);
+  const refName = useRef(null);
+
+  const scrollToError = (ref) => {
+    setTimeout(() => ref?.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+  };
+  const clearFieldError = (field) => setErrorFields(prev => ({ ...prev, [field]: false }));
 
   const [editingUser, setEditingUser] = useState(null);
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(null);
@@ -51,6 +62,33 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   const [permissionSearch, setPermissionSearch] = useState('');
   const [permissionSaving, setPermissionSaving] = useState(false);
   const [permissionConfirm, setPermissionConfirm] = useState(null);
+
+  // Tab indicator animated slide states
+  const pagesTabRef = useRef(null);
+  const actionsTabRef = useRef(null);
+  const [pillStyle, setPillStyle] = useState({ left: 4, width: 0, opacity: 0 });
+
+  useLayoutEffect(() => {
+    if (editingPermissionsUser) {
+      const updatePill = () => {
+        const activeEl = permissionTab === 'pages' ? pagesTabRef.current : actionsTabRef.current;
+        if (activeEl) {
+          setPillStyle({
+            left: activeEl.offsetLeft,
+            width: activeEl.offsetWidth,
+            opacity: 1
+          });
+        }
+      };
+      updatePill();
+      const raf = requestAnimationFrame(updatePill);
+      window.addEventListener('resize', updatePill);
+      return () => {
+        cancelAnimationFrame(raf);
+        window.removeEventListener('resize', updatePill);
+      };
+    }
+  }, [permissionTab, editingPermissionsUser]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('All');
@@ -165,7 +203,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   const handleApplyPreset = (presetType) => {
     if (!editingPermissionsUser) return;
     setPermissionConfirm({
-      title: 'ยืนยันรีเซ็ตสิทธิ์ตาม Role',
+      title: 'ยืนยันรีเซ็ตการตั้งค่า',
       message: `คุณต้องการรีเซ็ตสิทธิ์ของ "${editingPermissionsUser.name}" กลับเป็นค่าเริ่มต้นตาม Role (${editingPermissionsUser.role}) ใช่หรือไม่? การตั้งค่าสิทธิ์เดิมจะถูกแทนที่`,
       type: 'warning',
       confirmText: 'ยืนยันรีเซ็ต',
@@ -289,8 +327,13 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   };
 
   const canManagePermissions = (u) => {
-    // เฉพาะ Admin เท่านั้นที่กำหนดสิทธิ์ได้ ป้องกัน Admin เผลอปิดสิทธิ์ตัวเอง
-    return currentUser?.role === 'admin';
+    if (currentUser?.role === 'admin') {
+      return canPerformAction(currentUser, 'users.permissions');
+    }
+    if (currentUser?.role === 'manager' && u.role === 'user') {
+      return canPerformAction(currentUser, 'users.permissions');
+    }
+    return false;
   };
 
   const canDelete = (u) => {
@@ -304,19 +347,38 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErrorMsg('');
+    setErrorFields({});
 
-    if (!username.trim() || (!editingUser && !password.trim()) || !name.trim()) {
-      setErrorMsg('กรุณากรอกข้อมูลให้ครบถ้วนทุกช่อง');
+    if (!username.trim()) {
+      setErrorFields({ username: true });
+      scrollToError(refUsername);
+      setErrorMsg('กรุณากรอกชื่อไอดีเข้าระบบ (Username)');
+      return;
+    }
+    if (!editingUser && !password.trim()) {
+      setErrorFields({ password: true });
+      scrollToError(refPassword);
+      setErrorMsg('กรุณากรอกรหัสผ่าน');
+      return;
+    }
+    if (!name.trim()) {
+      setErrorFields({ name: true });
+      scrollToError(refName);
+      setErrorMsg('กรุณากรอกชื่อ-นามสกุลพนักงาน');
       return;
     }
 
     if (password && (password.length < 8 || password.length > 256)) {
+      setErrorFields({ password: true });
+      scrollToError(refPassword);
       setErrorMsg('รหัสผ่านใหม่ต้องมี 8–256 ตัวอักษร');
       return;
     }
     const cleanUsername = username.trim().toLowerCase();
 
     if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
+      setErrorFields({ username: true });
+      scrollToError(refUsername);
       setErrorMsg('ชื่อไอดีเข้าระบบ (Username) ต้องเป็นภาษาอังกฤษ (a-z), ตัวเลข (0-9) และ _ เท่านั้น');
       return;
     }
@@ -327,6 +389,8 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
         (u) => u.username === cleanUsername && u.username !== editingUser.username
       );
       if (duplicateUser) {
+        setErrorFields({ username: true });
+        scrollToError(refUsername);
         setErrorMsg(`ชื่อผู้ใช้ (Username) "${cleanUsername}" ถูกใช้งานแล้ว`);
         return;
       }
@@ -360,6 +424,8 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
     } else {
       const exists = users.some(u => u.username === cleanUsername);
       if (exists) {
+        setErrorFields({ username: true });
+        scrollToError(refUsername);
         setErrorMsg(`ชื่อผู้ใช้ (Username) "${cleanUsername}" ถูกใช้งานแล้ว`);
         return;
       }
@@ -404,6 +470,22 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
     }
   };
 
+  const formatAccountDate = (val) => {
+    if (!val) return '-';
+    try {
+      if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+        const [y, m, d] = val.split('-');
+        const dateObj = new Date(Number(y), Number(m) - 1, Number(d));
+        return dateObj.toLocaleDateString('th-TH');
+      }
+      const d = new Date(val);
+      if (isNaN(d.getTime())) return val;
+      return d.toLocaleDateString('th-TH');
+    } catch {
+      return val;
+    }
+  };
+
   // Filtered definitions for Permission Modal
   const filteredPages = useMemo(() => {
     if (!permissionSearch.trim()) return PAGE_DEFINITIONS;
@@ -416,17 +498,19 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
   }, [permissionSearch]);
 
   const filteredActionGroups = useMemo(() => {
-    if (!permissionSearch.trim()) return ACTION_GROUPS;
     const term = permissionSearch.toLowerCase().trim();
     return ACTION_GROUPS.map(group => {
-      const matchingActions = group.actions.filter(a =>
+      const visibleActions = group.actions.filter(a => !a.hidden);
+      const matchingActions = visibleActions.filter(a =>
+        !term ||
         a.name.toLowerCase().includes(term) ||
-        a.description.toLowerCase().includes(term)
+        a.description.toLowerCase().includes(term) ||
+        group.name.toLowerCase().includes(term)
       );
-      if (matchingActions.length > 0 || group.name.toLowerCase().includes(term)) {
+      if (matchingActions.length > 0) {
         return {
           ...group,
-          actions: matchingActions.length > 0 ? matchingActions : group.actions
+          actions: matchingActions
         };
       }
       return null;
@@ -443,11 +527,14 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
   const activeActionsCount = useMemo(() => {
     if (!permissionsForm?.actions) return 0;
-    return Object.values(permissionsForm.actions).filter(Boolean).length;
+    const hiddenSet = new Set(
+      ACTION_GROUPS.flatMap(g => g.actions.filter(a => a.hidden).map(a => a.id))
+    );
+    return Object.entries(permissionsForm.actions).filter(([k, v]) => Boolean(v) && !hiddenSet.has(k)).length;
   }, [permissionsForm]);
 
   const totalActionsCount = useMemo(() => {
-    return ACTION_GROUPS.reduce((acc, g) => acc + g.actions.length, 0);
+    return ACTION_GROUPS.reduce((acc, g) => acc + g.actions.filter(a => !a.hidden).length, 0);
   }, []);
 
   return (
@@ -559,7 +646,9 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     </td>
                     <td className="p-2 sm:p-3.5 font-semibold text-[#1d1d1f] leading-snug">{u.name}</td>
                     <td className="p-2 sm:p-3.5">{getRoleBadge(u.role)}</td>
-                    <td className="p-2 sm:p-3.5 text-[#555557] font-mono text-xs">{u.createdAt}</td>
+                    <td className="p-2 sm:p-3.5 text-[#555557] font-mono text-xs" title={u.createdAt || ''}>
+                      {formatAccountDate(u.createdAt)}
+                    </td>
                     <td className="p-2 sm:p-3.5 text-center">
                       <div className="flex justify-center items-center gap-1.5">
                         {/* 1. ปุ่มแก้ไข (ดินสอ) */}
@@ -638,7 +727,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
             </div>
 
             {/* Quick Presets Bar */}
-            <div className="px-6 py-3 bg-[#f8f9fa] border-b border-[#e8e8ed] flex flex-wrap items-center justify-between gap-2 text-xs">
+            <div className="px-6 py-3 bg-transparent border-b border-[#e8e8ed] flex flex-wrap items-center justify-between gap-2 text-xs">
               <span className="font-bold text-[#555557] text-[11px] uppercase tracking-wider">
                 ทางลัดกำหนดสิทธิ์:
               </span>
@@ -649,7 +738,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                   className="px-2.5 py-1 bg-white hover:bg-zinc-100 text-zinc-700 border border-zinc-200/80 rounded-lg font-semibold transition-all shadow-2xs hover:shadow-xs cursor-pointer"
                   title="คืนค่าสิทธิ์ตาม Role เริ่มต้น"
                 >
-                  ตาม Role ({editingPermissionsUser.role})
+                  รีเซ็ตการตั้งค่า
                 </button>
               </div>
             </div>
@@ -657,36 +746,48 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
             {/* Search & Navigation Tabs */}
             <div className="px-6 pt-3 pb-2 border-b border-[#e8e8ed] bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               {/* Tabs */}
-              <div className="flex items-center gap-1 bg-[#f0f0f5] p-1 rounded-xl w-full sm:w-auto">
+              <div className="relative flex flex-nowrap items-center p-1 bg-[#e8e8ed] rounded-full border border-[#d2d2d7]/50 w-fit shrink-0 shadow-[inset_0_1px_2px_rgba(0,0,0,0.05)] select-none">
+                {/* Animated sliding indicator pill */}
+                <div
+                  className="absolute top-1 bottom-1 rounded-full bg-white shadow-sm border border-black/5 pointer-events-none transition-all duration-350 ease-[cubic-bezier(0.34,1.25,0.64,1)]"
+                  style={{
+                    left: `${pillStyle.left}px`,
+                    width: `${pillStyle.width}px`,
+                    opacity: pillStyle.opacity
+                  }}
+                />
+
                 <button
+                  ref={pagesTabRef}
                   type="button"
                   onClick={() => setPermissionTab('pages')}
-                  className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`relative z-10 px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer transform active:scale-95 whitespace-nowrap shrink-0 ${
                     permissionTab === 'pages'
-                      ? 'bg-white text-[#0071e3] shadow-xs'
+                      ? 'text-[#0071e3]'
                       : 'text-zinc-600 hover:text-zinc-900'
                   }`}
                 >
                   <span>สิทธิ์การมองเห็นหน้า</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                    permissionTab === 'pages' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'bg-zinc-200 text-zinc-600'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold transition-all duration-200 ${
+                    permissionTab === 'pages' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'bg-zinc-300/60 text-zinc-600'
                   }`}>
                     {activePagesCount}/{totalPagesCount}
                   </span>
                 </button>
 
                 <button
+                  ref={actionsTabRef}
                   type="button"
                   onClick={() => setPermissionTab('actions')}
-                  className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  className={`relative z-10 px-3.5 sm:px-4 py-1.5 rounded-full text-xs font-bold transition-colors duration-200 flex items-center justify-center gap-1.5 cursor-pointer transform active:scale-95 whitespace-nowrap shrink-0 ${
                     permissionTab === 'actions'
-                      ? 'bg-white text-amber-700 shadow-xs'
+                      ? 'text-amber-700'
                       : 'text-zinc-600 hover:text-zinc-900'
                   }`}
                 >
                   <span>สิทธิ์ปุ่มคำสั่งและการทำงาน</span>
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-extrabold ${
-                    permissionTab === 'actions' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-200 text-zinc-600'
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold transition-all duration-200 ${
+                    permissionTab === 'actions' ? 'bg-amber-100 text-amber-800' : 'bg-zinc-300/60 text-zinc-600'
                   }`}>
                     {activeActionsCount}/{totalActionsCount}
                   </span>
@@ -726,7 +827,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
               {/* TAB 1: PAGES & NAVIGATION */}
               {permissionTab === 'pages' && (
-                <div className="space-y-3">
+                <div key="pages" className="space-y-3 animate-fade-in">
                   <div className="flex items-center justify-between px-1">
                     <span className="text-[11px] font-extrabold uppercase tracking-wider text-zinc-500">
                       รายการหน้าและเมนูที่อนุญาตให้เข้าถึง ({filteredPages.length} หน้า)
@@ -800,16 +901,16 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
               {/* TAB 2: BUTTONS & ACTIONS */}
               {permissionTab === 'actions' && (
-                <div className="space-y-4">
+                <div key="actions" className="space-y-4 animate-fade-in">
                   {filteredActionGroups.map(group => {
                     const groupActions = group.actions;
                     const groupEnabledCount = groupActions.filter(a => permissionsForm.actions?.[a.id]).length;
                     const isAllGroupEnabled = groupEnabledCount === groupActions.length;
 
                     return (
-                      <div key={group.id} className="bg-white rounded-2xl border border-[#d2d2d7]/60 shadow-xs overflow-hidden">
+                      <div key={group.id} className="rounded-2xl border border-[#d2d2d7]/40 shadow-xs overflow-hidden">
                         {/* Group Header */}
-                        <div className="px-4 py-3 bg-[#f5f5f7]/70 border-b border-[#e8e8ed] flex items-center justify-between gap-3">
+                        <div className="px-4 py-3 bg-transparent border-b border-[#e8e8ed] flex items-center justify-between gap-3">
                           <div>
                             <span className="font-bold text-xs text-[#1d1d1f] block leading-tight">
                               {group.name}
@@ -842,8 +943,8 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                               <div
                                 key={action.id}
                                 onClick={() => handleToggleActionPermission(action)}
-                                className={`px-4 py-3 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none hover:bg-blue-50/20 ${
-                                  isEnabled ? 'bg-white' : 'bg-zinc-50/40 opacity-70 hover:opacity-100'
+                                className={`px-4 py-3 flex items-center justify-between gap-3 transition-colors cursor-pointer select-none hover:bg-blue-50/10 ${
+                                  isEnabled ? 'bg-transparent' : 'bg-transparent opacity-70 hover:opacity-100'
                                 }`}
                               >
                                 <div className="min-w-0 flex-1">
@@ -950,11 +1051,12 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     ชื่อไอดีเข้าระบบ (Username) <span className="text-xs font-semibold text-zinc-650 ml-1"></span> <span className="text-red-500">*</span>
                   </label>
                   <input
+                    ref={refUsername}
                     type="text"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ''))}
+                    onChange={(e) => { setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')); clearFieldError('username'); }}
                     placeholder="เช่น somsak_r"
-                    className="form-input font-mono lowercase"
+                    className={`form-input font-mono lowercase ${errorFields.username ? 'border-red-500 ring-1 ring-red-500/30' : ''}`}
                     autoFocus={!editingUser}
                   />
                   <p className="text-[10px] text-zinc-400 mt-1">ใช้ภาษาอังกฤษ ตัวเลข และ _ เท่านั้น (เช่น somsak_r)</p>
@@ -967,11 +1069,12 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                   </label>
                   <div className="relative">
                     <input
+                      ref={refPassword}
                       type={showPassword ? 'text' : 'password'}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => { setPassword(e.target.value); clearFieldError('password'); }}
                       placeholder={editingUser ? 'เว้นว่างหากไม่ต้องการเปลี่ยน' : '••••••••'}
-                      className="form-input pr-10 font-mono"
+                      className={`form-input pr-10 font-mono ${errorFields.password ? 'border-red-500 ring-1 ring-red-500/30' : ''}`}
                     />
                     <button
                       type="button"
@@ -989,11 +1092,12 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     ชื่อ-นามสกุลพนักงาน <span className="text-red-500">*</span>
                   </label>
                   <input
+                    ref={refName}
                     type="text"
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={(e) => { setName(e.target.value); clearFieldError('name'); }}
                     placeholder="เช่น สมศักดิ์ รักดี"
-                    className="form-input"
+                    className={`form-input ${errorFields.name ? 'border-red-500 ring-1 ring-red-500/30' : ''}`}
                   />
                 </div>
 
@@ -1007,14 +1111,13 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       disabled={isOnlyAdmin}
                       className={`form-input ${isOnlyAdmin ? 'bg-zinc-100 cursor-not-allowed opacity-75' : ''}`}
                     >
-                      <option value="user">User (พนักงานขาย / คลังสินค้า)</option>
-                      <option value="manager">Manager (ผู้จัดการ)</option>
-                      <option value="admin">Admin (ผู้ดูแลระบบสูงสุด)</option>
+                      <option value="admin">Admin</option>
+                       <option value="manager">Manager</option>
+                      <option value="user">User</option>
                     </select>
                   ) : (
                     <div className="p-3 bg-zinc-50 border border-zinc-200/80 rounded-xl text-xs font-bold text-zinc-700 flex items-center justify-between">
-                      <span>User (สร้างได้เฉพาะระดับพนักงาน)</span>
-                      <span className="px-2 py-0.5 text-[10px] bg-zinc-200 rounded text-zinc-600">Fixed</span>
+                      <span>User</span>
                     </div>
                   )}
                   {isOnlyAdmin && (
@@ -1026,7 +1129,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
               </div>
 
               {/* Modal Footer */}
-              <div className="px-6 py-4 border-t border-[#e8e8ed] flex items-center justify-end gap-2 flex-shrink-0 bg-zinc-50/50">
+              <div className="px-6 py-4 border-t border-[#e8e8ed] flex items-center justify-end gap-2 flex-shrink-0 bg-transparent">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}

@@ -85,6 +85,32 @@
       opacity: 0;
     }
   }
+
+  @keyframes barRise {
+    0% {
+      transform: scaleY(0);
+      opacity: 0;
+    }
+    60% {
+      transform: scaleY(1.07);
+      opacity: 0.95;
+    }
+    100% {
+      transform: scaleY(1);
+      opacity: 1;
+    }
+  }
+
+  @keyframes labelSlideUp {
+    0% {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+    100% {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
 
 /* ─── Root / Design Tokens ─────────────────────────────────────── */
@@ -1029,12 +1055,17 @@ textarea {
     background-color: #48484a !important;
   }
 
-  .bg-zinc-50\/30 {
-    background-color: rgba(255, 255, 255, 0.02) !important;
-  }
-
-  .bg-zinc-50\/50 {
-    background-color: rgba(255, 255, 255, 0.04) !important;
+  .bg-zinc-50\/30,
+  .bg-zinc-50\/40,
+  .bg-zinc-50\/50,
+  .bg-zinc-50\/70,
+  .bg-zinc-50\/80,
+  .bg-zinc-100\/50,
+  .bg-zinc-100\/80,
+  .bg-zinc-500\/10,
+  .bg-white\/60,
+  .bg-white\/70 {
+    background-color: transparent !important;
   }
 
   /* Modals & Dropdowns */
@@ -1113,6 +1144,11 @@ textarea {
   .bg-amber-50,
   .bg-amber-50\/60 {
     background-color: rgba(217, 119, 6, 0.15) !important;
+  }
+
+  .bg-amber-100,
+  .bg-amber-100\/80 {
+    background-color: rgba(217, 119, 6, 0.18) !important;
   }
 
   .hover\:bg-amber-50:hover,
@@ -1307,6 +1343,7 @@ textarea {
   }
 
   .from-emerald-50,
+  .from-emerald-50\/80,
   .from-emerald-100\/90 {
     background: #161618 !important;
     border-color: rgba(16, 185, 129, 0.3) !important;
@@ -1347,6 +1384,101 @@ textarea {
   /* Hide the bright decorative top-right glow shapes in KPI cards in Dark Mode */
   .absolute.top-0.right-0.w-24.h-24.bg-gradient-to-bl.rounded-bl-\[3rem\] {
     display: none !important;
+  }
+
+  /* ── Hardcoded light background overrides ────────────────────── */
+  /* #f8f9fa and #f0f0f5 used in sidebar sandbox cards, modal quick-preset bars, tab pills */
+  .bg-\[\#f8f9fa\],
+  .bg-\[\#f0f0f5\] {
+    background-color: transparent !important;
+  }
+
+  /* #e8e8ed used as segmented control background */
+  .bg-\[\#e8e8ed\] {
+    background-color: #2c2c2e !important;
+  }
+
+  /* #f1f5f9 (slate-100 equivalent) used in some inline styles via CSS var */
+  /* Covered via bg-zinc-100 above, kept for clarity */
+
+  /* ── Modal / Panel gradient headers that contain via-white ───── */
+  /* e.g. bg-gradient-to-r from-zinc-50/80 via-white to-zinc-50/30 */
+  .bg-gradient-to-r.from-zinc-50\/80,
+  .bg-gradient-to-b.from-zinc-50\/80,
+  .bg-gradient-to-br.from-zinc-50\/80 {
+    background: #1c1c1e !important;
+  }
+
+  /* Amber / orange info banners inside forms */
+  .bg-gradient-to-r.from-amber-50\/90,
+  .bg-gradient-to-r.from-amber-50,
+  .bg-gradient-to-br.from-amber-50,
+  .bg-gradient-to-r.from-amber-100,
+  .bg-gradient-to-br.from-amber-100 {
+    background: rgba(217, 119, 6, 0.12) !important;
+    border-color: rgba(217, 119, 6, 0.35) !important;
+  }
+
+  /* Blue info boxes inside forms (e.g. from-blue-50/50 via-[#fbfbfb] to-white) */
+  .bg-gradient-to-r.from-blue-50\/50 {
+    background: rgba(0, 113, 227, 0.08) !important;
+    border-color: rgba(0, 113, 227, 0.25) !important;
+  }
+
+  /* Violet / fuchsia KPI / proposal cards */
+  .bg-gradient-to-br.from-violet-50,
+  .bg-gradient-to-br.from-violet-50\/80,
+  .bg-gradient-to-br.from-violet-100 {
+    background: #161618 !important;
+    border-color: rgba(139, 92, 246, 0.3) !important;
+  }
+
+  /* Blue / cyan KPI cards */
+  .bg-gradient-to-br.from-blue-50,
+  .bg-gradient-to-br.from-blue-50\/80,
+  .bg-gradient-to-br.from-blue-100 {
+    background: #161618 !important;
+    border-color: rgba(59, 130, 246, 0.3) !important;
+  }
+
+  /* Red / rose KPI cards */
+  .bg-gradient-to-br.from-red-50\/80,
+  .bg-gradient-to-br.from-red-50,
+  .bg-gradient-to-br.from-red-100 {
+    background: #161618 !important;
+    border-color: rgba(225, 29, 72, 0.3) !important;
+  }
+
+  /* to-* gradient ends that produce light color — neutralize them */
+  .to-orange-50\/80,
+  .to-orange-50,
+  .to-fuchsia-50,
+  .to-cyan-50,
+  .to-teal-50,
+  .to-rose-50\/40,
+  .to-rose-50 {
+    --tw-gradient-to: transparent !important;
+  }
+
+  /* border overrides for pastel gradient card wrappers */
+  .border-red-200\/60 {
+    border-color: rgba(225, 29, 72, 0.2) !important;
+  }
+
+  .border-violet-200,
+  .border-violet-200\/60 {
+    border-color: rgba(139, 92, 246, 0.25) !important;
+  }
+
+  .border-blue-200,
+  .border-blue-200\/60 {
+    border-color: rgba(59, 130, 246, 0.25) !important;
+  }
+
+  .border-amber-200\/90,
+  .border-amber-200,
+  .border-amber-300 {
+    border-color: rgba(217, 119, 6, 0.35) !important;
   }
 }
 

@@ -383,12 +383,20 @@
       "createdAt": "2026-07-02",
       "id": "964ee122-653c-4e3d-8b5a-be627ff3b857",
       "passwordHash": "bdec6ac7773ed80ae2541d73f4af05eb:fa0811d054105f1d5e85fa81af1a0b91688f2ebf558d8646a3ec1be18a75e1b5580353cc80308772fc3cfe37c17b4a96714a4c4a24ef5a7d847cdb54a45984eb"
+    },
+    {
+      "id": "f3bd97fb-1a9b-44ac-86d9-f6472fa8cd26",
+      "username": "ea",
+      "name": "เอิร์ธ",
+      "role": "admin",
+      "createdAt": "2026-09-10T02:30:09.434Z",
+      "passwordHash": "e24e8c64b3b41611d15eeb83249764d6:24698f2d25a75d296d931982a5d806bcd12b8c28b904745397defebdbf8a598ae4fc0aa3f243ae138f58ed04c03eb9072af99e2df9d94552e843b4a4cf56ff9a"
     }
   ],
   "quotations": [
     {
-      "id": "qt-1788927615434",
-      "quotationNumber": "QT-20260909-0001",
+      "id": "qt-1788942631384",
+      "quotationNumber": "QT-20260909-0003",
       "documentType": "quotation",
       "createdBy": "admin",
       "customer": {
@@ -398,7 +406,7 @@
         "branchName": "บางแค",
         "branch": "สาขา บางแค",
         "region": "ภาคกลาง",
-        "email": "earth01062547@gmail.com",
+        "email": "earth010647@gmail.com",
         "phone": "0055151351",
         "taxId": "110054894613",
         "address": "388 -gopr-sd บหสวเก 20200",
@@ -407,31 +415,68 @@
       "customerBranch": "สาขา บางแค",
       "customerRegion": "ภาคกลาง",
       "salespersonName": "สมศักดิ์ รักดี (Admin)",
-      "salespersonPhone": "0815+155165",
-      "projectName": "ea",
+      "salespersonPhone": "082222222",
+      "projectName": "ลดราคา",
       "issuedDate": "2026-09-09",
-      "validUntilDate": "2026-09-11",
+      "validUntilDate": "2026-09-12",
       "vatRate": 7,
       "note": "",
       "items": [
         {
-          "id": 1788927591610,
-          "productName": "บาร์เบอร์ เบรน เท็คเจอร์ & วอลลุ่ม แฮร์ สเปรย์ BB-702",
-          "productCode": "BB-702",
+          "id": 1788942582471,
+          "productName": "กู๊ด ออล เดย์",
+          "productCode": "GAD-001",
           "productImage": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60",
           "description": "",
           "unit": "ชิ้น",
           "quantity": 1,
-          "unitPrice": 199,
+          "unitPrice": 390,
           "discount": 0,
           "discountType": "percent",
-          "lineTotal": 199,
-          "barcode": "8858890717025",
+          "lineTotal": 390,
+          "barcode": "8858890715045",
           "size": "10",
           "weight": "40"
-        },
+        }
+      ],
+      "subtotal": 390,
+      "vatAmount": 27.3,
+      "totalAmount": 417.3,
+      "status": "approved",
+      "approvedBy": "สมศักดิ์ รักดี (Admin)",
+      "approvedDate": "2026-09-09T08:30:31.405Z",
+      "customerRevised": false
+    },
+    {
+      "id": "qt-1788939619052",
+      "quotationNumber": "QT-20260909-0002",
+      "documentType": "quotation",
+      "createdBy": "admin",
+      "customer": {
+        "name": "Tanawat Thipsanpa",
+        "companyName": "earth จำกัด",
+        "branchType": "sub",
+        "branchName": "บางแค",
+        "branch": "สาขา บางแค",
+        "region": "ภาคกลาง",
+        "email": "earth010647@gmail.com",
+        "phone": "0055151351",
+        "taxId": "110054894613",
+        "address": "388 -gopr-sd บหสวเก 20200",
+        "note": "ดึงข้อมูลจากประวัติใบเสนอราคา QT-20260904-0003"
+      },
+      "customerBranch": "สาขา บางแค",
+      "customerRegion": "ภาคกลาง",
+      "salespersonName": "สมศักดิ์ รักดี (Admin)",
+      "salespersonPhone": "08078607",
+      "projectName": "88888",
+      "issuedDate": "2026-09-09",
+      "validUntilDate": "2026-09-25",
+      "vatRate": 7,
+      "note": "",
+      "items": [
         {
-          "id": 1788927592008,
+          "id": 1788939612481,
           "productName": "กู๊ด ออล เดย์ แบล็ค เคลย์",
           "productCode": "GAD-003",
           "productImage": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60",
@@ -445,110 +490,70 @@
           "barcode": "8858890715069",
           "size": "10",
           "weight": "40"
+        },
+        {
+          "id": 1788939612336,
+          "productName": "กู๊ด ออล เดย์ ไฟเบอร์ แว็กซ์",
+          "productCode": "GAD-002",
+          "productImage": "https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60",
+          "description": "",
+          "unit": "ชิ้น",
+          "quantity": 1,
+          "unitPrice": 290,
+          "discount": 0,
+          "discountType": "percent",
+          "lineTotal": 290,
+          "barcode": "8858890715052",
+          "size": "10",
+          "weight": "40"
         }
       ],
-      "subtotal": 519,
-      "vatAmount": 36.33,
-      "totalAmount": 555.33,
+      "subtotal": 610,
+      "vatAmount": 42.7,
+      "totalAmount": 652.7,
       "status": "approved",
       "approvedBy": "สมศักดิ์ รักดี (Admin)",
-      "approvedDate": "2026-09-09T04:20:15.455Z",
+      "approvedDate": "2026-09-09T07:40:19.115Z",
       "customerRevised": false
     }
   ],
   "activityLog": [
     {
-      "id": "21f0e1a6-02fc-4bd0-a3a0-c9b7f9f46d5f",
+      "id": "f2dd30cb-14fa-4bcd-a78a-bf8085230a2e",
       "userName": "สมศักดิ์ รักดี (Admin)",
       "userRole": "admin",
-      "action": "แก้ไขข้อมูลผู้ใช้: สมศักดิ์ รักดี (Admin)",
+      "action": "ดาวน์โหลด PDF ใบเสนอราคา QT-20260909-0003 สำเร็จ",
+      "details": null,
+      "timestamp": "2026-09-10T06:24:25.880Z"
+    },
+    {
+      "id": "68a055f9-16e3-4b47-b199-7c45344fd921",
+      "userName": "สมศักดิ์ รักดี (Admin)",
+      "userRole": "admin",
+      "action": "ดาวน์โหลด PDF ใบเสนอราคา QT-20260909-0003 สำเร็จ",
+      "details": null,
+      "timestamp": "2026-09-10T03:27:19.438Z"
+    },
+    {
+      "id": "a5652189-2b0c-483e-a4cc-71e2bfe4154b",
+      "userName": "สมศักดิ์ รักดี (Admin)",
+      "userRole": "admin",
+      "action": "เพิ่มผู้ใช้ใหม่: เอิร์ธ",
       "details": {
         "type": "users",
-        "actionType": "edit",
+        "actionType": "add",
         "changes": [
           {
-            "field": "สมศักดิ์ รักดี (Admin): สิทธิ์การเข้าถึงหน้า/ปุ่ม",
-            "before": "สิทธิ์เดิม",
-            "after": "กำหนดสิทธิ์การใช้งานใหม่"
+            "field": "เอิร์ธ",
+            "before": "-",
+            "after": "เพิ่มใหม่ในระบบ"
           }
         ]
       },
-      "timestamp": "2026-09-09T06:13:27.951Z"
+      "timestamp": "2026-09-10T02:30:09.617Z"
     },
     {
-      "id": "844e1210-f70a-4db8-980a-918b22ffc817",
-      "userName": "สมศักดิ์ รักดี (Admin)",
-      "userRole": "admin",
-      "action": "แก้ไขข้อมูลผู้ใช้: สมศักดิ์ รักดี (Admin)",
-      "details": {
-        "type": "users",
-        "actionType": "edit",
-        "changes": [
-          {
-            "field": "สมศักดิ์ รักดี (Admin): สิทธิ์การเข้าถึงหน้า/ปุ่ม",
-            "before": "สิทธิ์เดิม",
-            "after": "กำหนดสิทธิ์การใช้งานใหม่"
-          }
-        ]
-      },
-      "timestamp": "2026-09-09T06:08:54.094Z"
-    },
-    {
-      "id": "d3124efb-e136-4a63-b20f-f54fa21c1b51",
-      "userName": "สมศักดิ์ รักดี (Admin)",
-      "userRole": "admin",
-      "action": "แก้ไขข้อมูลผู้ใช้: วรรณภา ใจดี (Manager)",
-      "details": {
-        "type": "users",
-        "actionType": "edit",
-        "changes": [
-          {
-            "field": "วรรณภา ใจดี (Manager): สิทธิ์การเข้าถึงหน้า/ปุ่ม",
-            "before": "สิทธิ์เดิม",
-            "after": "กำหนดสิทธิ์การใช้งานใหม่"
-          }
-        ]
-      },
-      "timestamp": "2026-09-09T06:05:01.831Z"
-    },
-    {
-      "id": "759a96ff-0198-4f18-9ebc-e85479562f53",
-      "userName": "สมศักดิ์ รักดี (Admin)",
-      "userRole": "admin",
-      "action": "แก้ไขข้อมูลผู้ใช้: วรรณภา ใจดี (Manager)",
-      "details": {
-        "type": "users",
-        "actionType": "edit",
-        "changes": [
-          {
-            "field": "วรรณภา ใจดี (Manager): สิทธิ์การเข้าถึงหน้า/ปุ่ม",
-            "before": "สิทธิ์เดิม",
-            "after": "กำหนดสิทธิ์การใช้งานใหม่"
-          }
-        ]
-      },
-      "timestamp": "2026-09-09T06:04:36.745Z"
-    },
-    {
-      "id": "2375eb77-5d95-4959-b49e-817f53180dc5",
-      "userName": "สมศักดิ์ รักดี (Admin)",
-      "userRole": "admin",
-      "action": "แก้ไขข้อมูลผู้ใช้: สมศักดิ์ รักดี (Admin)",
-      "details": {
-        "type": "users",
-        "actionType": "edit",
-        "changes": [
-          {
-            "field": "สมศักดิ์ รักดี (Admin): สิทธิ์การเข้าถึงหน้า/ปุ่ม",
-            "before": "สิทธิ์เดิม",
-            "after": "กำหนดสิทธิ์การใช้งานใหม่"
-          }
-        ]
-      },
-      "timestamp": "2026-09-09T04:57:28.206Z"
-    },
-    {
-      "id": "7ad630b0-dae8-4993-b316-94dc4f57dcd7",
+      "id": "d13aca6d-cced-43e9-aa3f-d5d6d4ab293f",
       "userName": "สมศักดิ์ รักดี (Admin)",
       "userRole": "admin",
       "action": "ล้างประวัติการดำเนินงานทั้งหมดในระบบ",
@@ -558,13 +563,13 @@
         "changes": [
           {
             "field": "ประวัติกิจกรรมในระบบ",
-            "before": "มีข้อมูลประวัติเดิม 4 รายการ",
+            "before": "มีข้อมูลประวัติเดิม 2 รายการ",
             "after": "ล้างข้อมูลออกจากระบบแล้ว"
           }
         ],
         "remark": "ผู้ดูแลระบบ (Admin) ทำการล้างประวัติการดำเนินงานทั้งหมดในระบบ"
       },
-      "timestamp": "2026-09-09T04:55:41.794Z"
+      "timestamp": "2026-09-09T10:09:10.938Z"
     }
   ],
   "subcategories": {
@@ -589,7 +594,7 @@
   },
   "_shares": {},
   "_quotationSequences": {
-    "20260909": 1
+    "20260909": 3
   },
   "customers": [
     {
@@ -607,7 +612,7 @@
       "note": "ดึงข้อมูลจากประวัติใบเสนอราคา QT-20260904-0003",
       "status": "Active",
       "createdAt": "2026-09-09T04:20:15.489Z",
-      "updatedAt": "2026-09-09T04:20:15.527Z",
+      "updatedAt": "2026-09-09T08:30:31.577Z",
       "updatedBy": "admin"
     },
     {
@@ -625,7 +630,7 @@
       "note": "กินข้าวเยอะ",
       "status": "Active",
       "createdAt": "2026-09-09T02:46:46.941Z",
-      "updatedAt": "2026-09-09T04:20:15.527Z",
+      "updatedAt": "2026-09-09T08:30:31.577Z",
       "updatedBy": "admin"
     },
     {
@@ -643,7 +648,7 @@
       "status": "Active",
       "createdAt": "2026-09-08T03:46:26.337Z",
       "note": ".",
-      "updatedAt": "2026-09-09T04:20:15.527Z",
+      "updatedAt": "2026-09-09T08:30:31.577Z",
       "updatedBy": "admin"
     },
     {
@@ -657,7 +662,7 @@
       "note": "ดึงข้อมูลจากประวัติใบเสนอราคา QT-20260907-0002",
       "status": "Active",
       "createdAt": "2026-09-07T00:00:00.000Z",
-      "updatedAt": "2026-09-09T04:20:15.527Z",
+      "updatedAt": "2026-09-09T08:30:31.577Z",
       "updatedBy": "admin"
     },
     {
@@ -671,7 +676,7 @@
       "note": "ดึงข้อมูลจากประวัติใบเสนอราคา QT-20260904-0003",
       "status": "Active",
       "createdAt": "2026-09-04T00:00:00.000Z",
-      "updatedAt": "2026-09-09T04:20:15.527Z",
+      "updatedAt": "2026-09-09T08:30:31.577Z",
       "updatedBy": "admin"
     }
   ]

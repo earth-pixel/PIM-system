@@ -992,95 +992,106 @@ export default function ProductManage({
 
     setFormErrors(errors);
 
+    const focusAndScroll = (id) => {
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.focus();
+        }
+      }, 50);
+    };
+
     if (errors.code) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกรหัสสินค้า' });
-      document.getElementById('product-code')?.focus();
+      focusAndScroll('product-code');
       return;
     }
     const isDuplicate = products.some(p => p.code.toLowerCase() === code.trim().toLowerCase() && (!editProduct || p.id !== editProduct.id));
     if (isDuplicate) {
       setAlertPopup({ type: 'error', title: 'รหัสสินค้าซ้ำในระบบ', message: `รหัสสินค้า "${code.trim()}" ถูกใช้ลงทะเบียนสินค้าชิ้นอื่นแล้ว` });
       setFormErrors(prev => ({ ...prev, code: true }));
-      document.getElementById('product-code')?.focus();
+      focusAndScroll('product-code');
       return;
     }
     if (errors.barcode) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกรหัสบาร์โค้ด' });
-      document.getElementById('product-barcode')?.focus();
+      focusAndScroll('product-barcode');
       return;
     }
     if (errors.name) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกชื่อสินค้า/ผลิตภัณฑ์' });
-      document.getElementById('product-name')?.focus();
+      focusAndScroll('product-name');
       return;
     }
     if (errors.category) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาเลือกหมวดหมู่สินค้า' });
-      document.getElementById('product-category')?.focus();
+      focusAndScroll('product-category');
       return;
     }
     if (errors.brand) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาเลือกแบรนด์สินค้า' });
-      document.getElementById('product-brand')?.focus();
+      focusAndScroll('product-brand');
       return;
     }
     if (errors.size) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกขนาดสินค้า' });
-      document.getElementById('product-size')?.focus();
+      focusAndScroll('product-size');
       return;
     }
     if (errors.weight) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกน้ำหนักสินค้า' });
-      document.getElementById('product-weight')?.focus();
+      focusAndScroll('product-weight');
       return;
     }
     if (errors.fdaNumber) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกหมายเลข อย.' });
-      document.getElementById('product-fda-number')?.focus();
+      focusAndScroll('product-fda-number');
       return;
     }
     if (errors.tisiNumber) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกหมายเลข มอก.' });
-      document.getElementById('product-tisi-number')?.focus();
+      focusAndScroll('product-tisi-number');
       return;
     }
     if (errors.wholesalePrice) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกราคาขายส่งที่ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)' });
-      document.getElementById('product-wholesale-price')?.focus();
+      focusAndScroll('product-wholesale-price');
       return;
     }
     if (errors.retailPrice) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกราคาขายปลีกที่ถูกต้อง (ต้องมากกว่า 0)' });
-      document.getElementById('product-retail-price')?.focus();
+      focusAndScroll('product-retail-price');
       return;
     }
     if (errors.capFee) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกค่าฝาที่ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)' });
-      document.getElementById('product-cap-fee')?.focus();
+      focusAndScroll('product-cap-fee');
       return;
     }
     if (errors.description) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกรายละเอียดสินค้า' });
-      document.getElementById('product-description')?.focus();
+      focusAndScroll('product-description');
       return;
     }
     if (errors.highlights) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกจุดเด่นสินค้า' });
-      document.getElementById('product-highlights')?.focus();
+      focusAndScroll('product-highlights');
       return;
     }
     if (errors.howToUse) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกวิธีใช้' });
-      document.getElementById('product-how-to-use')?.focus();
+      focusAndScroll('product-how-to-use');
       return;
     }
     if (errors.image) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาใส่ภาพประกอบสินค้า' });
+      focusAndScroll('product-image-dropzone');
       return;
     }
     if (errors.editRemark) {
       setAlertPopup({ type: 'error', title: 'ข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกหมายเหตุการแก้ไข' });
-      document.getElementById('product-edit-remark')?.focus();
+      focusAndScroll('product-edit-remark');
       return;
     }
 
@@ -1269,7 +1280,7 @@ export default function ProductManage({
                         )}
                         <div className={`space-y-4 text-xs ${isAutoMapped ? 'mt-2.5' : ''}`}>
                       {/* กลุ่ม 1: ข้อมูลสินค้าหลัก */}
-                      <div className="bg-zinc-50/50 p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
+                      <div className="bg-transparent p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
                         <h4 className="font-extrabold text-zinc-800 text-[10px] uppercase tracking-wider border-b border-zinc-200/80 pb-1.5 mb-2">1. ข้อมูลพื้นฐานสินค้า</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5">
                           {renderMappingSummaryItem('รหัสสินค้า (SKU / Code) *', 'code')}
@@ -1284,7 +1295,7 @@ export default function ProductManage({
                       </div>
 
                       {/* กลุ่ม 2: ข้อมูลราคาและคลัง */}
-                      <div className="bg-zinc-50/50 p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
+                      <div className="bg-transparent p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
                         <h4 className="font-extrabold text-zinc-800 text-[10px] uppercase tracking-wider border-b border-zinc-200/80 pb-1.5 mb-2">2. ข้อมูลราคาและสถานะ</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                           {renderMappingSummaryItem('ราคาขายส่ง', 'wholesalePrice')}
@@ -1295,7 +1306,7 @@ export default function ProductManage({
                       </div>
 
                       {/* กลุ่ม 3: รายละเอียดเพิ่มเติม อย มอก และขนาดพัสดุ */}
-                      <div className="bg-zinc-50/50 p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
+                      <div className="bg-transparent p-4 rounded-2xl border border-zinc-200/80 space-y-2.5">
                         <h4 className="font-extrabold text-zinc-800 text-[10px] uppercase tracking-wider border-b border-zinc-200/80 pb-1.5 mb-2">3. รายละเอียดและมาตรฐานประกอบสินค้า</h4>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5">
                           {renderMappingSummaryItem('หมายเลข อย.', 'fdaNumber')}
@@ -1416,7 +1427,7 @@ export default function ProductManage({
             </div>
 
             {/* Platform selector / Tab Bar */}
-            <div className="px-6 pt-3 border-b border-[#e8e8ed] flex flex-col gap-2.5 flex-shrink-0 bg-zinc-50/50">
+            <div className="px-6 pt-3 border-b border-[#e8e8ed] flex flex-col gap-2.5 flex-shrink-0 bg-transparent">
               <div className="flex gap-2 text-xs font-bold">
                 <button
                   type="button"
@@ -1474,7 +1485,7 @@ export default function ProductManage({
             </div>
 
             {/* Table Area */}
-            <div className="flex-1 overflow-auto p-6 bg-zinc-50/50">
+            <div className="flex-1 overflow-auto p-6 bg-transparent">
               <div className="bg-white border border-zinc-200 rounded-2xl shadow-xs overflow-hidden max-h-[45vh]">
                 <table className="w-full border-collapse text-left text-xs table-fixed min-w-[1200px]">
                   <thead>
@@ -1520,7 +1531,7 @@ export default function ProductManage({
 
                       return displayProducts.map((p, idx) => (
                         <tr key={p.id || idx} className="hover:bg-zinc-50 text-[11px] leading-relaxed text-zinc-650 animate-fade-in">
-                          <td className="p-3 text-center font-mono border-r border-zinc-200/50 font-bold text-zinc-400 bg-zinc-50/50">{idx + 1}</td>
+                          <td className="p-3 text-center font-mono border-r border-zinc-200/50 font-bold text-zinc-400 bg-transparent">{idx + 1}</td>
                           {cols.map((col, cIdx) => (
                             <td key={cIdx} className="p-3 border-r border-zinc-200/50 truncate max-w-[250px]" title={String(col.value(p) || '')}>
                               {String(col.value(p) || '')}
@@ -1941,7 +1952,7 @@ export default function ProductManage({
             </table>
           </div>
         ) : (
-          <div className="p-5 bg-zinc-50/30">
+          <div className="p-5 bg-transparent">
             {filteredProducts.length === 0 ? (
               <div className="p-16 text-center bg-white rounded-xl border border-zinc-200/50">
                 <div className="space-y-3">
@@ -2585,6 +2596,7 @@ export default function ProductManage({
                       <h3 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wide">ใส่ภาพประกอบสินค้า<span className="text-red-500">*</span></h3>
                     </div>
                     <div
+                      id="product-image-dropzone"
                       onDragOver={handleDragOver}
                       onDragLeave={handleDragLeave}
                       onDrop={handleDrop}
