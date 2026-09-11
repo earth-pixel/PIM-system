@@ -911,20 +911,6 @@ textarea {
     font-size: 0.75rem !important;
   }
 
-  .mobile-drawer .sandbox-card {
-    padding: 0.5rem !important;
-    border-radius: 0.75rem !important;
-  }
-
-  .mobile-drawer .sandbox-title {
-    font-size: 8px !important;
-  }
-
-  .mobile-drawer .sandbox-btn {
-    padding: 0.25rem 0 !important;
-    font-size: 8px !important;
-  }
-
   .mobile-drawer hr {
     margin-top: 0.125rem !important;
     margin-bottom: 0.125rem !important;
@@ -1496,10 +1482,6 @@ textarea {
   .mobile-drawer .menu-item {
     padding: 0.25rem 0.5rem !important;
     font-size: 10px !important;
-  }
-
-  .mobile-drawer .sandbox-card {
-    display: none !important;
   }
 
   .mobile-drawer hr {

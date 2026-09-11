@@ -111,37 +111,6 @@ export default function DashboardLayout({
   const showToast = useToast();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [switchingRole, setSwitchingRole] = useState(false);
-
-
-  const handleSandboxSwitch = async (targetRole) => {
-    if (!onLogin || switchingRole) return;
-    
-    const matchingUser = users.find(u => u.role === targetRole);
-    const targetUsername = matchingUser?.username || (targetRole === 'admin' ? 'admin' : targetRole === 'manager' ? 'manager' : 'earth');
-    const candidatePasswords = ['password', '1111', '12345678', 'admin', 'user'];
-    
-    setSwitchingRole(true);
-    let success = false;
-    let lastError = null;
-
-    for (const pwd of candidatePasswords) {
-      try {
-        await onLogin(targetUsername, pwd);
-        success = true;
-        setIsProfileOpen(false);
-        setIsMobileMenuOpen(false);
-        break;
-      } catch (err) {
-        lastError = err;
-      }
-    }
-
-    if (!success) {
-      showToast(`ไม่สามารถสลับไปยังสิทธิ์ ${targetRole.toUpperCase()} (${targetUsername}) ได้: ${lastError?.message || 'โปรดตรวจสอบชื่อผู้ใช้หรือรหัสผ่าน'}`, 'error');
-    }
-    setSwitchingRole(false);
-  };
   const [isUsersDropdownOpen, setIsUsersDropdownOpen] = useState(false);
   const [isProductsDropdownOpen, setIsProductsDropdownOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
@@ -792,71 +761,6 @@ export default function DashboardLayout({
 
                     <hr className="border-zinc-100" />
 
-                    {/* Sandbox Role Switcher Section */}
-                    <div className="space-y-2 bg-transparent p-2.5 rounded-2xl border border-zinc-200/60">
-                      <div className="flex items-center justify-between px-0.5">
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
-                          <i className="bi bi-[#0071e3] bi-person-gear text-[#0071e3]"></i>
-                          Sandbox Switcher
-                        </span>
-                        <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-full border border-amber-200">
-                          สลับ Role
-                        </span>
-                      </div>
-
-                      <div className="grid grid-cols-3 gap-1.5">
-                        {/* Admin */}
-                        <button
-                          type="button"
-                          onClick={() => handleSandboxSwitch('admin')}
-                          disabled={currentUser?.role === 'admin' || switchingRole}
-                          title="สลับเป็น Admin"
-                          className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
-                            currentUser?.role === 'admin'
-                              ? 'bg-[#6B46C1] text-white border-[#6B46C1] shadow-xs cursor-default'
-                              : 'bg-white hover:bg-[#6B46C1]/10 text-zinc-700 border-zinc-200 hover:border-[#6B46C1]/40 hover:text-[#6B46C1]'
-                          }`}
-                        >
-                          <i className={`bi bi-shield-lock-fill text-xs mb-0.5 ${currentUser?.role === 'admin' ? 'text-white' : 'text-[#6B46C1]'}`}></i>
-                          <span>Admin</span>
-                        </button>
-
-                        {/* Manager */}
-                        <button
-                          type="button"
-                          onClick={() => handleSandboxSwitch('manager')}
-                          disabled={currentUser?.role === 'manager' || switchingRole}
-                          title="สลับเป็น Manager"
-                          className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
-                            currentUser?.role === 'manager'
-                              ? 'bg-[#1A365D] text-white border-[#1A365D] shadow-xs cursor-default'
-                              : 'bg-white hover:bg-[#1A365D]/10 text-zinc-700 border-zinc-200 hover:border-[#1A365D]/40 hover:text-[#1A365D]'
-                          }`}
-                        >
-                          <i className={`bi bi-person-badge-fill text-xs mb-0.5 ${currentUser?.role === 'manager' ? 'text-white' : 'text-[#1A365D]'}`}></i>
-                          <span>Manager</span>
-                        </button>
-
-                        {/* User */}
-                        <button
-                          type="button"
-                          onClick={() => handleSandboxSwitch('user')}
-                          disabled={currentUser?.role === 'user' || switchingRole}
-                          title="สลับเป็น User ( Sales )"
-                          className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
-                            currentUser?.role === 'user'
-                              ? 'bg-[#2F855A] text-white border-[#2F855A] shadow-xs cursor-default'
-                              : 'bg-white hover:bg-[#2F855A]/10 text-zinc-700 border-zinc-200 hover:border-[#2F855A]/40 hover:text-[#2F855A]'
-                          }`}
-                        >
-                          <i className={`bi bi-person-fill text-xs mb-0.5 ${currentUser?.role === 'user' ? 'text-white' : 'text-[#2F855A]'}`}></i>
-                          <span>User</span>
-                        </button>
-                      </div>
-                    </div>
-
-                    <hr className="border-zinc-100" />
-
                     <button type="button"
                       onClick={() => {
                         setIsProfileOpen(false);
@@ -953,59 +857,6 @@ export default function DashboardLayout({
               </div>
             </div>
 
-            {/* Sandbox Role Switcher for Mobile Drawer */}
-            <div className="bg-transparent p-2.5 rounded-2xl border border-zinc-200/60 space-y-2 shrink-0">
-              <div className="flex items-center justify-between px-0.5">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 flex items-center gap-1">
-                  <i className="bi bi-person-gear text-[#0071e3]"></i>
-                  Sandbox Switcher
-                </span>
-                <span className="text-[9px] font-bold text-amber-700 bg-amber-100/80 px-1.5 py-0.5 rounded-full border border-amber-200">
-                  สลับ Role
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                <button
-                  type="button"
-                  onClick={() => handleSandboxSwitch('admin')}
-                  disabled={currentUser?.role === 'admin' || switchingRole}
-                  className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
-                    currentUser?.role === 'admin'
-                      ? 'bg-[#6B46C1] text-white border-[#6B46C1]'
-                      : 'bg-white text-zinc-700 border-zinc-200'
-                  }`}
-                >
-                  <i className="bi bi-shield-lock-fill text-xs mb-0.5"></i>
-                  <span>Admin</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSandboxSwitch('manager')}
-                  disabled={currentUser?.role === 'manager' || switchingRole}
-                  className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
-                    currentUser?.role === 'manager'
-                      ? 'bg-[#1A365D] text-white border-[#1A365D]'
-                      : 'bg-white text-zinc-700 border-zinc-200'
-                  }`}
-                >
-                  <i className="bi bi-person-badge-fill text-xs mb-0.5"></i>
-                  <span>Manager</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSandboxSwitch('user')}
-                  disabled={currentUser?.role === 'user' || switchingRole}
-                  className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl border text-[10px] font-bold transition-all cursor-pointer ${
-                    currentUser?.role === 'user'
-                      ? 'bg-[#2F855A] text-white border-[#2F855A]'
-                      : 'bg-white text-[#2F855A] border-zinc-200'
-                  }`}
-                >
-                  <i className="bi bi-person-fill text-xs mb-0.5"></i>
-                  <span>User</span>
-                </button>
-              </div>
-            </div>
 
             {/* Navigation Links */}
             <div className="space-y-1.5">

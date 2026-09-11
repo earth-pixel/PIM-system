@@ -1,47 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
-import { Lock, User, AlertCircle, Eye, EyeOff, ShieldCheck, Briefcase, UserCheck, FlaskConical } from 'lucide-react';
+import { Lock, User, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
-const SANDBOX_ACCOUNTS = [
-  {
-    role: 'admin',
-    badge: 'Admin',
-    name: 'สมศักดิ์ รักดี',
-    username: 'admin',
-    passwords: ['1111', 'password', 'admin', '12345678'],
-    icon: ShieldCheck,
-    iconColor: 'text-purple-600',
-    hoverStyle: 'hover:bg-purple-50 hover:border-purple-300 hover:shadow-xs',
-  },
-  {
-    role: 'manager',
-    badge: 'Manager',
-    name: 'วรรณภา ใจดี',
-    username: 'manager',
-    passwords: ['password', '1111', '12345678', 'manager'],
-    icon: Briefcase,
-    iconColor: 'text-amber-600',
-    hoverStyle: 'hover:bg-amber-50 hover:border-amber-300 hover:shadow-xs',
-  },
-  {
-    role: 'user',
-    badge: 'User',
-    name: 'ธนาวัฒน์',
-    username: 'tanawatthipsanpa',
-    fallbackUsernames: ['tanawatthipsanpa', 'earth', 'user'],
-    passwords: ['password', '1111', '12345678', 'user'],
-    icon: UserCheck,
-    iconColor: 'text-blue-600',
-    hoverStyle: 'hover:bg-blue-50 hover:border-blue-300 hover:shadow-xs',
-  }
-];
-
-export default function Login({ onLogin, users = [] }) {
+export default function Login({ onLogin }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [sandboxLoading, setSandboxLoading] = useState(null);
   const [isShaking, setIsShaking] = useState(false);
   const [capsLockActive, setCapsLockActive] = useState(false);
   const passwordInputRef = useRef(null);
@@ -87,47 +52,6 @@ export default function Login({ onLogin, users = [] }) {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleQuickLogin = async (acc) => {
-    if (isLoading || sandboxLoading !== null) return;
-    setErrorMsg('');
-    setIsShaking(false);
-    setSandboxLoading(acc.role);
-
-    // Prioritize configured users from props if available
-    const matchingUser = users?.find(u => u.role === acc.role);
-    const targetUsernames = matchingUser
-      ? [matchingUser.username, ...(acc.fallbackUsernames || []), acc.username]
-      : [...(acc.fallbackUsernames || [acc.username])];
-    const uniqueUsernames = [...new Set(targetUsernames)];
-    const candidatePasswords = acc.passwords;
-
-    // Fill the inputs visually so user sees what is being logged into
-    setUsername(uniqueUsernames[0]);
-    setPassword(candidatePasswords[0]);
-
-    let loggedIn = false;
-    let lastError = null;
-
-    for (const u of uniqueUsernames) {
-      for (const p of candidatePasswords) {
-        try {
-          await onLogin(u, p);
-          loggedIn = true;
-          break;
-        } catch (err) {
-          lastError = err;
-        }
-      }
-      if (loggedIn) break;
-    }
-
-    if (!loggedIn) {
-      setErrorMsg(lastError?.message || `ไม่สามารถเข้าสู่ระบบในสิทธิ์ ${acc.badge} ได้`);
-      setIsShaking(true);
-    }
-    setSandboxLoading(null);
   };
 
   // Reset shaking after animation finished
@@ -204,7 +128,7 @@ export default function Login({ onLogin, users = [] }) {
                     }}
                     onKeyUp={checkCapsLock}
                     onFocus={checkCapsLock}
-                    disabled={isLoading || sandboxLoading !== null}
+                    disabled={isLoading}
                     autoComplete="off"
                     className="w-full pl-10 pr-4 py-2.5 sm:py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs sm:text-sm text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
                   />
@@ -223,14 +147,14 @@ export default function Login({ onLogin, users = [] }) {
                       onKeyDown={checkCapsLock}
                       onKeyUp={checkCapsLock}
                       onFocus={checkCapsLock}
-                      disabled={isLoading || sandboxLoading !== null}
+                      disabled={isLoading}
                       autoComplete="new-password"
                       className="w-full pl-10 pr-11 py-2.5 sm:py-3 bg-zinc-50 border border-zinc-200 rounded-xl text-xs sm:text-sm text-[#1d1d1f] focus:outline-hidden focus:border-zinc-900 focus:bg-white transition-all placeholder-zinc-400 focus:shadow-[0_0_0_4px_rgba(0,0,0,0.05)] disabled:opacity-50"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(prev => !prev)}
-                      disabled={isLoading || sandboxLoading !== null}
+                      disabled={isLoading}
                       className="absolute right-3.5 top-3 text-zinc-400 hover:text-zinc-900 transition-colors focus:outline-hidden p-0.5 rounded-lg cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -250,7 +174,7 @@ export default function Login({ onLogin, users = [] }) {
               {/* Submit Button */}
               <button
                 type="submit"
-                disabled={isLoading || sandboxLoading !== null}
+                disabled={isLoading}
                 className="w-full py-3 sm:py-3.5 bg-gradient-to-r from-blue-600 to-[#0071e3] hover:from-blue-700 hover:to-[#0077ed] text-white rounded-xl text-xs sm:text-sm font-semibold tracking-wide transition-all duration-200 cursor-pointer hover:shadow-[0_8px_20px_rgba(0, 113, 227,0.25)] active:scale-[0.98] disabled:opacity-75 disabled:pointer-events-none flex items-center justify-center gap-2 shadow-sm"
               >
                 {isLoading ? (
@@ -265,58 +189,6 @@ export default function Login({ onLogin, users = [] }) {
                   <span>เข้าสู่ระบบ</span>
                 )}
               </button>
-
-              {/* Sandbox Mode Divider & Quick Login */}
-              <div className="pt-1 sm:pt-2 space-y-2.5 sm:space-y-3">
-                <div className="relative flex py-1 items-center">
-                  <div className="grow border-t border-zinc-200"></div>
-                  <span className="shrink mx-2.5 sm:mx-3 text-[10px] sm:text-[11px] font-semibold text-zinc-400 tracking-wider flex items-center gap-1.5 uppercase">
-                    <FlaskConical className="w-3.5 h-3.5 text-blue-500" />
-                    เข้าสู่ระบบด่วน (Sandbox)
-                  </span>
-                  <div className="grow border-t border-zinc-200"></div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
-                  {SANDBOX_ACCOUNTS.map((acc) => {
-                    const Icon = acc.icon;
-                    const isThisLoading = sandboxLoading === acc.role;
-                    return (
-                      <button
-                        key={acc.role}
-                        type="button"
-                        onClick={() => handleQuickLogin(acc)}
-                        disabled={isLoading || sandboxLoading !== null}
-                        className={`flex flex-col items-center justify-center p-2 sm:p-2.5 rounded-xl border border-zinc-200/90 bg-zinc-50/80 ${acc.hoverStyle} transition-all duration-200 cursor-pointer text-center group disabled:opacity-50 relative shadow-2xs hover:shadow-xs min-w-0`}
-                        title={`เข้าสู่ระบบด้วยสิทธิ์ ${acc.badge} (${acc.name})`}
-                      >
-                        {isThisLoading ? (
-                          <div className="py-0.5 flex flex-col items-center justify-center gap-1">
-                            <svg className="animate-spin h-3.5 w-3.5 text-zinc-700" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                            </svg>
-                            <span className="text-[9px] font-semibold text-zinc-600">กำลังเข้า...</span>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-1">
-                              <Icon className={`w-3.5 h-3.5 ${acc.iconColor} group-hover:scale-110 transition-transform`} />
-                              <span className="text-[11px] sm:text-xs font-bold text-zinc-800">{acc.badge}</span>
-                            </div>
-                            <span className="text-[9px] sm:text-[10px] text-zinc-500 font-medium truncate w-full mt-0.5">
-                              {acc.name}
-                            </span>
-                          </>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[9.5px] sm:text-[10px] text-zinc-400 text-center font-normal">
-                  คลิกเลือกบทบาทเพื่อเข้าสู่ระบบทันทีโดยไม่ต้องพิมพ์รหัสผ่าน
-                </p>
-              </div>
             </form>
 
           </div>
