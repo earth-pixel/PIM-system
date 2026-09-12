@@ -26,3 +26,11 @@ dist-ssr
 *.sln
 *.sw?
 *.backup*
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local

@@ -374,14 +374,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
       setErrorMsg('รหัสผ่านใหม่ต้องมี 8–256 ตัวอักษร');
       return;
     }
-    const cleanUsername = username.trim().toLowerCase();
-
-    if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
-      setErrorFields({ username: true });
-      scrollToError(refUsername);
-      setErrorMsg('ชื่อไอดีเข้าระบบ (Username) ต้องเป็นภาษาอังกฤษ (a-z), ตัวเลข (0-9) และ _ เท่านั้น');
-      return;
-    }
+    const cleanUsername = username.trim();
 
     if (editingUser) {
       // ตรวจ username ซ้ำ (ยกเว้นตัวเอง)
@@ -1054,12 +1047,11 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     ref={refUsername}
                     type="text"
                     value={username}
-                    onChange={(e) => { setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')); clearFieldError('username'); }}
-                    placeholder="เช่น somsak_r"
-                    className={`form-input font-mono lowercase ${errorFields.username ? 'border-red-500 ring-1 ring-red-500/30' : ''}`}
+                    onChange={(e) => { setUsername(e.target.value); clearFieldError('username'); }}
+                    placeholder="เช่น somsak"
+                    className={`form-input ${errorFields.username ? 'border-red-500 ring-1 ring-red-500/30' : ''}`}
                     autoFocus={!editingUser}
                   />
-                  <p className="text-[10px] text-zinc-400 mt-1">ใช้ภาษาอังกฤษ ตัวเลข และ _ เท่านั้น (เช่น somsak_r)</p>
                 </div>
 
                 {/* Password */}

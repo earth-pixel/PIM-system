@@ -129,7 +129,7 @@
   "quotations": [],
   "activityLog": [
     {
-      "id": "23a88516-bab0-4c57-a3ff-c574fc382b74",
+      "id": "fbf6350d-f255-4de9-8566-94491e5e8667",
       "userName": "สมศักดิ์ รักดี (Admin)",
       "userRole": "admin",
       "action": "แก้ไขข้อมูลผู้ใช้: สมศักดิ์ รักดี (Admin)",
@@ -138,16 +138,42 @@
         "actionType": "edit",
         "changes": [
           {
-            "field": "สมศักดิ์ รักดี (Admin): รหัสผ่าน",
-            "before": "********",
-            "after": "เปลี่ยนรหัสผ่าน"
+            "field": "สมศักดิ์ รักดี (Admin): ชื่อผู้ใช้",
+            "before": "admink",
+            "after": "admin"
           }
         ]
       },
-      "timestamp": "2026-09-11T02:29:10.747Z"
+      "timestamp": "2026-09-12T08:14:41.345Z"
     },
     {
-      "id": "f510cfa6-dbd4-4574-9f71-a78c0f1a94c0",
+      "id": "4a87fa65-78da-4449-8100-ddda321cceac",
+      "userName": "สมศักดิ์ รักดี (Admin)",
+      "userRole": "admin",
+      "action": "แก้ไขข้อมูลผู้ใช้: สมศักดิ์ รักดี (Admin)",
+      "details": {
+        "type": "users",
+        "actionType": "edit",
+        "changes": [
+          {
+            "field": "สมศักดิ์ รักดี (Admin): ชื่อผู้ใช้",
+            "before": "admin",
+            "after": "admink"
+          }
+        ]
+      },
+      "timestamp": "2026-09-12T07:50:25.207Z"
+    },
+    {
+      "id": "2cf8688a-39cc-405d-88dc-a8162e6df747",
+      "userName": "สมศักดิ์ รักดี (Admin)",
+      "userRole": "admin",
+      "action": "ดาวน์โหลดรายงานสินค้าเป็นไฟล์ Excel (จำนวน 0 รายการ, ตัวกรอง - แบรนด์: ทั้งหมด, หมวดหมู่: ทั้งหมด, สถานะ: ทั้งหมด)",
+      "details": null,
+      "timestamp": "2026-09-12T07:50:16.414Z"
+    },
+    {
+      "id": "0f3838e2-1987-4dbe-b66d-47cd63903c59",
       "userName": "สมศักดิ์ รักดี (Admin)",
       "userRole": "admin",
       "action": "ล้างประวัติการดำเนินงานทั้งหมดในระบบ",
@@ -157,13 +183,13 @@
         "changes": [
           {
             "field": "ประวัติกิจกรรมในระบบ",
-            "before": "มีข้อมูลประวัติเดิม 9 รายการ",
+            "before": "มีข้อมูลประวัติเดิม 2 รายการ",
             "after": "ล้างข้อมูลออกจากระบบแล้ว"
           }
         ],
         "remark": "ผู้ดูแลระบบ (Admin) ทำการล้างประวัติการดำเนินงานทั้งหมดในระบบ"
       },
-      "timestamp": "2026-09-11T02:14:59.074Z"
+      "timestamp": "2026-09-12T04:13:34.477Z"
     }
   ],
   "subcategories": {

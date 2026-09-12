@@ -1087,15 +1087,14 @@ export default function DashboardLayout({
                       type="text"
                       value={editProfileForm.username}
                       onChange={e => {
-                        setEditProfileForm(f => ({ ...f, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '') }));
+                        setEditProfileForm(f => ({ ...f, username: e.target.value }));
                         setEditProfileErrorField(false);
                         setEditProfileError('');
                       }}
-                      placeholder="เช่น somsak_r"
-                      className={`w-full text-xs bg-[#f5f5f7] border rounded-xl px-3.5 py-2.5 focus:outline-none focus:bg-white transition-all lowercase font-mono ${editProfileErrorField ? 'border-red-500 ring-1 ring-red-500/30' : 'border-[#d2d2d7]/50 focus:border-[#0071e3]'}`}
+                      placeholder="เช่น somsak หรือชื่อไอดี"
+                      className={`w-full text-xs bg-[#f5f5f7] border rounded-xl px-3.5 py-2.5 focus:outline-none focus:bg-white transition-all ${editProfileErrorField ? 'border-red-500 ring-1 ring-red-500/30' : 'border-[#d2d2d7]/50 focus:border-[#0071e3]'}`}
                     />
                   </div>
-                  <p className="text-[9.5px] text-zinc-400 mt-1">ใช้สำหรับเข้าสู่ระบบ (ภาษาอังกฤษ ตัวเลข และ _ เท่านั้น)</p>
                 </div>
 
                 {editProfileError && (
@@ -1113,7 +1112,7 @@ export default function DashboardLayout({
                   </button>
                   <button type="button"
                     onClick={async () => {
-                      const cleanUsername = editProfileForm.username.trim().toLowerCase();
+                      const cleanUsername = editProfileForm.username.trim();
                       if (!cleanUsername) {
                         setEditProfileError('กรุณากรอกชื่อผู้ใช้ (Username)');
                         setEditProfileErrorField(true);
@@ -1123,13 +1122,6 @@ export default function DashboardLayout({
                       }
                       if (cleanUsername.length < 3) {
                         setEditProfileError('ชื่อผู้ใช้ต้องมีอย่างน้อย 3 ตัวอักษร');
-                        setEditProfileErrorField(true);
-                        refEditUsername.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        refEditUsername.current?.focus();
-                        return;
-                      }
-                      if (!/^[a-z0-9_]+$/.test(cleanUsername)) {
-                        setEditProfileError('ชื่อผู้ใช้ต้องเป็นภาษาอังกฤษ (a-z), ตัวเลข (0-9) และ _ เท่านั้น');
                         setEditProfileErrorField(true);
                         refEditUsername.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         refEditUsername.current?.focus();
