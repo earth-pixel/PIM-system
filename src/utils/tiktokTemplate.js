@@ -44,15 +44,15 @@ export async function exportToTiktokMandatory(products = [], options = {}) {
     cell.fill = {
       type: 'pattern',
       pattern: 'solid',
-      fgColor: { argb: 'FFE6F0FA' }
+      fgColor: { argb: 'FF000000' }
     };
-    cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FF004B87' } };
+    cell.font = { name: 'Segoe UI', size: 10, bold: true, color: { argb: 'FFFFFFFF' } };
     cell.alignment = { vertical: 'middle', horizontal: 'center' };
     cell.border = {
-      top: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-      bottom: { style: 'medium', color: { argb: 'FF004B87' } },
-      left: { style: 'thin', color: { argb: 'FFCCCCCC' } },
-      right: { style: 'thin', color: { argb: 'FFCCCCCC' } }
+      top: { style: 'thin', color: { argb: 'FF333333' } },
+      bottom: { style: 'medium', color: { argb: 'FF000000' } },
+      left: { style: 'thin', color: { argb: 'FF333333' } },
+      right: { style: 'thin', color: { argb: 'FF333333' } }
     };
   });
 
