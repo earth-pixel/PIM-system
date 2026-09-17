@@ -1,202 +1,142 @@
 {
   "products": [],
-  "brands": [
-    "."
-  ],
-  "categories": [
-    ".."
-  ],
+  "brands": [],
+  "categories": [],
   "users": [
     {
+      "id": "1eb025d9-1f9c-411d-8de8-e3c57673d6fd",
       "username": "admin",
       "name": "สมศักดิ์ รักดี (Admin)",
       "role": "admin",
-      "createdAt": "2026-05-01",
-      "id": "1eb025d9-1f9c-411d-8de8-e3c57673d6fd",
       "passwordHash": "19571bdca818b97ecaf13990bb5e2714:aa7f965bf8d679b6ab7c94386410112872bcf1052588b2c3d1f4be609a2fec1ce52cb695b6c93df4d7bcd8775dbc83aabf22b38aa6681e95db92b9077f0f992b",
       "permissions": {
         "pages": {
-          "dashboard": true,
-          "manage-products": true,
-          "brands": true,
-          "categories": true,
-          "customers": true,
-          "quotations": true,
-          "reports": true,
           "users": true,
-          "activity-log": true
+          "brands": true,
+          "reports": true,
+          "customers": true,
+          "dashboard": true,
+          "categories": true,
+          "quotations": true,
+          "activity-log": true,
+          "manage-products": true
         },
         "actions": {
-          "products.create": true,
-          "products.edit": true,
-          "products.delete": true,
-          "products.import": true,
-          "products.export": true,
-          "products.print": true,
-          "products.clear": true,
-          "quotations.create": true,
-          "quotations.createProposal": true,
-          "quotations.edit": true,
-          "quotations.delete": true,
-          "quotations.approve": true,
-          "quotations.print": true,
-          "brands.create": true,
+          "users.edit": true,
           "brands.edit": true,
+          "users.create": true,
+          "users.delete": true,
+          "brands.create": true,
           "brands.delete": true,
-          "categories.create": true,
-          "categories.edit": true,
-          "categories.delete": true,
-          "customers.create": true,
+          "products.edit": true,
           "customers.edit": true,
+          "products.clear": true,
+          "products.print": true,
+          "reports.export": true,
+          "categories.edit": true,
+          "products.create": true,
+          "products.delete": true,
+          "products.export": true,
+          "products.import": true,
+          "quotations.edit": true,
+          "customers.create": true,
           "customers.delete": true,
           "customers.export": true,
-          "reports.export": true,
-          "users.create": true,
-          "users.edit": true,
-          "users.delete": true,
-          "users.permissions": true
+          "quotations.print": true,
+          "categories.create": true,
+          "categories.delete": true,
+          "quotations.create": true,
+          "quotations.delete": true,
+          "users.permissions": true,
+          "quotations.approve": true,
+          "quotations.createProposal": true
         }
-      }
+      },
+      "createdAt": "2026-09-12T09:08:33.783381+00:00"
     },
     {
+      "id": "c160bf53-43b0-4f40-8d66-b453e6d18c6d",
       "username": "manager",
       "name": "วรรณภา ใจดี (Manager)",
       "role": "manager",
-      "createdAt": "2026-05-10",
-      "id": "c160bf53-43b0-4f40-8d66-b453e6d18c6d",
       "passwordHash": "7efa239e9866f65b6145e7325e68b6b5:587b2b785b13794b46da503408f67a2cd421a031e7b736e218c4258e9379b873327528dbe55957563d97681ca2e281cc480435647510adf7fd6e32988ca1d75a",
       "permissions": {
         "pages": {
-          "dashboard": true,
-          "manage-products": true,
-          "brands": true,
-          "categories": true,
-          "customers": true,
-          "quotations": true,
-          "reports": true,
           "users": true,
-          "activity-log": false
+          "brands": true,
+          "reports": true,
+          "customers": true,
+          "dashboard": true,
+          "categories": true,
+          "quotations": true,
+          "activity-log": false,
+          "manage-products": true
         },
         "actions": {
-          "products.create": true,
-          "products.edit": true,
-          "products.delete": false,
-          "products.import": true,
-          "products.export": true,
-          "products.print": true,
-          "products.clear": false,
-          "quotations.create": true,
-          "quotations.createProposal": true,
-          "quotations.edit": true,
-          "quotations.delete": true,
-          "quotations.approve": true,
-          "quotations.print": true,
-          "brands.create": true,
+          "users.edit": true,
           "brands.edit": true,
+          "users.create": true,
+          "users.delete": false,
+          "brands.create": true,
           "brands.delete": false,
-          "categories.create": true,
-          "categories.edit": true,
-          "categories.delete": false,
-          "customers.create": true,
+          "products.edit": true,
           "customers.edit": true,
+          "products.clear": false,
+          "products.print": true,
+          "reports.export": true,
+          "categories.edit": true,
+          "products.create": true,
+          "products.delete": false,
+          "products.export": true,
+          "products.import": true,
+          "quotations.edit": true,
+          "customers.create": true,
           "customers.delete": false,
           "customers.export": true,
-          "reports.export": true,
-          "users.create": true,
-          "users.edit": true,
-          "users.delete": false,
-          "users.permissions": false
+          "quotations.print": true,
+          "categories.create": true,
+          "categories.delete": false,
+          "quotations.create": true,
+          "quotations.delete": true,
+          "users.permissions": false,
+          "quotations.approve": true,
+          "quotations.createProposal": true
         }
-      }
+      },
+      "createdAt": "2026-09-12T09:08:33.783381+00:00"
     },
     {
+      "id": "964ee122-653c-4e3d-8b5a-be627ff3b857",
       "username": "tanawatthipsanpa",
       "name": "ธนาวัฒน์",
       "role": "user",
-      "createdAt": "2026-07-02",
-      "id": "964ee122-653c-4e3d-8b5a-be627ff3b857",
-      "passwordHash": "bdec6ac7773ed80ae2541d73f4af05eb:fa0811d054105f1d5e85fa81af1a0b91688f2ebf558d8646a3ec1be18a75e1b5580353cc80308772fc3cfe37c17b4a96714a4c4a24ef5a7d847cdb54a45984eb"
-    },
-    {
-      "id": "f3bd97fb-1a9b-44ac-86d9-f6472fa8cd26",
-      "username": "ea",
-      "name": "เอิร์ธ",
-      "role": "admin",
-      "createdAt": "2026-09-10T02:30:09.434Z",
-      "passwordHash": "e24e8c64b3b41611d15eeb83249764d6:24698f2d25a75d296d931982a5d806bcd12b8c28b904745397defebdbf8a598ae4fc0aa3f243ae138f58ed04c03eb9072af99e2df9d94552e843b4a4cf56ff9a"
+      "passwordHash": "bdec6ac7773ed80ae2541d73f4af05eb:fa0811d054105f1d5e85fa81af1a0b91688f2ebf558d8646a3ec1be18a75e1b5580353cc80308772fc3cfe37c17b4a96714a4c4a24ef5a7d847cdb54a45984eb",
+      "permissions": {},
+      "createdAt": "2026-09-12T09:08:33.783381+00:00"
     }
   ],
   "quotations": [],
   "activityLog": [
     {
-      "id": "fbf6350d-f255-4de9-8566-94491e5e8667",
+      "id": "79331750-a40e-4071-818f-746dd2f9e647",
       "userName": "สมศักดิ์ รักดี (Admin)",
       "userRole": "admin",
-      "action": "แก้ไขข้อมูลผู้ใช้: สมศักดิ์ รักดี (Admin)",
+      "action": "ลบผู้ใช้: เอิร์ธ",
       "details": {
         "type": "users",
-        "actionType": "edit",
-        "changes": [
-          {
-            "field": "สมศักดิ์ รักดี (Admin): ชื่อผู้ใช้",
-            "before": "admink",
-            "after": "admin"
-          }
-        ]
-      },
-      "timestamp": "2026-09-12T08:14:41.345Z"
-    },
-    {
-      "id": "4a87fa65-78da-4449-8100-ddda321cceac",
-      "userName": "สมศักดิ์ รักดี (Admin)",
-      "userRole": "admin",
-      "action": "แก้ไขข้อมูลผู้ใช้: สมศักดิ์ รักดี (Admin)",
-      "details": {
-        "type": "users",
-        "actionType": "edit",
-        "changes": [
-          {
-            "field": "สมศักดิ์ รักดี (Admin): ชื่อผู้ใช้",
-            "before": "admin",
-            "after": "admink"
-          }
-        ]
-      },
-      "timestamp": "2026-09-12T07:50:25.207Z"
-    },
-    {
-      "id": "2cf8688a-39cc-405d-88dc-a8162e6df747",
-      "userName": "สมศักดิ์ รักดี (Admin)",
-      "userRole": "admin",
-      "action": "ดาวน์โหลดรายงานสินค้าเป็นไฟล์ Excel (จำนวน 0 รายการ, ตัวกรอง - แบรนด์: ทั้งหมด, หมวดหมู่: ทั้งหมด, สถานะ: ทั้งหมด)",
-      "details": null,
-      "timestamp": "2026-09-12T07:50:16.414Z"
-    },
-    {
-      "id": "0f3838e2-1987-4dbe-b66d-47cd63903c59",
-      "userName": "สมศักดิ์ รักดี (Admin)",
-      "userRole": "admin",
-      "action": "ล้างประวัติการดำเนินงานทั้งหมดในระบบ",
-      "details": {
-        "type": "activityLog",
         "actionType": "delete",
         "changes": [
           {
-            "field": "ประวัติกิจกรรมในระบบ",
-            "before": "มีข้อมูลประวัติเดิม 2 รายการ",
-            "after": "ล้างข้อมูลออกจากระบบแล้ว"
+            "field": "ลบข้อมูล: ผู้ใช้ เอิร์ธ (สิทธิ์: admin)",
+            "before": "บัญชีผู้ใช้: ea",
+            "after": "ลบออกจากระบบแล้ว"
           }
-        ],
-        "remark": "ผู้ดูแลระบบ (Admin) ทำการล้างประวัติการดำเนินงานทั้งหมดในระบบ"
+        ]
       },
-      "timestamp": "2026-09-12T04:13:34.477Z"
+      "timestamp": "2026-09-12T09:39:32.126Z"
     }
   ],
-  "subcategories": {
-    "..": [
-      "ปป"
-    ]
-  },
+  "subcategories": {},
   "_shares": {},
   "_quotationSequences": {
     "20260910": 1

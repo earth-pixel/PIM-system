@@ -24,8 +24,11 @@ import {
   ChevronDown,
   LayoutGrid,
   List,
-  Barcode
+  Barcode,
+  Loader2,
+  Cloud
 } from 'lucide-react';
+import { uploadProductImage, deleteProductImage, isRemoteUrl } from '../utils/imageUpload';
 import { exportShopee, exportLazada, exportTikTok, exportToExcel } from '../utils/exportUtils';
 import { playScanBeep, findProductByBarcodeOrCode } from '../utils/scannerUtils';
 import {
@@ -79,19 +82,24 @@ const lazadaCategorySheets = [
   'ผลิตภัณฑ์เปลี่ยนสีผม',
   'ครีมบำรุงผม',
   'ทรีทเมนต์สำหรับผม',
-  'แชมพู'
+  'แชมพู',
+  'เซ็ทดูแลเส้นผม'
+];
+
+const LAZADA_BASE_PREVIEW_COLS = [
+  { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
+  { label: 'รูปภาพสินค้า1', value: (p) => { const img = (Array.isArray(p.images) && p.images[0]) || p.image || ''; return img.includes('unsplash.com') ? '' : img; } },
+  { label: 'หมายเลขใบอนุญาต', value: (p) => p.fdaNumber || '' },
+  { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
 ];
 
 const LAZADA_PREVIEW_COLS = {
   'ผลิตภัณฑ์จัดแต่งทรงผม': [
-    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
-    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
-    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
-    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    ...LAZADA_BASE_PREVIEW_COLS,
     { label: 'ระดับการจัดทรง', value: () => '' },
     { label: 'ประเภทเส้นผม', value: () => '' },
     { label: 'ประโยชน์ดูแลผม', value: () => '' },
-    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
     { label: 'จำนวน', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
@@ -100,13 +108,22 @@ const LAZADA_PREVIEW_COLS = {
     { label: 'SellerSKU', value: (p) => p.code || '' }
   ],
   'ผลิตภัณฑ์เปลี่ยนสีผม': [
-    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
-    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
-    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
-    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    ...LAZADA_BASE_PREVIEW_COLS,
     { label: 'ประเภทสีย้อมผม', value: () => '' },
-    { label: 'รูปแบบผลิตภัณฑ์', value: () => '' },
-    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'รูปแบบของผลิตภัณฑ์', value: () => '' },
+    { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'จำนวน', value: () => 0 },
+    { label: 'ราคา', value: (p) => p.retailPrice || 0 },
+    { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
+    { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
+    { label: 'ความสูง (ซม)', value: (p) => p.packageHeight || '' },
+    { label: 'SellerSKU', value: (p) => p.code || '' }
+  ],
+  'เซ็ทดูแลเส้นผม': [
+    ...LAZADA_BASE_PREVIEW_COLS,
+    { label: 'ประเภทเส้นผม', value: () => '' },
+    { label: 'รูปแบบของผลิตภัณฑ์', value: () => '' },
+    { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
     { label: 'จำนวน', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
@@ -115,12 +132,9 @@ const LAZADA_PREVIEW_COLS = {
     { label: 'SellerSKU', value: (p) => p.code || '' }
   ],
   'ครีมบำรุงผม': [
-    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
-    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
-    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
-    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    ...LAZADA_BASE_PREVIEW_COLS,
     { label: 'ประเภทเส้นผม', value: () => '' },
-    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
     { label: 'จำนวน', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
@@ -129,12 +143,9 @@ const LAZADA_PREVIEW_COLS = {
     { label: 'SellerSKU', value: (p) => p.code || '' }
   ],
   'ทรีทเมนต์สำหรับผม': [
-    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
-    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
-    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
-    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    ...LAZADA_BASE_PREVIEW_COLS,
     { label: 'ประเภทเส้นผม', value: () => '' },
-    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
     { label: 'จำนวน', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
@@ -143,19 +154,16 @@ const LAZADA_PREVIEW_COLS = {
     { label: 'SellerSKU', value: (p) => p.code || '' }
   ],
   'แชมพู': [
-    { label: 'ชื่อสินค้า', value: (p) => p.name || '' },
-    { label: 'รูปภาพสินค้า1', value: (p) => p.image || '' },
-    { label: 'TH_FDA License', value: (p) => p.fdaNumber || '' },
-    { label: 'ยี่ห้อ', value: (p) => (p.brand && p.brand !== 'No Brand' && p.brand !== 'ไม่มีแบรนด์' ? p.brand : 'Unbranded') },
+    ...LAZADA_BASE_PREVIEW_COLS,
     { label: 'ประเภทเส้นผม', value: () => '' },
-    { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
+    { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
     { label: 'จำนวน', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
     { label: 'ความสูง (ซม)', value: (p) => p.packageHeight || '' },
     { label: 'SellerSKU', value: (p) => p.code || '' }
-  ]
+  ],
 };
 
 function resolveLazadaSheet(product) {
@@ -208,6 +216,7 @@ export default function ProductManage({
   const [packageHeight, setPackageHeight] = useState('');
   const [platform, setPlatform] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [formErrors, setFormErrors] = useState({
@@ -646,6 +655,7 @@ export default function ProductManage({
   const [productToDelete, setProductToDelete] = useState(null);
   const [alertPopup, setAlertPopup] = useState(null);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const [showDeleteImageConfirm, setShowDeleteImageConfirm] = useState(false);
   const [editRemark, setEditRemark] = useState('');
 
   // Filter States
@@ -828,18 +838,6 @@ export default function ProductManage({
   };
 
   useEffect(() => {
-    if (alertPopup && alertPopup.type === 'success') {
-      const timer = setTimeout(() => {
-        onSaveProduct(alertPopup.data);
-        resetForm();
-        setAlertPopup(null);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [alertPopup]);
-
-  useEffect(() => {
     if (editProduct) {
       setCode(editProduct.code || '');
       setBarcode(editProduct.barcode || '');
@@ -910,22 +908,49 @@ export default function ProductManage({
     };
   }, [showForm]);
 
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
+  const processImageFile = async (file) => {
     if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setErrorMsg('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
+      return;
+    }
 
     if (file.size > 2 * 1024 * 1024) {
       setErrorMsg('ขนาดรูปภาพต้องไม่เกิน 2MB');
       return;
     }
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImage(reader.result);
-      setErrorMsg('');
-      setFormErrors(prev => ({ ...prev, image: false }));
-    };
-    reader.readAsDataURL(file);
+    setIsUploadingImage(true);
+    setErrorMsg('');
+
+    try {
+      const result = await uploadProductImage(file);
+      if (result.success) {
+        setImage(result.url);
+        setErrorMsg('');
+        setFormErrors(prev => ({ ...prev, image: false }));
+        if (result.warning) {
+          setAlertPopup({
+            type: 'info',
+            title: 'แจ้งเตือนการบันทึกภาพ',
+            message: result.warning
+          });
+        }
+      } else {
+        setErrorMsg(result.error || 'อัปโหลดรูปภาพไม่สำเร็จ');
+      }
+    } catch (err) {
+      setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleImageUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (file) processImageFile(file);
+    e.target.value = '';
   };
 
   const handleDragOver = (e) => {
@@ -940,27 +965,8 @@ export default function ProductManage({
   const handleDrop = (e) => {
     e.preventDefault();
     setIsDragging(false);
-
-    const file = e.dataTransfer.files[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      setErrorMsg('กรุณาเลือกไฟล์รูปภาพเท่านั้น');
-      return;
-    }
-
-    if (file.size > 2 * 1024 * 1024) {
-      setErrorMsg('ขนาดรูปภาพต้องไม่เกิน 2MB');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setImage(reader.result);
-      setErrorMsg('');
-      setFormErrors(prev => ({ ...prev, image: false }));
-    };
-    reader.readAsDataURL(file);
+    const file = e.dataTransfer.files?.[0];
+    if (file) processImageFile(file);
   };
 
   const handleSubmit = async (e) => {
@@ -979,7 +985,7 @@ export default function ProductManage({
       description: !description.trim(),
       highlights: !highlights.trim(),
       howToUse: !howToUse.trim(),
-      image: !image,
+      image: false,
       packageLength: false, // optional
       packageWidth: false,  // optional
       packageHeight: false, // optional
@@ -1084,11 +1090,6 @@ export default function ProductManage({
       focusAndScroll('product-how-to-use');
       return;
     }
-    if (errors.image) {
-      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาใส่ภาพประกอบสินค้า' });
-      focusAndScroll('product-image-dropzone');
-      return;
-    }
     if (errors.editRemark) {
       setAlertPopup({ type: 'error', title: 'ข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกหมายเหตุการแก้ไข' });
       focusAndScroll('product-edit-remark');
@@ -1112,7 +1113,9 @@ export default function ProductManage({
       description: description.trim(),
       highlights: highlights.trim(),
       howToUse: howToUse.trim(),
-      image: image || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60',
+      image: image ? image.trim() : '',
+      imageUrl: image ? image.trim() : '',
+      image_url: image ? image.trim() : '',
       size: size.trim(),
       weight: weight.trim(),
       fdaNumber: fdaNumber.trim(),
@@ -1133,10 +1136,14 @@ export default function ProductManage({
     const validationErrors = validateProduct(newProductData);
     if (validationErrors.length) { setAlertPopup({ type: 'error', title: 'ข้อมูลไม่ถูกต้อง', message: validationErrors.join(', ') }); return; }
     try {
+      // If editing an existing product and the image was changed or removed, delete old image from Supabase Storage
+      if (editProduct && editProduct.image && editProduct.image !== newProductData.image) {
+        deleteProductImage(editProduct.image).catch(() => {});
+      }
       await onSaveProduct(newProductData);
       resetForm();
       setShowForm(false);
-      setAlertPopup({ type: 'success', title: 'บันทึกข้อมูลสำเร็จ', message: 'เซิร์ฟเวอร์บันทึกข้อมูลสินค้าแล้ว' });
+      setAlertPopup({ type: 'success', title: 'บันทึกข้อมูลสำเร็จ', message: 'บันทึกข้อมูลสินค้าแล้ว' });
     } catch (error) {
       setAlertPopup({ type: 'error', title: 'บันทึกไม่สำเร็จ', message: error.message });
     }
@@ -2133,6 +2140,9 @@ export default function ProductManage({
               <button type="button"
                 onClick={async () => {
                   const deletedName = productToDelete.name;
+                  if (productToDelete.image) {
+                    deleteProductImage(productToDelete.image).catch(() => {});
+                  }
                   try { await onDeleteProduct(productToDelete.id); } catch (error) { setAlertPopup({ type: 'error', title: 'ลบไม่สำเร็จ', message: error.message }); return; }
                   setProductToDelete(null);
                   setAlertPopup({
@@ -2144,6 +2154,49 @@ export default function ProductManage({
                 className="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors cursor-pointer"
               >
                 ลบสินค้า
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Delete Product Image Confirmation Modal */}
+      {showDeleteImageConfirm && createPortal(
+        <div className="fixed inset-0 z-[80] flex items-center justify-center p-4 no-print animate-fade-in">
+          <div onClick={() => setShowDeleteImageConfirm(false)} className="absolute inset-0 bg-black/25 backdrop-blur-xs" />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-sm:w-full max-w-sm w-full p-6 shadow-2xl space-y-4.5 z-10 animate-scale-in text-[#1d1d1f]">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600">
+              <Trash2 className="w-6 h-6 text-rose-500" />
+            </div>
+            <div>
+              <h2 className="font-bold text-sm uppercase tracking-wide text-[#1d1d1f]">ยืนยันการลบรูปภาพสินค้า?</h2>
+              <p className="text-xs text-[#86868b] mt-1.5 leading-relaxed">
+                รูปภาพจะถูกนำออกจากสินค้า และระบบจะลบไฟล์ออกจาก Cloud Storage โดยอัตโนมัติ
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2 text-xs font-semibold">
+              <button
+                type="button"
+                onClick={() => setShowDeleteImageConfirm(false)}
+                className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] rounded-full hover:bg-[#f5f5f7] transition-colors cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const imgToDelete = image;
+                  setImage('');
+                  setFormErrors(prev => ({ ...prev, image: false }));
+                  setShowDeleteImageConfirm(false);
+                  if (imgToDelete && isRemoteUrl(imgToDelete)) {
+                    deleteProductImage(imgToDelete).catch(err => console.warn('Storage image deletion error:', err));
+                  }
+                }}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-xs transition-colors cursor-pointer"
+              >
+                ยืนยันลบรูป
               </button>
             </div>
           </div>
@@ -2593,7 +2646,7 @@ export default function ProductManage({
                 <div className="space-y-4 min-w-0">
                   <div className="bg-white p-4.5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs space-y-3.5">
                     <div>
-                      <h3 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wide">ใส่ภาพประกอบสินค้า<span className="text-red-500">*</span></h3>
+                      <h3 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wide">ใส่ภาพประกอบสินค้า</h3>
                     </div>
                     <div
                       id="product-image-dropzone"
@@ -2607,7 +2660,17 @@ export default function ProductManage({
                             : 'border-[#d2d2d7] bg-[#f5f5f7]'
                         }`}
                     >
-                      {image ? (
+                      {isUploadingImage ? (
+                        <div className="p-4 text-center space-y-2.5">
+                          <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-[#0071e3] mx-auto animate-spin">
+                            <Loader2 className="w-5 h-5" />
+                          </div>
+                          <div className="text-xs text-zinc-600 font-medium animate-pulse">
+                            กำลังอัปโหลดรูปภาพขึ้น Cloud Storage...
+                          </div>
+                          <p className="text-[11px] text-[#86868b]">ระบบกำลังส่งไฟล์ไปยัง Supabase Storage</p>
+                        </div>
+                      ) : image ? (
                         <>
                           <img 
                             src={image} 
@@ -2616,15 +2679,14 @@ export default function ProductManage({
                             title="คลิกเพื่อดูรูปขนาดเต็ม"
                             onClick={() => setZoomedImage(image)}
                           />
+                       
                           <button
                             type="button"
-                            onClick={() => {
-                              setImage('');
-                              setFormErrors(prev => ({ ...prev, image: true }));
-                            }}
-                            className="absolute top-2 right-2 p-1.5 bg-black/70 hover:bg-black text-white rounded-full transition-colors cursor-pointer z-10"
+                            onClick={() => setShowDeleteImageConfirm(true)}
+                            className="absolute top-2 right-2 p-1.5 bg-transparent hover:bg-black/10 text-red-500 hover:text-red-600 rounded-lg transition-all active:scale-90 cursor-pointer z-10 flex items-center justify-center drop-shadow-[0_1px_3px_rgba(0,0,0,0.45)]"
+                            title="ลบรูปภาพ"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <Trash2 className="w-5 h-5 stroke-[2.2]" />
                           </button>
                         </>
                       ) : (
@@ -2644,15 +2706,10 @@ export default function ProductManage({
                               />
                             </label>
                           </div>
-                          <p className="text-xs text-[#555557]">ขนาดไฟล์แนะนำไม่เกิน 2MB</p>
+                          <p className="text-xs text-[#555557]">ขนาดไฟล์แนะนำไม่เกิน 2MB </p>
                         </div>
                       )}
                     </div>
-                    {formErrors.image && (
-                      <span className="text-[11px] text-red-500 font-semibold mt-1 block text-center">กรุณาเลือกหรืออัปโหลดรูปภาพสินค้า</span>
-                    )}
-
-
                   </div>
 
                   {/* Edit Remark — required when editing */}
@@ -2724,9 +2781,7 @@ export default function ProductManage({
           {/* Backdrop */}
           <div
             className="absolute inset-0 bg-black/25 backdrop-blur-xs"
-            onClick={() => {
-              if (alertPopup.type === 'error') setAlertPopup(null);
-            }}
+            onClick={() => setAlertPopup(null)}
           />
 
           {/* Modal Container */}

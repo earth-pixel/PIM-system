@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import process from 'node:process';
+import { isSupabaseConfigured } from './supabaseSync.js';
 
 export const keys = ['products', 'brands', 'categories', 'subcategories', 'users', 'quotations', 'activityLog', 'customers'];
 export const revision = value => createHash('sha256').update(JSON.stringify(value ?? [])).digest('hex');
@@ -10,15 +11,34 @@ export const revisions = db => Object.fromEntries(keys.map(key => [key, revision
 export function publicDB(db) {
   return { ...Object.fromEntries(keys.map(key => [key, key === 'users' ? (db.users || []).map(publicUser) : key === 'subcategories' ? (db.subcategories || {}) : db[key] || []])), _revisions: revisions(db) };
 }
+
 export function createStore(dbPath) {
-  const lockPath = `${dbPath}.lock`;
-  const read = () => JSON.parse(fs.readFileSync(dbPath, 'utf8'));
+  const isTest = process.env.NODE_ENV === 'test' || (typeof dbPath === 'string' && (dbPath.includes('pim-system-test-') || dbPath.includes('Temp') || dbPath.includes('temp')));
+  const usePureCloud = isSupabaseConfigured && !isTest;
+  let memoryDb = null;
+
+  const read = () => {
+    if (usePureCloud && memoryDb) return memoryDb;
+    if (!memoryDb && fs.existsSync(dbPath)) {
+      try { memoryDb = JSON.parse(fs.readFileSync(dbPath, 'utf8')); } catch { memoryDb = {}; }
+    }
+    return memoryDb || {};
+  };
+
   const transact = callback => {
+    // When using Supabase in production/dev, operate purely in memory and Supabase cloud (no local disk writes)
+    if (usePureCloud) {
+      if (!memoryDb) read();
+      const result = callback(memoryDb);
+      return result;
+    }
+
+    // Disk write fallback only for local unit tests
+    const lockPath = `${dbPath}.lock`;
     let lock;
     try { lock = fs.openSync(lockPath, 'wx'); }
     catch (error) {
       if (error.code !== 'EEXIST') throw error;
-      // Recover a lock left by a crashed process; never steal a live writer's lock.
       let stale = false;
       try {
         const owner = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
@@ -40,9 +60,10 @@ export function createStore(dbPath) {
       return result;
     } finally {
       if (temp && fs.existsSync(temp)) fs.unlinkSync(temp);
-      fs.closeSync(lock);
-      fs.unlinkSync(lockPath);
+      if (lock) fs.closeSync(lock);
+      if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
     }
   };
+
   return { read, transact };
 }

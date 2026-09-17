@@ -3,23 +3,62 @@ import { parseWeightToKg } from './marketplaceIO.js';
 
 const COL = {
   name:    { header: 'ชื่อสินค้า', req: 'บังคับการกรอกข้อมูล', desc: 'ระบุชื่อสินค้าภาษาไทยหรืออังกฤษ', width: 36, value: (p) => p.name || '' },
-  image:   { header: 'รูปภาพสินค้า1', req: 'บังคับการกรอกข้อมูล', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้าหลัก', width: 40, value: (p) => p.image || '' },
+  image:   { header: 'รูปภาพสินค้า1', req: 'บังคับการกรอกข้อมูล', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้าหลัก', width: 40, value: (p) => {
+    const img = (Array.isArray(p.images) && p.images[0]) || p.image || '';
+    if (img.includes('unsplash.com')) return '';
+    return img;
+  } },
+  image2:  { header: 'รูปภาพสินค้า2', req: 'ไม่บังคับ', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้า 2', width: 25, value: (p) => {
+    const img = (Array.isArray(p.images) && p.images[1]) || p.image2 || '';
+    if (img.includes('unsplash.com')) return '';
+    return img;
+  } },
+  image3:  { header: 'รูปภาพสินค้า3', req: 'ไม่บังคับ', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้า 3', width: 25, value: (p) => {
+    const img = (Array.isArray(p.images) && p.images[2]) || p.image3 || '';
+    if (img.includes('unsplash.com')) return '';
+    return img;
+  } },
+  image4:  { header: 'รูปภาพสินค้า4', req: 'ไม่บังคับ', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้า 4', width: 25, value: (p) => {
+    const img = (Array.isArray(p.images) && p.images[3]) || p.image4 || '';
+    if (img.includes('unsplash.com')) return '';
+    return img;
+  } },
+  image5:  { header: 'รูปภาพสินค้า5', req: 'ไม่บังคับ', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้า 5', width: 25, value: (p) => {
+    const img = (Array.isArray(p.images) && p.images[4]) || p.image5 || '';
+    if (img.includes('unsplash.com')) return '';
+    return img;
+  } },
+  image6:  { header: 'รูปภาพสินค้า6', req: 'ไม่บังคับ', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้า 6', width: 25, value: (p) => {
+    const img = (Array.isArray(p.images) && p.images[5]) || p.image6 || '';
+    if (img.includes('unsplash.com')) return '';
+    return img;
+  } },
+  image7:  { header: 'รูปภาพสินค้า7', req: 'ไม่บังคับ', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้า 7', width: 25, value: (p) => {
+    const img = (Array.isArray(p.images) && p.images[6]) || p.image7 || '';
+    if (img.includes('unsplash.com')) return '';
+    return img;
+  } },
+  image8:  { header: 'รูปภาพสินค้า8', req: 'ไม่บังคับ', desc: 'URL หรือชื่อไฟล์รูปภาพสินค้า 8', width: 25, value: (p) => {
+    const img = (Array.isArray(p.images) && p.images[7]) || p.image8 || '';
+    if (img.includes('unsplash.com')) return '';
+    return img;
+  } },
   fda:     { header: 'หมายเลขใบอนุญาต', req: 'บังคับการกรอกข้อมูล', desc: 'เลขที่ใบรับแจ้ง อย.', width: 26, value: (p) => p.fdaNumber || '' },
   brand:   { header: 'ยี่ห้อ', req: 'บังคับการกรอกข้อมูล', desc: 'ยี่ห้อสินค้าตามระบบ Lazada', width: 18, value: (p) => (p.brand?.trim() || 'Unbranded') },
-  hairType:{ header: 'ประเภทเส้นผม', req: 'ไม่บังคับ', desc: 'คุณลักษณะประเภทเส้นผม', width: 18, value: (p) => p.hairType || '' },
-  stylingLevel: { header: 'ระดับการจัดทรง', req: 'ไม่บังคับ', desc: 'ระดับความแข็ง/จัดทรง', width: 18, value: (p) => p.stylingLevel || '' },
-  hairBenefit:  { header: 'ประโยชน์เพื่อการดูแลเส้นผม', req: 'ไม่บังคับ', desc: 'สรรพคุณการดูแล', width: 24, value: (p) => p.hairBenefit || '' },
-  productForm:  { header: 'รูปแบบของผลิตภัณฑ์', req: 'ไม่บังคับ', desc: 'เจล/ครีม/สเปรย์/เซรั่ม', width: 20, value: (p) => p.productForm || '' },
-  dyeType:      { header: 'ประเภทสีย้อมผม', req: 'ไม่บังคับ', desc: 'ประเภทของสีย้อม', width: 18, value: (p) => p.hairColorType || '' },
+  hairType:{ header: 'ประเภทเส้นผม', req: 'บังคับการกรอกข้อมูล', desc: 'คุณลักษณะประเภทเส้นผม', width: 18, value: (p) => p.hairType || '' },
+  stylingLevel: { header: 'ระดับการจัดทรง', req: 'บังคับการกรอกข้อมูล', desc: 'ระดับความแข็ง/จัดทรง', width: 18, value: (p) => p.stylingLevel || '' },
+  hairBenefit:  { header: 'ประโยชน์เพื่อการดูแลเส้นผม', req: 'บังคับการกรอกข้อมูล', desc: 'สรรพคุณการดูแล', width: 24, value: (p) => p.hairBenefit || '' },
+  productForm:  { header: 'รูปแบบของผลิตภัณฑ์', req: 'บังคับการกรอกข้อมูล', desc: 'เจล/ครีม/สเปรย์/เซรั่ม', width: 20, value: (p) => p.productForm || '' },
+  dyeType:      { header: 'ประเภทสีย้อมผม', req: 'บังคับการกรอกข้อมูล', desc: 'ประเภทของสีย้อม', width: 18, value: (p) => p.hairColorType || '' },
   weight:  { header: 'น้ำหนัก แพคเกจ (กก)', req: 'บังคับการกรอกข้อมูล', desc: 'น้ำหนักรวมกล่อง (กก.)', width: 18, numFmt: '0.000', value: (p) => parseWeightToKg(p.weight) },
   stock:   { header: 'จำนวน', req: 'บังคับการกรอกข้อมูล', desc: 'จำนวนสต็อกที่มีจำหน่าย', width: 12, numFmt: '0', value: () => 0 },
   price:   { header: 'ราคา', req: 'บังคับการกรอกข้อมูล', desc: 'ราคาขายปลีก (บาท)', width: 14, numFmt: '#,##0.00', value: (p) => Number(p.retailPrice) || 0 },
-  length:  { header: 'ความยาว แพคเกจ (ซม)', req: 'ไม่บังคับ', desc: 'ขนาดความยาวกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageLength ? Number(p.packageLength) : '') },
-  width_:  { header: 'ความกว้าง แพคเกจ (ซม)', req: 'ไม่บังคับ', desc: 'ขนาดความกว้างกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageWidth ? Number(p.packageWidth) : '') },
-  height:  { header: 'ความสูง แพคเกจ (ซม)', req: 'ไม่บังคับ', desc: 'ขนาดความสูงกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageHeight ? Number(p.packageHeight) : '') },
+  length:  { header: 'ความยาว แพคเกจ (ซม)', req: 'บังคับการกรอกข้อมูล', desc: 'ขนาดความยาวกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageLength ? Number(p.packageLength) : '') },
+  width_:  { header: 'ความกว้าง แพคเกจ (ซม)', req: 'บังคับการกรอกข้อมูล', desc: 'ขนาดความกว้างกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageWidth ? Number(p.packageWidth) : '') },
+  height:  { header: 'ความสูง แพคเกจ (ซม)', req: 'บังคับการกรอกข้อมูล', desc: 'ขนาดความสูงกล่อง (ซม.)', width: 18, numFmt: '0.##', value: (p) => (p.packageHeight ? Number(p.packageHeight) : '') },
 };
 
-// Required columns per category, in the order Lazada lists them.
+// Columns per category — includes mandatory and requested non-mandatory columns (excluding image2-8)
 export const LAZADA_MANDATORY_COLUMNS = {
   'ผลิตภัณฑ์จัดแต่งทรงผม': [COL.name, COL.image, COL.fda, COL.brand, COL.stylingLevel, COL.hairType, COL.hairBenefit, COL.weight, COL.stock, COL.price, COL.length, COL.width_, COL.height],
   'ทรีทเมนต์สำหรับผม':     [COL.name, COL.image, COL.fda, COL.brand, COL.hairType, COL.weight, COL.stock, COL.price, COL.length, COL.width_, COL.height],
@@ -73,7 +112,7 @@ export async function exportToLazadaMandatory(products = [], options = {}) {
     const sheet = workbook.addWorksheet(category);
     const cols = LAZADA_MANDATORY_COLUMNS[category] || [];
 
-    // Construct headers list (with SellerSKU)
+    // Construct headers list (all columns + SellerSKU)
     const colDefs = [...cols];
     if (!colDefs.some(c => c.header === 'SellerSKU')) {
       colDefs.push({ header: 'SellerSKU', req: 'บังคับการกรอกข้อมูล', desc: 'รหัสสินค้า SKU ของผู้ขาย', width: 20, value: (p) => p.code || '' });

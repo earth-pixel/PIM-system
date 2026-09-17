@@ -1,9 +1,16 @@
+import 'dotenv/config';
 import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import express from 'express';
 import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
 import { createStore, keys, publicDB, publicUser, revision } from './store.js';
 import { validateProduct, normalizeCode, ownsDocument, calculateQuotation } from '../src/utils/validation.js';
+import {
+  isSupabaseConfigured,
+  loadDatabaseFromSupabase,
+  saveCollectionToSupabase,
+  migrateInitialData
+} from './supabaseSync.js';
 
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -293,6 +300,45 @@ export function createApi(dbPath) {
   const store = createStore(dbPath);
   const sessions = new Map(), loginAttempts = new Map();
   const cookieName = 'pim_session';
+
+  const isTest = process.env.NODE_ENV === 'test' || (typeof dbPath === 'string' && (dbPath.includes('pim-system-test-') || dbPath.includes('Temp') || dbPath.includes('temp')));
+  const useSupabase = isSupabaseConfigured && !isTest;
+
+  // Background startup sync with Supabase
+  if (useSupabase) {
+    loadDatabaseFromSupabase().then(supaData => {
+      if (supaData && supaData.users && supaData.users.length > 0) {
+        store.transact(current => {
+          // Preserve any local users (e.g. ea) not yet present in Supabase
+          const supaUsernames = new Set((supaData.users || []).map(u => u.username));
+          const missingInSupa = (current.users || []).filter(u => !supaUsernames.has(u.username));
+          if (missingInSupa.length > 0) {
+            supaData.users = [...supaData.users, ...missingInSupa];
+            saveCollectionToSupabase('users', supaData.users).catch(() => {});
+          }
+
+          // Auto-link subcategories from products to ensure master category table has them
+          supaData.subcategories ||= {};
+          for (const p of (supaData.products || [])) {
+            const cat = p.category;
+            const sub = p.subCategory || p.subcategory;
+            if (cat && typeof sub === 'string' && sub.trim()) {
+              supaData.subcategories[cat] ||= [];
+              if (!supaData.subcategories[cat].includes(sub.trim())) {
+                supaData.subcategories[cat].push(sub.trim());
+              }
+            }
+          }
+          Object.assign(current, supaData);
+          return current;
+        });
+        console.log('✅ Synchronized state from Supabase on startup.');
+      } else {
+        migrateInitialData(store.read());
+      }
+    }).catch(err => console.warn('Supabase initial sync error:', err.message));
+  }
+
   api.use(express.json({ limit: '50mb' }));
   api.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -344,6 +390,10 @@ export function createApi(dbPath) {
     if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 256) fail(400, 'รหัสผ่านใหม่ต้องมี 8–256 ตัวอักษร');
     const hash = hashPassword(newPassword);
     const db = store.transact(db => { const user = db.users.find(u => u.id === req.user.id); user.passwordHash = hash; delete user.password; appendLog(db, user, 'เปลี่ยนรหัสผ่าน'); return db; });
+    if (useSupabase) {
+      saveCollectionToSupabase('users', db.users).catch(() => {});
+      saveCollectionToSupabase('activityLog', db.activityLog).catch(() => {});
+    }
     req.session.credentials = hash;
     res.json({ success: true, ...visibleDB(db, db.users.find(u => u.id === req.user.id)) });
   });
@@ -362,10 +412,29 @@ export function createApi(dbPath) {
       if (!q.customerAcceptedAt) { q.customerAcceptedAt = new Date().toISOString(); appendLog(db, { name: q.customer?.name || 'ลูกค้าจากลิงก์', role: 'customer' }, `ลูกค้ายอมรับเอกสาร ${q.quotationNumber}`); }
       return q;
     });
+    if (useSupabase) {
+      saveCollectionToSupabase('quotations', store.read().quotations).catch(() => {});
+      saveCollectionToSupabase('activityLog', store.read().activityLog).catch(() => {});
+    }
     res.json({ success: true, quotation });
   });
   api.use(auth);
-  api.get('/db', (req, res) => res.json(visibleDB(store.read(), req.user)));
+  api.get('/db', async (req, res) => {
+    try {
+      if (useSupabase) {
+        const supaData = await loadDatabaseFromSupabase();
+        if (supaData) {
+          store.transact(current => {
+            Object.assign(current, supaData);
+            return current;
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Supabase fetch error, fallback to store:', e.message);
+    }
+    res.json(visibleDB(store.read(), req.user));
+  });
   api.post('/catalog/:key', (req, res) => {
     if (req.user.role !== 'admin') fail(403, 'เฉพาะ Admin เท่านั้น');
     const key = req.params.key;
@@ -390,6 +459,12 @@ export function createApi(dbPath) {
       appendLog(db, req.user, `แก้ไข ${key}: ${oldName}`);
       return db;
     });
+    if (useSupabase) {
+      saveCollectionToSupabase('brands', result.brands).catch(() => {});
+      saveCollectionToSupabase('categories', result.categories).catch(() => {});
+      saveCollectionToSupabase('products', result.products).catch(() => {});
+      if (result.subcategories) saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});
+    }
     res.json({ success: true, ...visibleDB(result, req.user) });
   });
   api.post('/db/save', (req, res) => {
@@ -420,6 +495,17 @@ export function createApi(dbPath) {
         db.products = data;
         db.brands = [...new Set([...(db.brands || []), ...data.map(p => p.brand).filter(Boolean)])];
         db.categories = [...new Set([...(db.categories || []), ...data.map(p => p.category).filter(Boolean)])];
+        db.subcategories ||= {};
+        for (const product of data) {
+          const cat = product.category;
+          const sub = product.subCategory || product.subcategory;
+          if (cat && typeof sub === 'string' && sub.trim()) {
+            db.subcategories[cat] ||= [];
+            if (!db.subcategories[cat].includes(sub.trim())) {
+              db.subcategories[cat].push(sub.trim());
+            }
+          }
+        }
       } else if (key === 'subcategories') {
         if (!data || typeof data !== 'object' || Array.isArray(data)) fail(400, 'ข้อมูลหมวดหมู่ย่อยไม่ถูกต้อง');
         db.subcategories = data;
@@ -452,6 +538,20 @@ export function createApi(dbPath) {
       logCollectionChange(db, req.user, key, before);
       return db;
     });
+    if (useSupabase) {
+      saveCollectionToSupabase(key, result[key]).catch(err => console.error('Supabase sync error:', err));
+      if (result.activityLog) {
+        saveCollectionToSupabase('activityLog', result.activityLog).catch(err => console.error('Supabase activityLog sync error:', err));
+      }
+      if (key === 'products') {
+        saveCollectionToSupabase('brands', result.brands).catch(() => {});
+        saveCollectionToSupabase('categories', result.categories).catch(() => {});
+        if (result.subcategories) saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});
+      }
+      if (key === 'categories' && result.subcategories) {
+        saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});
+      }
+    }
     const updatedUser = result.users.find(u => u.id === req.user.id);
     // Explicit password changes revoke every existing session, including this one.
     res.json({ success: true, ...visibleDB(result, updatedUser || req.user), user: updatedUser ? publicUser(updatedUser) : undefined });
@@ -460,6 +560,7 @@ export function createApi(dbPath) {
     const action = req.body?.entry?.action;
     if (typeof action !== 'string' || !action.trim() || action.length > 4000) fail(400, 'ข้อความประวัติไม่ถูกต้อง');
     const db = store.transact(db => { appendLog(db, req.user, action); return db; });
+    if (useSupabase) saveCollectionToSupabase('activityLog', db.activityLog).catch(() => {});
     res.json({ success: true, ...visibleDB(db, req.user) });
   });
   api.post('/quotations/archive-delete', (req, res) => {
@@ -480,6 +581,7 @@ export function createApi(dbPath) {
       appendLog(db, req.user, `ลบเอกสารเก่า ${deleted.size} รายการ`);
       return { db, count: deleted.size };
     });
+    if (useSupabase) saveCollectionToSupabase('quotations', result.db.quotations).catch(() => {});
     res.json({ success: true, ...visibleDB(result.db, req.user), deletedCount: result.count, skippedCount: skipped.length, skipped });
   });
   api.post('/quotations/:id/share', (req, res) => {

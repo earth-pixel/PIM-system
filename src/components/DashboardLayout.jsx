@@ -72,7 +72,7 @@ function getRelativeTimeThai(timestamp) {
   const diffMins = Math.floor(diffMs / 60000);
   const diffHours = Math.floor(diffMs / 3600000);
   const diffDays = Math.floor(diffMs / 86400000);
-  
+
   if (diffMins < 1) {
     return 'เมื่อสักครู่';
   }
@@ -85,7 +85,7 @@ function getRelativeTimeThai(timestamp) {
   if (diffDays === 1) {
     return 'เมื่อวานนี้';
   }
-  
+
   const dateObj = new Date(timestamp);
   return dateObj.toLocaleDateString('th-TH', {
     day: 'numeric',
@@ -127,7 +127,7 @@ export default function DashboardLayout({
   const [changePwdError, setChangePwdError] = useState('');
   const [changePwdErrorFields, setChangePwdErrorFields] = useState({});
   const [changePwdSuccess, setChangePwdSuccess] = useState(false);
-  const [showOldPwd, setShowOldPwd] = useState(false);  
+  const [showOldPwd, setShowOldPwd] = useState(false);
   const [showNewPwd, setShowNewPwd] = useState(false);
   const refOldPwd = useRef(null);
   const refNewPwd = useRef(null);
@@ -135,7 +135,7 @@ export default function DashboardLayout({
   const pendingQuotationsCount = useMemo(() => {
     return quotations.filter(q => q.status === 'sent' && q.documentType === 'quotation').length;
   }, [quotations]);
-  
+
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [lastReadTime, setLastReadTime] = useState(() => {
     try {
@@ -276,10 +276,10 @@ export default function DashboardLayout({
   }, [isMobileMenuOpen]);
 
   const menuItems = [
-    { key: 'dashboard',   name: 'Dashboard',   icon: "bi bi-grid-1x2-fill", minRole: 'user' },
+    { key: 'dashboard', name: 'Dashboard', icon: "bi bi-grid-1x2-fill", minRole: 'user' },
     { key: 'manage-data', name: 'จัดการข้อมูล', icon: "bi bi-database-fill", minRole: 'user' },
-    { key: 'quotations',  name: 'ใบเสนอราคา',   icon: "bi bi-file-earmark-text-fill",  minRole: 'user' },
-    { key: 'reports',     name: 'รายงานสินค้า', icon: "bi bi-bar-chart-fill",        minRole: 'user' },
+    { key: 'quotations', name: 'ใบเสนอราคา', icon: "bi bi-file-earmark-text-fill", minRole: 'user' },
+    { key: 'reports', name: 'รายงานสินค้า', icon: "bi bi-bar-chart-fill", minRole: 'user' },
   ];
 
   const hasAccess = (itemOrKey) => {
@@ -287,9 +287,9 @@ export default function DashboardLayout({
     const pageKey = typeof itemOrKey === 'string' ? itemOrKey : itemOrKey?.key;
     if (pageKey === 'manage-data') {
       return canAccessPage(currentUser, 'manage-products') ||
-             canAccessPage(currentUser, 'brands') ||
-             canAccessPage(currentUser, 'categories') ||
-             canAccessPage(currentUser, 'customers');
+        canAccessPage(currentUser, 'brands') ||
+        canAccessPage(currentUser, 'categories') ||
+        canAccessPage(currentUser, 'customers');
     }
     return canAccessPage(currentUser, pageKey);
   };
@@ -323,11 +323,11 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f5f5f7] font-sans text-[#1d1d1f]">
-      
+
       {/* ── Navbar header ───────────────────────────────── */}
       <header className="sticky top-0 z-40 w-full h-16 bg-white/85 backdrop-blur-xl border-b border-[#d2d2d7]/40 no-print shadow-[0_1px_0_rgba(0,0,0,0.04),0_4px_16px_rgba(0,0,0,0.04)]">
         <div className="w-full h-full px-4 sm:px-6 lg:px-12 flex items-center justify-between">
-                
+
           {/* Left: Brand Logo */}
           <div className="flex items-center gap-2.5 cursor-pointer group lg:w-[320px] shrink-0" onClick={handleLogoClick}>
             <div className="w-7 h-8 shrink-0 transition-transform duration-300 group-hover:scale-110">
@@ -356,9 +356,9 @@ export default function DashboardLayout({
                 if (!canProducts && !canBrands && !canCategories && !canCustomers) return null;
 
                 return (
-                  <div 
+                  <div
                     key="data-dropdown"
-                    className="relative" 
+                    className="relative"
                     ref={productsDropdownRef}
                     onMouseEnter={handleMouseEnterProducts}
                     onMouseLeave={handleMouseLeaveProducts}
@@ -380,7 +380,7 @@ export default function DashboardLayout({
                     {isProductsDropdownOpen && (
                       <div className="absolute top-full left-0 w-60 pt-2 z-30">
                         <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-2 space-y-1.5 animate-scale-in">
-                          
+
                           {/* Section 1: ข้อมูลสินค้า */}
                           {(canProducts || canBrands || canCategories) && (
                             <div>
@@ -479,8 +479,8 @@ export default function DashboardLayout({
 
               if (canUsers && canActivityLog) {
                 return (
-                  <div 
-                    className="relative" 
+                  <div
+                    className="relative"
                     ref={usersDropdownRef}
                     onMouseEnter={handleMouseEnterUsers}
                     onMouseLeave={handleMouseLeaveUsers}
@@ -560,7 +560,7 @@ export default function DashboardLayout({
 
           {/* Right: User Profile & Mobile Toggle */}
           <div className="flex items-center gap-3 lg:w-[320px] lg:justify-end shrink-0">
-            
+
             {/* Bell Notification Dropdown (Admin only) */}
             {currentUser.role === 'admin' && (
               <div className="relative" ref={notificationRef}>
@@ -627,15 +627,15 @@ export default function DashboardLayout({
                             const isUnread = new Date(log.timestamp).getTime() > lastReadTime;
                             const isExpanded = expandedLogId === log.id;
                             const hasChanges = log.details?.changes && log.details.changes.length > 0;
-                            
+
                             return (
                               <div
                                 key={log.id}
                                 onClick={() => hasChanges && setExpandedLogId(isExpanded ? null : log.id)}
                                 className={`
                                   group relative p-2.5 rounded-2xl transition-all duration-200 border flex flex-col gap-1.5
-                                  ${isUnread 
-                                    ? 'bg-[#0071e3]/5 border-[#0071e3]/15 hover:bg-[#0071e3]/10 hover:border-[#0071e3]/25 shadow-2xs' 
+                                  ${isUnread
+                                    ? 'bg-[#0071e3]/5 border-[#0071e3]/15 hover:bg-[#0071e3]/10 hover:border-[#0071e3]/25 shadow-2xs'
                                     : 'bg-white border-zinc-100 hover:bg-zinc-50/70 hover:border-zinc-200/50'
                                   }
                                   ${hasChanges ? 'cursor-pointer' : ''}
@@ -643,7 +643,7 @@ export default function DashboardLayout({
                               >
                                 <div className="flex gap-2.5 items-start">
                                   {/* Action Icon */}
-                                  <div className={`w-9 h-9 rounded-2xl bg-gradient-to-br ${actStyle.gradient} ${actStyle.shadow} flex items-center justify-center shrink-0 text-white`} style={{fontSize:'13px'}}>
+                                  <div className={`w-9 h-9 rounded-2xl bg-gradient-to-br ${actStyle.gradient} ${actStyle.shadow} flex items-center justify-center shrink-0 text-white`} style={{ fontSize: '13px' }}>
                                     <i className={actStyle.icon}></i>
                                   </div>
 
@@ -662,7 +662,7 @@ export default function DashboardLayout({
                                     <p className={`text-[11px] font-bold text-zinc-800 leading-snug group-hover:text-black ${isExpanded ? '' : 'line-clamp-2'}`}>
                                       {log.action}
                                     </p>
-                                    
+
                                     <div className="flex justify-between items-center text-[9px] text-[#555557] font-semibold pt-1">
                                       <span className="flex items-center gap-1">
                                         <i className="bi bi-person-circle text-[10px]"></i>
@@ -733,8 +733,8 @@ export default function DashboardLayout({
             )}
 
             {/* Desktop User profile dropdown */}
-            <div 
-              className="relative hidden lg:block" 
+            <div
+              className="relative hidden lg:block"
               ref={profileRef}
               onMouseEnter={handleMouseEnterProfile}
               onMouseLeave={handleMouseLeaveProfile}
@@ -776,7 +776,7 @@ export default function DashboardLayout({
                       className="w-full py-2.5 rounded-xl text-xs font-semibold bg-zinc-50 hover:bg-zinc-100 text-zinc-700 transition-colors cursor-pointer flex items-center justify-center gap-2"
                     >
                       <i className="bi bi-person-badge"></i>
-                      <span>เปลี่ยนชื่อผู้ใช้ (Username)</span>
+                      <span>เปลี่ยน Username</span>
                     </button>
 
                     <button type="button"
@@ -825,13 +825,13 @@ export default function DashboardLayout({
       {isMobileMenuOpen && (
         <div className="lg:hidden fixed inset-0 z-50 no-print">
           {/* Backdrop overlay - dim only, no blur */}
-          <div 
+          <div
             onClick={() => setIsMobileMenuOpen(false)}
             className="absolute inset-0 bg-black/30 animate-fade-in"
           />
           {/* Drawer container */}
           <div className="absolute right-0 top-0 bottom-0 w-[300px] max-w-[calc(100vw-56px)] bg-white/97 backdrop-blur-xl border-l border-[#d2d2d7]/50 shadow-[0_0_60px_rgba(0,0,0,0.15)] flex flex-col overflow-hidden animate-slide-in-right mobile-drawer">
-            
+
             {/* Close Button Header */}
             <div className="flex items-center justify-end p-3 pb-0 shrink-0">
               <button type="button"
@@ -848,150 +848,150 @@ export default function DashboardLayout({
             {/* Scrollable content area */}
             <div className="flex-1 overflow-y-auto flex flex-col gap-3 p-3 pt-2 scrollbar-thin">
 
-            {/* User Profile Info */}
-            <div className="bg-[#f5f5f7] p-3 rounded-2xl border border-[#d2d2d7]/35 flex items-center user-card shrink-0">
-              <div className="flex flex-col min-w-0">
-                <span className="text-sm font-bold text-[#1d1d1f] truncate leading-tight user-name">{currentUser?.name || currentUser?.username || 'User'}</span>
-                <span className="text-[10px] text-[#555557] truncate mt-0.5 user-username">@{currentUser?.username || 'user'}</span>
-                <div className="flex mt-1.5 user-badge">{getRoleBadge(currentUser?.role)}</div>
+              {/* User Profile Info */}
+              <div className="bg-[#f5f5f7] p-3 rounded-2xl border border-[#d2d2d7]/35 flex items-center user-card shrink-0">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-bold text-[#1d1d1f] truncate leading-tight user-name">{currentUser?.name || currentUser?.username || 'User'}</span>
+                  <span className="text-[10px] text-[#555557] truncate mt-0.5 user-username">@{currentUser?.username || 'user'}</span>
+                  <div className="flex mt-1.5 user-badge">{getRoleBadge(currentUser?.role)}</div>
+                </div>
               </div>
-            </div>
 
 
-            {/* Navigation Links */}
-            <div className="space-y-1.5">
-              <span className="text-[10px] font-bold text-[#555557] tracking-wider uppercase block px-1.5 menu-title">เมนูการทำงาน</span>
-              {menuItems.map((item) => {
-                if (!hasAccess(item.key)) return null;
+              {/* Navigation Links */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] font-bold text-[#555557] tracking-wider uppercase block px-1.5 menu-title">เมนูการทำงาน</span>
+                {menuItems.map((item) => {
+                  if (!hasAccess(item.key)) return null;
 
-                if (item.key === 'manage-data') {
-                  const canProducts = canAccessPage(currentUser, 'manage-products');
-                  const canBrands = canAccessPage(currentUser, 'brands');
-                  const canCategories = canAccessPage(currentUser, 'categories');
-                  const canCustomers = canAccessPage(currentUser, 'customers');
-                  if (!canProducts && !canBrands && !canCategories && !canCustomers) return null;
+                  if (item.key === 'manage-data') {
+                    const canProducts = canAccessPage(currentUser, 'manage-products');
+                    const canBrands = canAccessPage(currentUser, 'brands');
+                    const canCategories = canAccessPage(currentUser, 'categories');
+                    const canCustomers = canAccessPage(currentUser, 'customers');
+                    if (!canProducts && !canBrands && !canCategories && !canCustomers) return null;
 
-                  return (
-                    <div key="data-group" className="space-y-1 bg-transparent p-2 rounded-2xl border border-zinc-200/50">
-                      <div className="px-2 py-1 flex items-center gap-2 text-xs font-black text-zinc-800">
-                        <i className="bi bi-database-fill text-[#0071e3]"></i>
-                        <span>จัดการข้อมูล</span>
+                    return (
+                      <div key="data-group" className="space-y-1 bg-transparent p-2 rounded-2xl border border-zinc-200/50">
+                        <div className="px-2 py-1 flex items-center gap-2 text-xs font-black text-zinc-800">
+                          <i className="bi bi-database-fill text-[#0071e3]"></i>
+                          <span>จัดการข้อมูล</span>
+                        </div>
+
+                        {/* Section 1: ข้อมูลสินค้า */}
+                        {(canProducts || canBrands || canCategories) && (
+                          <div className="space-y-0.5">
+                            <span className="text-[10px] font-bold text-zinc-400 block px-2 pt-1">ข้อมูลสินค้า</span>
+                            {canProducts && (
+                              <button type="button"
+                                onClick={() => handleNavClick('manage-products')}
+                                className={`w-full flex items-center px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'manage-products' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}`}
+                              >
+                                <span>จัดการข้อมูลสินค้า</span>
+                              </button>
+                            )}
+                            {canBrands && (
+                              <button type="button"
+                                onClick={() => handleNavClick('brands')}
+                                className={`w-full flex items-center px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'brands' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'}`}
+                              >
+                                <span>จัดการแบรนด์สินค้า</span>
+                              </button>
+                            )}
+                            {canCategories && (
+                              <button type="button"
+                                onClick={() => handleNavClick('categories')}
+                                className={`w-full flex items-center px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'categories' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'}`}
+                              >
+                                <span>จัดการหมวดหมู่สินค้า</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Section 2: ข้อมูลลูกค้า */}
+                        {canCustomers && (
+                          <div className="space-y-0.5 pt-1">
+                            <span className="text-[10px] font-bold text-zinc-400 block px-2 pt-1">ข้อมูลลูกค้า</span>
+                            <button type="button"
+                              onClick={() => handleNavClick('customers')}
+                              className={`w-full flex items-center px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'customers' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}`}
+                            >
+                              <span>จัดการข้อมูลลูกค้า</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
+                    );
+                  }
 
-                      {/* Section 1: ข้อมูลสินค้า */}
-                      {(canProducts || canBrands || canCategories) && (
-                        <div className="space-y-0.5">
-                          <span className="text-[10px] font-bold text-zinc-400 block px-2 pt-1">ข้อมูลสินค้า</span>
-                          {canProducts && (
-                            <button type="button"
-                              onClick={() => handleNavClick('manage-products')}
-                              className={`w-full flex items-center px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'manage-products' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}`}
-                            >
-                              <span>จัดการข้อมูลสินค้า</span>
-                            </button>
-                          )}
-                          {canBrands && (
-                            <button type="button"
-                              onClick={() => handleNavClick('brands')}
-                              className={`w-full flex items-center px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'brands' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'}`}
-                            >
-                              <span>จัดการแบรนด์สินค้า</span>
-                            </button>
-                          )}
-                          {canCategories && (
-                            <button type="button"
-                              onClick={() => handleNavClick('categories')}
-                              className={`w-full flex items-center px-3 py-1.5 text-xs font-semibold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'categories' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-600 hover:bg-[#f5f5f7] hover:text-black'}`}
-                            >
-                              <span>จัดการหมวดหมู่สินค้า</span>
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Section 2: ข้อมูลลูกค้า */}
-                      {canCustomers && (
-                        <div className="space-y-0.5 pt-1">
-                          <span className="text-[10px] font-bold text-zinc-400 block px-2 pt-1">ข้อมูลลูกค้า</span>
-                          <button type="button"
-                            onClick={() => handleNavClick('customers')}
-                            className={`w-full flex items-center px-3 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item ${activeTab === 'customers' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}`}
-                          >
-                            <span>จัดการข้อมูลลูกค้า</span>
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
-
-                const isActive = activeTab === item.key;
-                return (
-                  <button type="button"
-                    key={item.key}
-                    onClick={() => handleNavClick(item.key)}
-                    className={`
+                  const isActive = activeTab === item.key;
+                  return (
+                    <button type="button"
+                      key={item.key}
+                      onClick={() => handleNavClick(item.key)}
+                      className={`
                       w-full flex items-center justify-between px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
                       ${isActive
-                        ? 'bg-[#0071e3]/10 text-[#0071e3]'
-                        : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'
-                      }
+                          ? 'bg-[#0071e3]/10 text-[#0071e3]'
+                          : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'
+                        }
                     `}
-                  >
-                    <div className="flex items-center gap-3">
-                      <i className={`${item.icon} text-sm`}></i>
-                      <span>{item.name}</span>
-                    </div>
-                    {item.key === 'quotations' && currentUser?.role === 'admin' && pendingQuotationsCount > 0 && (
-                      <span className="px-2 py-0.5 text-[9px] font-extrabold bg-red-500 text-white rounded-full leading-none shadow-[0_1px_3px_rgba(239,68,68,0.4)] animate-pulse shrink-0">
-                        {pendingQuotationsCount}
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
+                    >
+                      <div className="flex items-center gap-3">
+                        <i className={`${item.icon} text-sm`}></i>
+                        <span>{item.name}</span>
+                      </div>
+                      {item.key === 'quotations' && currentUser?.role === 'admin' && pendingQuotationsCount > 0 && (
+                        <span className="px-2 py-0.5 text-[9px] font-extrabold bg-red-500 text-white rounded-full leading-none shadow-[0_1px_3px_rgba(239,68,68,0.4)] animate-pulse shrink-0">
+                          {pendingQuotationsCount}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
 
-              {/* User management & Activity Log submenus in Mobile Drawer */}
-              {canAccessPage(currentUser, 'users') && (
-                <button type="button"
-                  onClick={() => handleNavClick('users')}
-                  className={`
+                {/* User management & Activity Log submenus in Mobile Drawer */}
+                {canAccessPage(currentUser, 'users') && (
+                  <button type="button"
+                    onClick={() => handleNavClick('users')}
+                    className={`
                     w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
                     ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
                   `}
-                >
-                  <i className="bi bi-people-fill text-sm"></i>
-                  <span>จัดการบัญชีผู้ใช้</span>
-                </button>
-              )}
+                  >
+                    <i className="bi bi-people-fill text-sm"></i>
+                    <span>จัดการบัญชีผู้ใช้</span>
+                  </button>
+                )}
 
-              {canAccessPage(currentUser, 'activity-log') && (
-                <button type="button"
-                  onClick={() => handleNavClick('activity-log')}
-                  className={`
+                {canAccessPage(currentUser, 'activity-log') && (
+                  <button type="button"
+                    onClick={() => handleNavClick('activity-log')}
+                    className={`
                     w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
                     ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
                   `}
-                >
-                  <i className="bi bi-clock-history text-sm"></i>
-                  <span>ประวัติการดำเนินงาน</span>
-                </button>
-              )}
-            </div>
+                  >
+                    <i className="bi bi-clock-history text-sm"></i>
+                    <span>ประวัติการดำเนินงาน</span>
+                  </button>
+                )}
+              </div>
 
-            
 
-            {/* Logout button */}
-            <button type="button"
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                setShowLogoutConfirm(true);
-              }}
-              className="w-full py-2.5 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-650 transition-colors cursor-pointer flex items-center justify-center gap-2 shrink-0 btn-logout"
-            >
-              <i className="bi bi-box-arrow-right"></i>
-              <span>ออกจากระบบ</span>
-            </button>
+
+              {/* Logout button */}
+              <button type="button"
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  setShowLogoutConfirm(true);
+                }}
+                className="w-full py-2.5 rounded-xl text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-650 transition-colors cursor-pointer flex items-center justify-center gap-2 shrink-0 btn-logout"
+              >
+                <i className="bi bi-box-arrow-right"></i>
+                <span>ออกจากระบบ</span>
+              </button>
 
             </div>{/* end scrollable area */}
           </div>
@@ -1000,11 +1000,10 @@ export default function DashboardLayout({
 
       {/* ── Main Content Area ────────────────────────────── */}
       <main className="flex-1 flex flex-col min-w-0">
-        <div 
+        <div
           key={activeTab}
-          className={`flex-1 flex flex-col w-full min-w-0 p-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4 lg:px-8 lg:pb-8 lg:pt-4 xl:px-12 xl:pb-12 xl:pt-5 animate-page-transition ${
-            activeTab === 'dashboard' ? 'lg:h-[calc(100vh-4rem)] lg:overflow-hidden xl:h-[calc(100vh-4rem)] xl:overflow-hidden' : ''
-          }`}
+          className={`flex-1 flex flex-col w-full min-w-0 p-4 pt-3 sm:px-6 sm:pb-6 sm:pt-4 lg:px-8 lg:pb-8 lg:pt-4 xl:px-12 xl:pb-12 xl:pt-5 animate-page-transition ${activeTab === 'dashboard' ? 'lg:h-[calc(100vh-4rem)] lg:overflow-hidden xl:h-[calc(100vh-4rem)] xl:overflow-hidden' : ''
+            }`}
         >
           {children}
         </div>
@@ -1045,7 +1044,7 @@ export default function DashboardLayout({
                 <i className="bi bi-person-badge text-lg"></i>
               </div>
               <div>
-                <h3 className="font-bold text-sm uppercase tracking-wide">เปลี่ยนชื่อผู้ใช้ (Username)</h3>
+                <h3 className="font-bold text-sm uppercase tracking-wide">เปลี่ยน Username</h3>
                 <p className="text-[10px] text-[#86868b] mt-0.5">กำหนด Username สำหรับเข้าสู่ระบบ</p>
               </div>
             </div>
@@ -1078,10 +1077,10 @@ export default function DashboardLayout({
                 {/* Username Input */}
                 <div>
                   <label className="text-[10px] text-[#555557] font-semibold block mb-1">
-                    ชื่อผู้ใช้ (Username) <span className="text-red-500">*</span>
+                    ชื่อ Username <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    
+
                     <input
                       ref={refEditUsername}
                       type="text"
@@ -1114,7 +1113,7 @@ export default function DashboardLayout({
                     onClick={async () => {
                       const cleanUsername = editProfileForm.username.trim();
                       if (!cleanUsername) {
-                        setEditProfileError('กรุณากรอกชื่อผู้ใช้ (Username)');
+                        setEditProfileError('กรุณากรอก');
                         setEditProfileErrorField(true);
                         refEditUsername.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         refEditUsername.current?.focus();

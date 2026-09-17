@@ -35,7 +35,7 @@ export async function saveCollection(key, data) {
   window.dispatchEvent(new CustomEvent('pim:saving', { detail: true }));
   try {
     const result = await request('/api/db/save', { method: 'POST', body: JSON.stringify({ key, data, expectedRevision: versions[key] }) });
-    if (result.success !== true) throw new Error('เซิร์ฟเวอร์ยังไม่ยืนยันการบันทึก');
+    if (result.success !== true) throw new Error('ยังไม่ยืนยันการบันทึก');
     acceptSnapshot(result);
     return result;
   } catch (error) {

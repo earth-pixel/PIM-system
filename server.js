@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createApi } from './server/api.js';
 import express from 'express';
 import ExcelJS from 'exceljs';

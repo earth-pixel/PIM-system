@@ -17,7 +17,9 @@ import {
   CheckSquare,
   Square,
   HelpCircle,
-  X
+  X,
+  ChevronUp,
+  ChevronDown
 } from 'lucide-react';
 import DropdownFilter from './DropdownFilter';
 import {
@@ -92,14 +94,26 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedRole, setSelectedRole] = useState('All');
+  const [sortBy, setSortBy] = useState('newest'); // 'newest' | 'oldest'
   const [hoveredRow, setHoveredRow] = useState(null);
 
   const isOnlyAdmin = useMemo(() => {
     return editingUser && editingUser.role === 'admin' && users.filter(u => u.role === 'admin').length === 1;
   }, [editingUser, users]);
 
+  const parseDateValue = (val) => {
+    if (!val) return 0;
+    if (typeof val === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      const [y, m, d] = val.split('-');
+      const dt = new Date(Number(y), Number(m) - 1, Number(d)).getTime();
+      return isNaN(dt) ? 0 : dt;
+    }
+    const dt = new Date(val).getTime();
+    return isNaN(dt) ? 0 : dt;
+  };
+
   const filteredUsers = useMemo(() => {
-    return users
+    const list = users
       .filter(u => !(currentUser.role === 'manager' && u.role === 'admin'))
       .filter(u => {
         const matchesSearch =
@@ -108,7 +122,16 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
         const matchesRole = selectedRole === 'All' || u.role === selectedRole;
         return matchesSearch && matchesRole;
       });
-  }, [users, currentUser.role, searchQuery, selectedRole]);
+
+    return list.sort((a, b) => {
+      const timeA = parseDateValue(a.createdAt);
+      const timeB = parseDateValue(b.createdAt);
+      if (timeA !== timeB) {
+        return sortBy === 'newest' ? timeB - timeA : timeA - timeB;
+      }
+      return (a.username || '').localeCompare(b.username || '');
+    });
+  }, [users, currentUser.role, searchQuery, selectedRole, sortBy]);
 
   useEffect(() => {
     if (isModalOpen || confirmDeleteUser || alertPopup || editingPermissionsUser || permissionConfirm) {
@@ -384,7 +407,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
       if (duplicateUser) {
         setErrorFields({ username: true });
         scrollToError(refUsername);
-        setErrorMsg(`ชื่อผู้ใช้ (Username) "${cleanUsername}" ถูกใช้งานแล้ว`);
+        setErrorMsg(`ชื่อ Username) "${cleanUsername}" ถูกใช้งานแล้ว`);
         return;
       }
 
@@ -557,29 +580,41 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
 
       {/* Filters Panel */}
       <div className="no-print bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
-        <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <div className="flex flex-col sm:flex-row sm:flex-wrap gap-3 items-stretch sm:items-center">
+          {/* Label */}
           <div className="flex items-center gap-2 shrink-0">
             <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
           </div>
+
           {/* Search Input */}
-          <div className="relative flex-1">
+          <div className="relative flex-1 min-w-[200px] sm:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-400 pointer-events-none" />
             <input
               type="text"
               placeholder="ค้นหาชื่อผู้ใช้ หรือ ชื่อ-นามสกุล..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400"
+              className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 font-medium"
             />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
-          {/* Role Filter Dropdown */}
-          <div className="w-full sm:w-48">
+          {/* Filter Dropdowns Group */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Role Filter Dropdown */}
             <DropdownFilter
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              className="w-full"
+              className="min-w-[150px]"
               options={[
                 { value: 'All', label: 'สิทธิ์ทั้งหมด (All)' },
                 { value: 'admin', label: 'Admin' },
@@ -587,6 +622,8 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                 { value: 'user', label: 'User' }
               ]}
             />
+
+
           </div>
         </div>
       </div>
@@ -609,7 +646,31 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                 <th className="p-2 sm:p-3.5">Username</th>
                 <th className="p-2 sm:p-3.5">ชื่อ-นามสกุลพนักงาน</th>
                 <th className="p-2 sm:p-3.5">สิทธิ์เข้าถึง</th>
-                <th className="p-2 sm:p-3.5">วันที่เปิดบัญชี</th>
+                <th
+                  onClick={() => setSortBy(prev => (prev === 'newest' ? 'oldest' : 'newest'))}
+                  className="p-2 sm:p-3.5 cursor-pointer select-none group transition-colors"
+                  title={sortBy === 'newest' ? 'กำลังเรียง: วันที่ใหม่สุด (คลิกเพื่อสลับเป็นเก่าสุด)' : 'กำลังเรียง: วันที่เก่าสุด (คลิกเพื่อสลับเป็นใหม่สุด)'}
+                >
+                  <div className="inline-flex items-center gap-1.5 py-1 px-1.5 -ml-1.5 rounded-lg group-hover:bg-[#e5e5ea]/80 transition-colors">
+                    <span className="text-[#1d1d1f]">วันที่เปิดบัญชี</span>
+                    <div className="flex flex-col items-center justify-center -space-y-1 ml-0.5">
+                      <ChevronUp
+                        className={`w-3 h-3 transition-colors ${
+                          sortBy === 'oldest'
+                            ? 'text-[#0071e3] stroke-[3]'
+                            : 'text-zinc-300 group-hover:text-zinc-400 stroke-[2]'
+                        }`}
+                      />
+                      <ChevronDown
+                        className={`w-3 h-3 transition-colors ${
+                          sortBy === 'newest'
+                            ? 'text-[#0071e3] stroke-[3]'
+                            : 'text-zinc-300 group-hover:text-zinc-400 stroke-[2]'
+                        }`}
+                      />
+                    </div>
+                  </div>
+                </th>
                 <th className="p-2 sm:p-3.5 text-center w-36">การจัดการ</th>
               </tr>
             </thead>

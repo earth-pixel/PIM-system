@@ -317,27 +317,40 @@ export default function Dashboard({ products, brands, categories, quotations = [
   }, [products, rangeStart, rangeEnd]);
 
   // Aggregate data depending on selected tab
+  // Aggregate data depending on selected tab
   const aggregatedData = useMemo(() => {
     return chartType === 'brand'
       ? brands.map(brand => ({
           name: brand,
+          fullName: brand,
           count: filteredProducts.filter(p => p.brand === brand).length,
         }))
-      : categories.map(cat => ({
-          name: cat.split(' ').slice(0, 2).join(' '),
-          fullName: cat,
-          count: filteredProducts.filter(p => p.category === cat).length,
-        }));
+      : categories.map(cat => {
+          let displayName = cat;
+          if (cat.includes(' - ')) {
+            const rawPart = cat.split(' - ')[0].trim();
+            displayName = rawPart.replace(/\band\b/gi, '&');
+          } else if (cat.includes('-')) {
+            const rawPart = cat.split('-')[0].trim();
+            displayName = rawPart.replace(/\band\b/gi, '&');
+          }
+          return {
+            name: displayName,
+            fullName: cat,
+            count: filteredProducts.filter(p => p.category === cat).length,
+          };
+        });
   }, [chartType, brands, categories, filteredProducts]);
 
   const realMaxCount = useMemo(() => Math.max(...aggregatedData.map(d => d.count), 0), [aggregatedData]);
   
-  // Calculate clean, readable round max scale with 4 equal intervals
+  // Calculate clean, readable round max scale with headroom so peak data and tooltips never touch the ceiling
   const calculateNiceMax = (realMax) => {
     if (realMax <= 0) return 4;
-    if (realMax <= 4) return 4;
+    if (realMax <= 3) return 4;
+    const targetWithHeadroom = realMax * 1.25;
     const targetSteps = 4;
-    const rawStep = realMax / targetSteps;
+    const rawStep = targetWithHeadroom / targetSteps;
     const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
     const normalized = rawStep / magnitude;
     let niceStep;
@@ -346,10 +359,16 @@ export default function Dashboard({ products, brands, categories, quotations = [
     else if (normalized <= 1.5) niceStep = 1.5 * magnitude;
     else if (normalized <= 2) niceStep = 2 * magnitude;
     else if (normalized <= 2.5) niceStep = 2.5 * magnitude;
+    else if (normalized <= 3) niceStep = 3 * magnitude;
+    else if (normalized <= 4) niceStep = 4 * magnitude;
     else if (normalized <= 5) niceStep = 5 * magnitude;
     else niceStep = 10 * magnitude;
 
-    return niceStep * targetSteps;
+    let niceMax = Math.ceil(niceStep * targetSteps);
+    while (niceMax <= realMax) {
+      niceMax += niceStep;
+    }
+    return niceMax;
   };
 
   const maxCount = useMemo(() => calculateNiceMax(realMaxCount), [realMaxCount]);
@@ -363,27 +382,69 @@ export default function Dashboard({ products, brands, categories, quotations = [
     });
   }, [aggregatedData, N, dimensions, maxCount]);
 
-  // Build smooth cubic bezier path through data points
-  const buildSmoothPath = (pts) => {
-    if (pts.length === 0) return '';
-    if (pts.length === 1) return `M ${pts[0].x} ${pts[0].y}`;
-    let d = `M ${pts[0].x} ${pts[0].y}`;
-    for (let i = 0; i < pts.length - 1; i++) {
-      const cp1x = pts[i].x + (pts[i + 1].x - pts[i].x) * 0.45;
-      const cp1y = pts[i].y;
-      const cp2x = pts[i + 1].x - (pts[i + 1].x - pts[i].x) * 0.45;
-      const cp2y = pts[i + 1].y;
-      d += ` C ${cp1x} ${cp1y}, ${cp2x} ${cp2y}, ${pts[i + 1].x} ${pts[i + 1].y}`;
+  // Build ultra-smooth Fritsch-Carlson monotone cubic spline with edge lead-in from baseline 0
+  const buildSmoothPath = (pts, width, height) => {
+    if (!pts || pts.length === 0) return '';
+    const baselineY = height !== undefined ? height : (pts[0] ? pts[0].y : 0);
+
+    if (pts.length === 1) {
+      const p = pts[0];
+      const cp1x = p.x / 2;
+      const cp1y = baselineY;
+      const cp2x = p.x / 2;
+      const cp2y = p.y;
+      return `M 0 ${baselineY.toFixed(1)} C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p.x.toFixed(1)} ${p.y.toFixed(1)} L ${width} ${p.y.toFixed(1)}`;
     }
-    return d;
+
+    const extendedPts = [
+      { x: 0, y: baselineY },
+      ...pts,
+      { x: width, y: pts[pts.length - 1].y }
+    ];
+
+    const n = extendedPts.length;
+    const dx = [];
+    const dy = [];
+    const m = [];
+    for (let i = 0; i < n - 1; i++) {
+      const curDx = extendedPts[i + 1].x - extendedPts[i].x;
+      const curDy = extendedPts[i + 1].y - extendedPts[i].y;
+      dx.push(curDx);
+      dy.push(curDy);
+      m.push(curDy / (curDx || 1));
+    }
+
+    // Start with slope 0 at baseline (0, baselineY) so the curve departs flat and smoothly ascends
+    const slopes = [0];
+    for (let i = 0; i < n - 2; i++) {
+      if (m[i] * m[i + 1] <= 0) {
+        slopes.push(0);
+      } else {
+        const p = dx[i] + dx[i + 1];
+        slopes.push(3 * p / ((p + dx[i + 1]) / m[i] + (p + dx[i]) / m[i + 1]));
+      }
+    }
+    slopes.push(m[n - 2]);
+
+    let path = `M ${extendedPts[0].x.toFixed(1)} ${extendedPts[0].y.toFixed(1)}`;
+    for (let i = 0; i < n - 1; i++) {
+      const p0 = extendedPts[i];
+      const p1 = extendedPts[i + 1];
+      const cp1x = p0.x + dx[i] / 3;
+      const cp1y = p0.y + slopes[i] * dx[i] / 3;
+      const cp2x = p1.x - dx[i] / 3;
+      const cp2y = p1.y - slopes[i + 1] * dx[i] / 3;
+      path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p1.x.toFixed(1)} ${p1.y.toFixed(1)}`;
+    }
+    return path;
   };
 
-  const smoothLinePath = useMemo(() => buildSmoothPath(svgPoints), [svgPoints]);
+  const smoothLinePath = useMemo(() => buildSmoothPath(svgPoints, dimensions.width, dimensions.height), [svgPoints, dimensions.width, dimensions.height]);
   const smoothAreaPath = useMemo(() => {
-    return svgPoints.length > 0
-      ? `${smoothLinePath} L ${svgPoints[svgPoints.length - 1].x} ${dimensions.height} L ${svgPoints[0].x} ${dimensions.height} Z`
+    return smoothLinePath
+      ? `${smoothLinePath} L ${dimensions.width} ${dimensions.height} L 0 ${dimensions.height} Z`
       : '';
-  }, [svgPoints, smoothLinePath, dimensions.height]);
+  }, [smoothLinePath, dimensions.width, dimensions.height]);
 
   const modalProducts = useMemo(() => {
     if (!selectedDetailGroup) return [];
@@ -538,6 +599,38 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
   const qtRealMax = useMemo(() => Math.max(...quotationBarData.map(d => d.count), 0), [quotationBarData]);
   const qtMaxCount = useMemo(() => calculateNiceMax(qtRealMax), [qtRealMax]);
+
+  const [qtChartDisplay, setQtChartDisplay] = useState('bar'); // 'bar' | 'line'
+  const qtContainerRef = useRef(null);
+  const [qtDimensions, setQtDimensions] = useState({ width: 600, height: 200 });
+
+  useEffect(() => {
+    if (!qtContainerRef.current) return;
+    const observer = new ResizeObserver((entries) => {
+      for (let entry of entries) {
+        const { width, height } = entry.contentRect;
+        setQtDimensions({ width: width || 600, height: height || 200 });
+      }
+    });
+    observer.observe(qtContainerRef.current);
+    return () => observer.disconnect();
+  }, []);
+
+  const qtSvgPoints = useMemo(() => {
+    const n = quotationBarData.length;
+    return quotationBarData.map((d, i) => {
+      const x = n > 0 ? (i + 0.5) * (qtDimensions.width / n) : 0;
+      const y = qtMaxCount > 0 ? qtDimensions.height * (1 - d.count / qtMaxCount) : qtDimensions.height;
+      return { x, y, name: d.name, fullName: d.fullName, count: d.count };
+    });
+  }, [quotationBarData, qtDimensions, qtMaxCount]);
+
+  const qtSmoothLinePath = useMemo(() => buildSmoothPath(qtSvgPoints, qtDimensions.width, qtDimensions.height), [qtSvgPoints, qtDimensions.width, qtDimensions.height]);
+  const qtSmoothAreaPath = useMemo(() => {
+    return qtSmoothLinePath
+      ? `${qtSmoothLinePath} L ${qtDimensions.width} ${qtDimensions.height} L 0 ${qtDimensions.height} Z`
+      : '';
+  }, [qtSmoothLinePath, qtDimensions.width, qtDimensions.height]);
 
   // Pivot Table States
   const [selectedPivotRegion, setSelectedPivotRegion] = useState(null);
@@ -857,16 +950,14 @@ export default function Dashboard({ products, brands, categories, quotations = [
                     chartDisplay === 'line' ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
                   }`}
                 >
-                  <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-[#0071e3]/[0.04] via-[#0071e3]/[0.01] to-transparent pointer-events-none" />
-
                   <svg
                     className="absolute inset-0 w-full h-full overflow-visible pointer-events-none"
                     viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
                   >
                     <defs>
                       <linearGradient id="lineAreaGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%"   stopColor="#0071e3" stopOpacity="0.22" />
-                        <stop offset="50%"  stopColor="#0071e3" stopOpacity="0.08" />
+                        <stop offset="0%"   stopColor="#0071e3" stopOpacity="0.12" />
+                        <stop offset="50%"  stopColor="#0071e3" stopOpacity="0.04" />
                         <stop offset="100%" stopColor="#0071e3" stopOpacity="0" />
                       </linearGradient>
 
@@ -941,20 +1032,20 @@ export default function Dashboard({ products, brands, categories, quotations = [
                           }}
                           className="group/point absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center cursor-pointer pointer-events-auto z-30 select-none"
                         >
-                          {/* Sleek Apple-style Tooltip directly above the real dot */}
-                          <div className="
-                            absolute bottom-full left-1/2 -translate-x-1/2 mb-2.5
+                          {/* Sleek Apple-style Tooltip with smart ceiling flipping */}
+                          <div className={`
+                            absolute ${topPercent < 22 ? 'top-full mt-2.5' : 'bottom-full mb-2.5'} left-1/2 -translate-x-1/2
                             text-[11px] font-medium text-white
                             px-3 py-1.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.25)]
                             opacity-0 scale-90 translate-y-1
                             group-hover/point:opacity-100 group-hover/point:scale-100 group-hover/point:translate-y-0
                             transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
                             bg-[#1d1d1f]/95 backdrop-blur-md border border-white/15
-                          ">
+                          `}>
                             <span className="text-zinc-300 mr-1.5">{p.fullName || p.name}:</span>
                             <span className="text-[#38bdf8] font-bold">{p.count.toLocaleString()}</span>
                             <span className="text-zinc-400 text-[10px] ml-1">รายการ</span>
-                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
+                            <div className={`absolute ${topPercent < 22 ? 'bottom-full border-b-4 border-b-[#1d1d1f]' : 'top-full border-t-4 border-t-[#1d1d1f]'} left-1/2 -translate-x-1/2 border-x-4 border-x-transparent`} />
                           </div>
 
                           {/* The Real Dot on the line with Apple-like hover ring */}
@@ -993,19 +1084,19 @@ export default function Dashboard({ products, brands, categories, quotations = [
                               }}
                               className="w-full relative group/bar"
                             >
-                              {/* Hover Tooltip - Positioned directly above the bar top */}
-                              <div className="
-                                absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                              {/* Hover Tooltip - Positioned directly above the bar top or inside if near ceiling */}
+                              <div className={`
+                                absolute ${heightPercent > 82 ? 'top-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2
                                 text-[10px] font-bold text-white
                                 px-2.5 py-1 rounded-lg shadow-2xl
                                 opacity-0 scale-90 translate-y-1
                                 group-hover:opacity-100 group-hover:scale-100 group-hover:translate-y-0
                                 transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
                                 bg-[#1d1d1f] border border-white/10
-                              ">
+                              `}>
                                 <span className="text-zinc-300 mr-1">{fullName || name}:</span>
                                 <span className="text-[#38bdf8] font-extrabold">{count.toLocaleString()}</span> รายการ
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
+                                <div className={`absolute ${heightPercent > 82 ? 'bottom-full border-b-4 border-b-[#1d1d1f]' : 'top-full border-t-4 border-t-[#1d1d1f]'} left-1/2 -translate-x-1/2 border-x-4 border-x-transparent`} />
                               </div>
 
                               {count > 0 && (
@@ -1208,7 +1299,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
               </div>
 
               {/* Chart Plot Area */}
-              <div className="relative flex-1 min-h-0">
+              <div className="relative flex-1 min-h-0" ref={qtContainerRef}>
                 {/* Horizontal Guide Lines */}
                 <div className="absolute inset-0 pointer-events-none">
                   {[100, 75, 50, 25, 0].map((pct) => (
@@ -1222,8 +1313,125 @@ export default function Dashboard({ products, brands, categories, quotations = [
                   ))}
                 </div>
 
+                {/* Line Chart Graphic for Quotation */}
+                <div 
+                  className={`absolute inset-0 transition-all duration-500 ease-in-out ${
+                    qtChartDisplay === 'line' ? 'opacity-100 scale-100 pointer-events-auto' : 'opacity-0 scale-95 pointer-events-none'
+                  }`}
+                >
+                  <svg
+                    className="absolute inset-0 w-full h-full overflow-visible pointer-events-none"
+                    viewBox={`0 0 ${qtDimensions.width} ${qtDimensions.height}`}
+                  >
+                    <defs>
+                      <linearGradient id="qtLineAreaGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%"   stopColor="#0071e3" stopOpacity="0.12" />
+                        <stop offset="50%"  stopColor="#0071e3" stopOpacity="0.04" />
+                        <stop offset="100%" stopColor="#0071e3" stopOpacity="0" />
+                      </linearGradient>
+
+                      <linearGradient id="qtLineStrokeGradient" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="0%"   stopColor="#00c6ff" />
+                        <stop offset="50%"  stopColor="#0071e3" />
+                        <stop offset="100%" stopColor="#7000ff" />
+                      </linearGradient>
+
+                      <filter id="qtLineGlow" x="-10%" y="-60%" width="120%" height="220%">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur" />
+                        <feMerge>
+                          <feMergeNode in="blur" />
+                          <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                      </filter>
+
+                      <clipPath id="qtChartClip">
+                        <rect x="0" y="0" width={qtDimensions.width} height={qtDimensions.height} />
+                      </clipPath>
+                    </defs>
+
+                    {/* Area fill */}
+                    {qtSmoothAreaPath && (
+                      <path
+                        d={qtSmoothAreaPath}
+                        fill="url(#qtLineAreaGradient)"
+                        clipPath="url(#qtChartClip)"
+                      />
+                    )}
+
+                    {/* Glow layer */}
+                    {qtSmoothLinePath && (
+                      <path
+                        d={qtSmoothLinePath}
+                        fill="none"
+                        stroke="#0071e3"
+                        strokeWidth="6"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity="0.25"
+                        filter="url(#qtLineGlow)"
+                      />
+                    )}
+
+                    {/* Main stroke */}
+                    {qtSmoothLinePath && (
+                      <path
+                        d={qtSmoothLinePath}
+                        fill="none"
+                        stroke="url(#qtLineStrokeGradient)"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    )}
+                  </svg>
+
+                  {/* Data Points along the line */}
+                  <div className={`absolute inset-0 ${qtChartDisplay === 'line' ? 'pointer-events-auto z-30' : 'pointer-events-none z-10'}`}>
+                    {qtSvgPoints.map((p, idx) => {
+                      const leftPercent = qtDimensions.width > 0 ? (p.x / qtDimensions.width) * 100 : 0;
+                      const topPercent = qtDimensions.height > 0 ? (p.y / qtDimensions.height) * 100 : 0;
+                      return (
+                        <div
+                          key={idx}
+                          onClick={() => handleBarClick({ name: p.name })}
+                          style={{
+                            left: `${leftPercent}%`,
+                            top: `${topPercent}%`,
+                          }}
+                          className="group/point absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 flex items-center justify-center cursor-pointer pointer-events-auto z-30 select-none"
+                        >
+                          {/* Tooltip */}
+                          <div className={`
+                            absolute ${topPercent < 22 ? 'top-full mt-2.5' : 'bottom-full mb-2.5'} left-1/2 -translate-x-1/2
+                            text-[11px] font-medium text-white
+                            px-3 py-1.5 rounded-xl shadow-[0_10px_25px_rgba(0,0,0,0.25)]
+                            opacity-0 scale-90 translate-y-1
+                            group-hover/point:opacity-100 group-hover/point:scale-100 group-hover/point:translate-y-0
+                            transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
+                            bg-[#1d1d1f]/95 backdrop-blur-md border border-white/15 flex flex-col items-center gap-0.5
+                          `}>
+                            <span className="text-zinc-300 font-normal">{p.fullName || p.name}:</span>
+                            <div className="flex items-center gap-1">
+                              <span className="text-[#38bdf8] font-bold">{p.count.toLocaleString()}</span>
+                              <span className="text-zinc-400 text-[10px]">ฉบับ</span>
+                            </div>
+                            <div className={`absolute ${topPercent < 22 ? 'bottom-full border-b-4 border-b-[#1d1d1f]' : 'top-full border-t-4 border-t-[#1d1d1f]'} left-1/2 -translate-x-1/2 border-x-4 border-x-transparent`} />
+                          </div>
+
+                          {/* Dot */}
+                          <div className="w-2.5 h-2.5 rounded-full bg-[#0071e3] border-2 border-white shadow-[0_1px_4px_rgba(0,0,0,0.25)] group-hover/point:scale-125 group-hover/point:ring-4 group-hover/point:ring-[#0071e3]/25 transition-all duration-150 relative z-10" />
+                          <div
+                            className="absolute w-5 h-5 rounded-full bg-[#0071e3]/20 animate-pulse-ring transition-transform duration-150"
+                            style={{ animationDelay: `${idx * 0.12}s` }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 {/* Bars & Hover tooltips */}
-                <div key={`bars-${qtChartType}`} className="absolute inset-0 flex items-end pointer-events-auto z-20">
+                <div key={`bars-${qtChartType}`} className={`absolute inset-0 flex items-end ${qtChartDisplay === 'bar' ? 'pointer-events-auto opacity-100 scale-100 z-20' : 'pointer-events-none opacity-0 scale-95 z-10'} transition-all duration-500 ease-in-out`}>
                   {quotationBarData.map(({ name, fullName, count, gradient }, idx) => {
                     const heightPercent = qtMaxCount > 0 ? (count / qtMaxCount) * 100 : 0;
                     const isSelected = (qtChartType === 'region' && selectedPivotRegion === name) ||
@@ -1253,16 +1461,16 @@ export default function Dashboard({ products, brands, categories, quotations = [
                             }}
                             className="w-full relative group/bar"
                           >
-                            {/* Hover Tooltip - Positioned directly above the bar top */}
-                            <div className="
-                              absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+                            {/* Hover Tooltip - Positioned directly above the bar top or inside if near ceiling */}
+                            <div className={`
+                              absolute ${heightPercent > 82 ? 'top-2' : 'bottom-full mb-2'} left-1/2 -translate-x-1/2
                               text-[10px] font-bold text-white
                               px-2.5 py-1.5 rounded-lg shadow-2xl
                               opacity-0 scale-90 translate-y-1
                               group-hover/bar:opacity-100 group-hover/bar:scale-100 group-hover/bar:translate-y-0
                               transition-all duration-150 ease-out pointer-events-none whitespace-nowrap z-50
                               bg-[#1d1d1f] border border-white/10 flex flex-col items-center gap-0.5
-                            ">
+                            `}>
                               <span className="text-zinc-300 font-normal">{fullName}:</span>
                               <div className="flex items-center gap-1">
                                 <span className="text-[#34d399] font-extrabold text-xs">{count.toLocaleString()}</span>
@@ -1273,7 +1481,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                                   คลิกเพื่อกรองใน Pivot Table
                                 </span>
                               )}
-                              <div className="absolute top-full left-1/2 -translate-x-1/2 border-x-4 border-x-transparent border-t-4 border-t-[#1d1d1f]" />
+                              <div className={`absolute ${heightPercent > 82 ? 'bottom-full border-b-4 border-b-[#1d1d1f]' : 'top-full border-t-4 border-t-[#1d1d1f]'} left-1/2 -translate-x-1/2 border-x-4 border-x-transparent`} />
                             </div>
 
                             {count > 0 && (
@@ -1347,6 +1555,31 @@ export default function Dashboard({ products, brands, categories, quotations = [
                   </div>
                 );
               })}
+            </div>
+
+            {/* ── Bottom Control Bar: Compact Chart Display Toggle on Bottom-Left ── */}
+            <div className="flex items-center justify-between pt-2.5 mt-2 border-t border-[#f0f0f5]/80">
+              <div className="relative bg-[#f5f5f7] p-0.5 rounded-lg border border-[#d2d2d7]/40 flex items-center w-20 sm:w-22 shadow-2xs">
+                <div 
+                  className="absolute top-0.5 bottom-0.5 left-0.5 rounded-md bg-white shadow-xs transition-transform duration-200 ease-out pointer-events-none"
+                  style={{
+                    width: 'calc(50% - 2px)',
+                    transform: qtChartDisplay === 'line' ? 'translateX(100%)' : 'translateX(0)'
+                  }}
+                />
+                {[['bar', 'แท่ง'], ['line', 'เส้น']].map(([val, label]) => (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => setQtChartDisplay(val)}
+                    className={`relative z-10 flex-1 py-0.5 text-[10px] font-bold transition-colors duration-150 cursor-pointer text-center ${
+                      qtChartDisplay === val ? 'text-black' : 'text-[#8e8e93] hover:text-black'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
