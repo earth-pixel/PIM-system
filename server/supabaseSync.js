@@ -334,7 +334,30 @@ export async function saveCollectionToSupabase(key, data) {
         return true;
       }
 
-      const rows = incomingList.map(toSupabaseProduct);
+      // Fetch categories, subcategories, brands to map foreign key IDs directly!
+      const [{ data: cats }, { data: subs }, { data: brs }] = await Promise.all([
+        supabase.from('categories').select('id, name'),
+        supabase.from('subcategories').select('id, name, category_name'),
+        supabase.from('brands').select('id, name')
+      ]);
+      const catMap = Object.fromEntries((cats || []).map(c => [(c.name || '').trim().toLowerCase(), c.id]));
+      const brandMap = Object.fromEntries((brs || []).map(b => [(b.name || '').trim().toLowerCase(), b.id]));
+      const subMap = {};
+      (subs || []).forEach(s => {
+        const key = `${(s.category_name || '').trim().toLowerCase()}__${(s.name || '').trim().toLowerCase()}`;
+        subMap[key] = s.id;
+      });
+
+      const rows = incomingList.map(p => {
+        const row = toSupabaseProduct(p);
+        const catKey = (p.category || '').trim().toLowerCase();
+        const brandKey = (p.brand || '').trim().toLowerCase();
+        const subKey = `${catKey}__${(p.subCategory || p.subcategory || '').trim().toLowerCase()}`;
+        if (catMap[catKey]) row.category_id = catMap[catKey];
+        if (brandMap[brandKey]) row.brand_id = brandMap[brandKey];
+        if (subMap[subKey]) row.subcategory_id = subMap[subKey];
+        return row;
+      });
       // Upsert in batches of 50
       for (let i = 0; i < rows.length; i += 50) {
         const batch = rows.slice(i, i + 50);
