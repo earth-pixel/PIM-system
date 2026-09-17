@@ -1,7 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import dotenv from 'dotenv';
 dotenv.config();
+
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+export function ensureUuid(val) {
+  if (!val) return randomUUID();
+  const str = String(val).trim();
+  if (UUID_REGEX.test(str)) return str.toLowerCase();
+  const h = createHash('md5').update(str).digest('hex');
+  return h.slice(0, 8) + '-' + h.slice(8, 12) + '-4' + h.slice(13, 16) + '-a' + h.slice(17, 20) + '-' + h.slice(20, 32);
+}
 
 const supabaseUrl = process.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
@@ -43,7 +53,7 @@ export function toSupabaseProduct(p) {
   }
 
   return {
-    id: p.id || undefined,
+    id: ensureUuid(p.id),
     SKU: p.code || p.SKU || null,
     barcode: p.barcode || null,
     name: p.name || 'ไม่มีชื่อสินค้า',
@@ -96,14 +106,26 @@ export function fromSupabaseProduct(row) {
 }
 
 export function toSupabaseQuotation(q) {
+  const custId = q.customerId && UUID_REGEX.test(String(q.customerId).trim()) ? String(q.customerId).trim() : null;
+  const customerInfo = {
+    ...(q.customer || {}),
+    region: q.customerRegion || q.customer?.region || '',
+    customerRegion: q.customerRegion || q.customer?.region || '',
+    salespersonName: q.salespersonName || q.salesName || '',
+    salespersonPhone: q.salespersonPhone || q.salesPhone || '',
+    projectName: q.projectName || q.projName || '',
+    approvedBy: q.approvedBy || '',
+    approvedDate: q.approvedDate || ''
+  };
+
   return {
-    id: q.id || undefined,
+    id: ensureUuid(q.id),
     quotation_number: q.quotationNumber || q.quotation_number,
     doc_type: q.documentType || q.doc_type || 'quotation',
     date: q.issuedDate || q.date || new Date().toISOString().slice(0, 10),
     valid_until: q.validUntilDate || q.valid_until || null,
-    customer_id: q.customerId || q.customer_id || null,
-    customer_info: q.customer || q.customer_info || {},
+    customer_id: custId,
+    customer_info: customerInfo,
     items: q.items || [],
     subtotal: Number(q.subtotal || 0),
     discount: Number(q.discount || 0),
@@ -119,6 +141,7 @@ export function toSupabaseQuotation(q) {
 }
 
 export function fromSupabaseQuotation(row) {
+  const cust = row.customer_info || {};
   return {
     id: row.id,
     quotationNumber: row.quotation_number,
@@ -126,7 +149,14 @@ export function fromSupabaseQuotation(row) {
     issuedDate: row.date ? String(row.date) : '',
     validUntilDate: row.valid_until ? String(row.valid_until) : '',
     customerId: row.customer_id,
-    customer: row.customer_info || {},
+    customer: cust,
+    customerRegion: cust.customerRegion || cust.region || '',
+    customerBranch: cust.branch || '',
+    salespersonName: cust.salespersonName || cust.salesName || '',
+    salespersonPhone: cust.salespersonPhone || cust.salesPhone || '',
+    projectName: cust.projectName || cust.projName || '',
+    approvedBy: cust.approvedBy || '',
+    approvedDate: cust.approvedDate || '',
     items: row.items || [],
     subtotal: Number(row.subtotal || 0),
     discount: Number(row.discount || 0),
@@ -135,6 +165,7 @@ export function fromSupabaseQuotation(row) {
     totalAmount: Number(row.total_amount ?? 0),
     status: row.status || 'draft',
     notes: row.notes || '',
+    note: row.notes || '',
     createdBy: row.created_by || '',
     pdfUrl: row.pdf_url || '',
     createdAt: row.created_at || new Date().toISOString()
@@ -143,7 +174,7 @@ export function fromSupabaseQuotation(row) {
 
 export function toSupabaseCustomer(c) {
   return {
-    id: c.id || undefined,
+    id: ensureUuid(c.id),
     name: c.name || 'ไม่มีชื่อ',
     company_name: c.companyName || c.company_name || null,
     branch_type: c.branchType || c.branch_type || 'head',
@@ -306,7 +337,7 @@ export async function saveCollectionToSupabase(key, data) {
         if (error) throw error;
       }
 
-      const keepIds = incomingList.map(q => q.id).filter(Boolean);
+      const keepIds = rows.map(r => r.id).filter(Boolean);
       if (keepIds.length > 0) {
         const { data: existing } = await supabase.from('quotations').select('id');
         const toDelete = (existing || []).filter(e => !keepIds.includes(e.id)).map(e => e.id);
@@ -340,25 +371,36 @@ export async function saveCollectionToSupabase(key, data) {
 
     if (key === 'brands') {
       const names = Array.isArray(data) ? data.map(String).filter(Boolean) : [];
-      await supabase.from('brands').delete().neq('name', '___NON_EXISTENT___');
       if (names.length > 0) {
         await supabase.from('brands').upsert(names.map(name => ({ name })), { onConflict: 'name' });
+        const { data: currentBrands } = await supabase.from('brands').select('id, name');
+        const toDelete = (currentBrands || []).filter(b => !names.includes(b.name)).map(b => b.id);
+        if (toDelete.length > 0) {
+          await supabase.from('brands').delete().in('id', toDelete);
+        }
+      } else {
+        await supabase.from('brands').delete().neq('name', '___NON_EXISTENT___');
       }
       return true;
     }
 
     if (key === 'categories') {
       const names = Array.isArray(data) ? data.map(String).filter(Boolean) : [];
-      await supabase.from('categories').delete().neq('name', '___NON_EXISTENT___');
       if (names.length > 0) {
         await supabase.from('categories').upsert(names.map(name => ({ name })), { onConflict: 'name' });
+        const { data: currentCats } = await supabase.from('categories').select('id, name');
+        const toDelete = (currentCats || []).filter(c => !names.includes(c.name)).map(c => c.id);
+        if (toDelete.length > 0) {
+          await supabase.from('categories').delete().in('id', toDelete);
+        }
+      } else {
+        await supabase.from('categories').delete().neq('name', '___NON_EXISTENT___');
       }
       return true;
     }
 
     if (key === 'subcategories') {
       // data is { [catName]: [sub1, sub2] }
-      await supabase.from('subcategories').delete().neq('name', '___NON_EXISTENT___');
       const { data: cats } = await supabase.from('categories').select('id, name');
       const catMap = Object.fromEntries((cats || []).map(c => [c.name, c.id]));
 
@@ -366,16 +408,19 @@ export async function saveCollectionToSupabase(key, data) {
       for (const [catName, subList] of Object.entries(data || {})) {
         let catId = catMap[catName];
         if (!catId) {
-          // If category not exists yet, insert it
-          const { data: newCat } = await supabase.from('categories').insert({ name: catName }).select('id').single();
+          // If category not exists yet, insert/upsert it
+          const { data: newCat } = await supabase.from('categories').upsert({ name: catName }, { onConflict: 'name' }).select('id').single();
           catId = newCat?.id;
+          if (catId) catMap[catName] = catId;
         }
         if (catId && Array.isArray(subList)) {
           for (const sub of subList) {
-            if (sub) rows.push({ category_id: catId, category_name: catName, name: sub });
+            if (sub && typeof sub === 'string') rows.push({ category_id: catId, category_name: catName, name: sub.trim() });
           }
         }
       }
+
+      await supabase.from('subcategories').delete().neq('name', '___NON_EXISTENT___');
       if (rows.length > 0) {
         await supabase.from('subcategories').insert(rows);
       }

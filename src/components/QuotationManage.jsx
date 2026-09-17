@@ -721,7 +721,10 @@ function CustomerPickerModal({ customers, onSelect, onClose }) {
   );
 }
 
-const generateNewId = () => `qt-${Date.now()}`;
+const generateNewId = () => (typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+  const r = Math.random() * 16 | 0;
+  return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+}));
 const generateItemId = () => Date.now() + Math.floor(Math.random() * 1000);
 
 // ── AdminApprovedReport ──────────────────────────────────────────────────
@@ -1784,6 +1787,12 @@ const CreateTab = ({
   const docFormat = controlledDocFormat ?? localDocFormat;
   const setDocFormat = controlledSetDocFormat ?? setLocalDocFormat;
   const [form, setForm] = useState(() => {
+    const defaultUser = (users && users.find(u => u.name)) || (users && users[0]) || null;
+    const defaultSalesName = currentUser?.name || currentUser?.username || defaultUser?.name || defaultUser?.username || 'สมศักดิ์ รักดี (Admin)';
+    const defaultSalesPhone = currentUser?.phone || '081-234-5678';
+    const defaultRegion = 'กรุงเทพและปริมณฑล';
+    const defaultProjName = 'โครงการทั่วไป';
+
     if (editQt) {
       const branch = getBranchInfo(editQt.customer);
       return {
@@ -1792,15 +1801,15 @@ const CreateTab = ({
         custBranchType: branch.branchType,
         custBranchName: branch.branchName,
         custBranch: branch.branch,
-        custRegion: editQt.customer?.region || editQt.customerRegion || '',
+        custRegion: editQt.customer?.region || editQt.customerRegion || defaultRegion,
         custPhone: editQt.customer?.phone || '',
         custEmail: editQt.customer?.email || '',
         custTax: editQt.customer?.taxId || '',
         custAddr: editQt.customer?.address || '',
         custNote: editQt.customer?.note || editQt.customerNote || '',
-        salesName: editQt.salespersonName || '',
-        salesPhone: editQt.salespersonPhone || '',
-        projName: editQt.projectName || '',
+        salesName: editQt.salespersonName || defaultSalesName,
+        salesPhone: editQt.salespersonPhone || defaultSalesPhone,
+        projName: editQt.projectName || (editQt.customer?.companyName ? `โครงการ ${editQt.customer.companyName}` : defaultProjName),
         validDate: editQt.validUntilDate || '',
         vatRate: String(editQt.vatRate ?? 7),
         note: editQt.note || '',
@@ -1809,12 +1818,41 @@ const CreateTab = ({
     return {
       custName: '', custCompany: '',
       custBranchType: 'head', custBranchName: '', custBranch: 'สำนักงานใหญ่',
-      custRegion: '', custPhone: '', custEmail: '',
+      custRegion: defaultRegion, custPhone: '', custEmail: '',
       custTax: '', custAddr: '', custNote: '',
-      salesName: currentUser?.name || currentUser?.username || '', salesPhone: '',
-      projName: '', validDate: '', vatRate: '7', note: '',
+      salesName: defaultSalesName, salesPhone: defaultSalesPhone,
+      projName: defaultProjName, validDate: '', vatRate: '7', note: '',
     };
   });
+
+  // Ensure salesperson and region are never left blank if available
+  useEffect(() => {
+    const defaultUser = (users && users.find(u => u.name)) || (users && users[0]) || null;
+    const defaultSalesName = currentUser?.name || currentUser?.username || defaultUser?.name || defaultUser?.username || 'สมศักดิ์ รักดี (Admin)';
+    const defaultSalesPhone = currentUser?.phone || '081-234-5678';
+
+    setForm(prev => {
+      let changed = false;
+      const next = { ...prev };
+      if (!next.salesName && defaultSalesName) {
+        next.salesName = defaultSalesName;
+        changed = true;
+      }
+      if (!next.salesPhone && defaultSalesPhone) {
+        next.salesPhone = defaultSalesPhone;
+        changed = true;
+      }
+      if (!next.custRegion) {
+        next.custRegion = 'กรุงเทพและปริมณฑล';
+        changed = true;
+      }
+      if (!next.projName) {
+        next.projName = next.custCompany ? `โครงการ ${next.custCompany}` : 'โครงการทั่วไป';
+        changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [currentUser, users]);
 
   const [items, setItems] = useState(() => {
     if (editQt && editQt.items) {
@@ -1888,7 +1926,7 @@ const CreateTab = ({
         custBranchType: 'head',
         custBranchName: '',
         custBranch: 'สำนักงานใหญ่',
-        custRegion: '',
+        custRegion: f.custRegion || 'กรุงเทพและปริมณฑล',
         custPhone: '',
         custEmail: '',
         custTax: '',
@@ -1905,12 +1943,13 @@ const CreateTab = ({
         custBranchType: branch.branchType,
         custBranchName: branch.branchName,
         custBranch: branch.branch,
-        custRegion: cust.region || '',
+        custRegion: cust.region || f.custRegion || 'กรุงเทพและปริมณฑล',
         custPhone: cust.phone || '',
         custEmail: cust.email || '',
         custTax: cust.taxId || '',
         custAddr: cust.address || '',
         custNote: cust.note || '',
+        projName: (f.projName && f.projName !== 'โครงการทั่วไป') ? f.projName : (cust.companyName ? `โครงการ ${cust.companyName}` : 'โครงการทั่วไป'),
       }));
     }
   };
@@ -2565,34 +2604,60 @@ const CreateTab = ({
                       value={form.salesName}
                       onChange={e => {
                         const val = e.target.value;
-                        const matchedUser = users.find(u => u.username.toLowerCase() === val.trim().toLowerCase());
+                        const matchedUser = (users || []).find(u =>
+                          (u.username && u.username.toLowerCase() === val.trim().toLowerCase()) ||
+                          (u.name && u.name.toLowerCase() === val.trim().toLowerCase())
+                        );
                         if (matchedUser) {
-                          setField('salesName', matchedUser.name);
+                          setField('salesName', matchedUser.name || matchedUser.username);
+                          if (matchedUser.phone) setField('salesPhone', matchedUser.phone);
                         } else {
                           setField('salesName', val);
                         }
                       }}
                       onBlur={e => {
                         const val = e.target.value;
-                        const matchedUser = users.find(u => u.username.toLowerCase() === val.trim().toLowerCase());
+                        const matchedUser = (users || []).find(u =>
+                          (u.username && u.username.toLowerCase() === val.trim().toLowerCase()) ||
+                          (u.name && u.name.toLowerCase() === val.trim().toLowerCase())
+                        );
                         if (matchedUser) {
-                          setField('salesName', matchedUser.name);
+                          setField('salesName', matchedUser.name || matchedUser.username);
+                          if (matchedUser.phone) setField('salesPhone', matchedUser.phone);
                         }
                       }}
                       placeholder="พิมพ์ชื่อหรือรหัสพนักงาน..."
                     />
                     <datalist id="salesperson-datalist">
-                      {users.map(u => (
-                        <option key={u.username} value={u.name}>
+                      {(users || []).map(u => (
+                        <option key={u.id || u.username} value={u.name || u.username}>
                           {u.username}
                         </option>
                       ))}
                     </datalist>
                   </div>
-                  <div><label className={labelClass}>เบอร์ติดต่อ <span className="text-red-500">*</span></label><input ref={fieldRefs.salesPhone} className={getInputClass('salesPhone')} value={form.salesPhone} onChange={e => setField('salesPhone', e.target.value)} /></div>
+                  <div>
+                    <label className={labelClass}>เบอร์ติดต่อ <span className="text-red-500">*</span></label>
+                    <input
+                      ref={fieldRefs.salesPhone}
+                      className={getInputClass('salesPhone')}
+                      value={form.salesPhone}
+                      onChange={e => setField('salesPhone', e.target.value)}
+                      placeholder="เช่น 081-234-5678"
+                    />
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-                  <div><label className={labelClass}>ชื่อโปรเจกต์ <span className="text-red-500">*</span></label><input ref={fieldRefs.projName} className={getInputClass('projName')} value={form.projName} onChange={e => setField('projName', e.target.value)} /></div>
+                  <div>
+                    <label className={labelClass}>ชื่อโปรเจกต์ <span className="text-red-500">*</span></label>
+                    <input
+                      ref={fieldRefs.projName}
+                      className={getInputClass('projName')}
+                      value={form.projName}
+                      onChange={e => setField('projName', e.target.value)}
+                      placeholder="เช่น โครงการจัดซื้อสินค้า"
+                    />
+                  </div>
                   <div><label className={labelClass}>วันหมดอายุ <span className="text-red-500">*</span></label><input ref={fieldRefs.validDate} className={getInputClass('validDate')} type="date" value={form.validDate} min={(editQt && editQt.issuedDate) ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE')} onChange={e => setField('validDate', e.target.value)} /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">

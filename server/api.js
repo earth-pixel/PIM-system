@@ -545,8 +545,12 @@ export function createApi(dbPath) {
       }
       if (key === 'products') {
         saveCollectionToSupabase('brands', result.brands).catch(() => {});
-        saveCollectionToSupabase('categories', result.categories).catch(() => {});
-        if (result.subcategories) saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});
+        (async () => {
+          await saveCollectionToSupabase('categories', result.categories).catch(() => {});
+          if (result.subcategories) {
+            await saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});
+          }
+        })();
       }
       if (key === 'categories' && result.subcategories) {
         saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});

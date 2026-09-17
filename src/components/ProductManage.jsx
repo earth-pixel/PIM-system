@@ -1,7 +1,7 @@
 import { findHeaderRow, parseNumericCell, validateProduct, normalizeCode } from '../utils/validation';
 import { canPerformAction } from '../utils/permissions';
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import DropdownFilter from './DropdownFilter';
 import {
@@ -217,6 +217,10 @@ export default function ProductManage({
   const [platform, setPlatform] = useState('');
   const [isDragging, setIsDragging] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingImageFile, setPendingImageFile] = useState(null);
+  const [imageDeleted, setImageDeleted] = useState(false);
+  const previewUrlRef = useRef(null);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [formErrors, setFormErrors] = useState({
@@ -803,7 +807,14 @@ export default function ProductManage({
     setCapFee('');
     setDescription('');
     setHighlights('');
-    setHowToUse('');
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPendingImageFile(null);
+    setImageDeleted(false);
+    setIsSubmitting(false);
+    setIsUploadingImage(false);
     setImage('');
     setSize('');
     setWeight('');
@@ -838,6 +849,15 @@ export default function ProductManage({
   };
 
   useEffect(() => {
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    setPendingImageFile(null);
+    setImageDeleted(false);
+    setIsSubmitting(false);
+    setIsUploadingImage(false);
+
     if (editProduct) {
       setCode(editProduct.code || '');
       setBarcode(editProduct.barcode || '');
@@ -908,7 +928,7 @@ export default function ProductManage({
     };
   }, [showForm]);
 
-  const processImageFile = async (file) => {
+  const processImageFile = (file) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
@@ -921,30 +941,18 @@ export default function ProductManage({
       return;
     }
 
-    setIsUploadingImage(true);
-    setErrorMsg('');
-
-    try {
-      const result = await uploadProductImage(file);
-      if (result.success) {
-        setImage(result.url);
-        setErrorMsg('');
-        setFormErrors(prev => ({ ...prev, image: false }));
-        if (result.warning) {
-          setAlertPopup({
-            type: 'info',
-            title: 'แจ้งเตือนการบันทึกภาพ',
-            message: result.warning
-          });
-        }
-      } else {
-        setErrorMsg(result.error || 'อัปโหลดรูปภาพไม่สำเร็จ');
-      }
-    } catch (err) {
-      setErrorMsg(err.message || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ');
-    } finally {
-      setIsUploadingImage(false);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
     }
+    const previewUrl = URL.createObjectURL(file);
+    previewUrlRef.current = previewUrl;
+
+    // Do NOT upload to Supabase Storage yet! Only preview locally until user clicks Save
+    setPendingImageFile(file);
+    setImage(previewUrl);
+    setImageDeleted(false);
+    setErrorMsg('');
+    setFormErrors(prev => ({ ...prev, image: false }));
   };
 
   const handleImageUpload = (e) => {
@@ -1099,53 +1107,86 @@ export default function ProductManage({
     const now = new Date();
     const currentFormattedDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
-    const newProductData = {
-      id: editProduct ? editProduct.id : Date.now().toString(),
-      code: code.trim(),
-      barcode: barcode.trim(),
-      name: name.trim(),
-      brand,
-      category,
-      subCategory: subCategory.trim(),
-      wholesalePrice: wholesalePrice === '' ? 0 : Number(wholesalePrice),
-      retailPrice: retailPrice === '' ? 0 : Number(retailPrice),
-      capFee: capFee === '' ? 0 : Number(capFee),
-      description: description.trim(),
-      highlights: highlights.trim(),
-      howToUse: howToUse.trim(),
-      image: image ? image.trim() : '',
-      imageUrl: image ? image.trim() : '',
-      image_url: image ? image.trim() : '',
-      size: size.trim(),
-      weight: weight.trim(),
-      fdaNumber: fdaNumber.trim(),
-      tisiNumber: tisiNumber.trim(),
-      stock: editProduct ? editProduct.stock : 0,
-      status,
-      createdAt: editProduct ? (createdAt || currentFormattedDate) : currentFormattedDate,
-      updatedAt: currentFormattedDate,
-      updatedBy: currentUser.username,
-      packageLength: packageLength ? Number(packageLength) : null,
-      packageWidth: packageWidth ? Number(packageWidth) : null,
-      packageHeight: packageHeight ? Number(packageHeight) : null,
-      platform: platform || '',
-      _platform: platform || '',
-      editRemark: editProduct ? editRemark.trim() : ''
-    };
+    setIsSubmitting(true);
 
-    const validationErrors = validateProduct(newProductData);
-    if (validationErrors.length) { setAlertPopup({ type: 'error', title: 'ข้อมูลไม่ถูกต้อง', message: validationErrors.join(', ') }); return; }
     try {
+      let finalImageUrl = image;
+
+      // Only upload to Supabase Storage NOW, after all field validations passed!
+      if (pendingImageFile) {
+        setIsUploadingImage(true);
+        const uploadResult = await uploadProductImage(pendingImageFile);
+        setIsUploadingImage(false);
+
+        if (!uploadResult.success) {
+          setAlertPopup({
+            type: 'error',
+            title: 'อัปโหลดรูปภาพไม่สำเร็จ',
+            message: uploadResult.error || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพขึ้น Cloud'
+          });
+          setIsSubmitting(false);
+          return;
+        }
+        finalImageUrl = uploadResult.url;
+      } else if (imageDeleted) {
+        finalImageUrl = '';
+      }
+
+      const newProductData = {
+        id: editProduct ? editProduct.id : Date.now().toString(),
+        code: code.trim(),
+        barcode: barcode.trim(),
+        name: name.trim(),
+        brand,
+        category,
+        subCategory: subCategory.trim(),
+        wholesalePrice: wholesalePrice === '' ? 0 : Number(wholesalePrice),
+        retailPrice: retailPrice === '' ? 0 : Number(retailPrice),
+        capFee: capFee === '' ? 0 : Number(capFee),
+        description: description.trim(),
+        highlights: highlights.trim(),
+        howToUse: howToUse.trim(),
+        image: finalImageUrl ? finalImageUrl.trim() : '',
+        imageUrl: finalImageUrl ? finalImageUrl.trim() : '',
+        image_url: finalImageUrl ? finalImageUrl.trim() : '',
+        size: size.trim(),
+        weight: weight.trim(),
+        fdaNumber: fdaNumber.trim(),
+        tisiNumber: tisiNumber.trim(),
+        stock: editProduct ? editProduct.stock : 0,
+        status,
+        createdAt: editProduct ? (createdAt || currentFormattedDate) : currentFormattedDate,
+        updatedAt: currentFormattedDate,
+        updatedBy: currentUser.username,
+        packageLength: packageLength ? Number(packageLength) : null,
+        packageWidth: packageWidth ? Number(packageWidth) : null,
+        packageHeight: packageHeight ? Number(packageHeight) : null,
+        platform: platform || '',
+        _platform: platform || '',
+        editRemark: editProduct ? editRemark.trim() : ''
+      };
+
+      const validationErrors = validateProduct(newProductData);
+      if (validationErrors.length) {
+        setAlertPopup({ type: 'error', title: 'ข้อมูลไม่ถูกต้อง', message: validationErrors.join(', ') });
+        setIsSubmitting(false);
+        return;
+      }
+
       // If editing an existing product and the image was changed or removed, delete old image from Supabase Storage
-      if (editProduct && editProduct.image && editProduct.image !== newProductData.image) {
+      if (editProduct && editProduct.image && editProduct.image !== newProductData.image && isRemoteUrl(editProduct.image)) {
         deleteProductImage(editProduct.image).catch(() => {});
       }
+
       await onSaveProduct(newProductData);
       resetForm();
       setShowForm(false);
       setAlertPopup({ type: 'success', title: 'บันทึกข้อมูลสำเร็จ', message: 'บันทึกข้อมูลสินค้าแล้ว' });
     } catch (error) {
       setAlertPopup({ type: 'error', title: 'บันทึกไม่สำเร็จ', message: error.message });
+    } finally {
+      setIsSubmitting(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -2171,9 +2212,7 @@ export default function ProductManage({
             </div>
             <div>
               <h2 className="font-bold text-sm uppercase tracking-wide text-[#1d1d1f]">ยืนยันการลบรูปภาพสินค้า?</h2>
-              <p className="text-xs text-[#86868b] mt-1.5 leading-relaxed">
-                รูปภาพจะถูกนำออกจากสินค้า และระบบจะลบไฟล์ออกจาก Cloud Storage โดยอัตโนมัติ
-              </p>
+              
             </div>
             <div className="flex gap-2.5 pt-2 text-xs font-semibold">
               <button
@@ -2185,14 +2224,16 @@ export default function ProductManage({
               </button>
               <button
                 type="button"
-                onClick={async () => {
-                  const imgToDelete = image;
+                onClick={() => {
+                  if (previewUrlRef.current) {
+                    URL.revokeObjectURL(previewUrlRef.current);
+                    previewUrlRef.current = null;
+                  }
+                  setPendingImageFile(null);
                   setImage('');
+                  setImageDeleted(true);
                   setFormErrors(prev => ({ ...prev, image: false }));
                   setShowDeleteImageConfirm(false);
-                  if (imgToDelete && isRemoteUrl(imgToDelete)) {
-                    deleteProductImage(imgToDelete).catch(err => console.warn('Storage image deletion error:', err));
-                  }
                 }}
                 className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-xs transition-colors cursor-pointer"
               >
@@ -2763,10 +2804,11 @@ export default function ProductManage({
               <button
                 type="submit"
                 form="product-form"
-                className="px-6 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer"
+                disabled={isSubmitting}
+                className="px-6 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white rounded-xl font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Save className="w-4 h-4" />
-                <span>บันทึกข้อมูลสินค้า</span>
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                <span>{isSubmitting ? 'กำลังบันทึกข้อมูล...' : 'บันทึกข้อมูลสินค้า'}</span>
               </button>
             </div>
 
