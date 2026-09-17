@@ -107,15 +107,22 @@ export function fromSupabaseProduct(row) {
 
 export function toSupabaseQuotation(q) {
   const custId = q.customerId && UUID_REGEX.test(String(q.customerId).trim()) ? String(q.customerId).trim() : null;
+  const salesName = q.salespersonName || q.salesName || '';
+  const salesPhone = q.salespersonPhone || q.salesPhone || '';
+  const projName = q.projectName || q.projName || '';
+  const region = q.customerRegion || q.customer?.region || '';
+  const approvedBy = q.approvedBy || null;
+  const approvedAt = q.approvedDate || q.approvedAt || null;
+
   const customerInfo = {
     ...(q.customer || {}),
-    region: q.customerRegion || q.customer?.region || '',
-    customerRegion: q.customerRegion || q.customer?.region || '',
-    salespersonName: q.salespersonName || q.salesName || '',
-    salespersonPhone: q.salespersonPhone || q.salesPhone || '',
-    projectName: q.projectName || q.projName || '',
-    approvedBy: q.approvedBy || '',
-    approvedDate: q.approvedDate || ''
+    region,
+    customerRegion: region,
+    salespersonName: salesName,
+    salespersonPhone: salesPhone,
+    projectName: projName,
+    approvedBy: approvedBy || '',
+    approvedDate: approvedAt || ''
   };
 
   return {
@@ -124,6 +131,12 @@ export function toSupabaseQuotation(q) {
     doc_type: q.documentType || q.doc_type || 'quotation',
     date: q.issuedDate || q.date || new Date().toISOString().slice(0, 10),
     valid_until: q.validUntilDate || q.valid_until || null,
+    salesperson_name: salesName || null,
+    salesperson_phone: salesPhone || null,
+    project_name: projName || null,
+    customer_region: region || null,
+    approved_by: approvedBy,
+    approved_at: approvedAt,
     customer_id: custId,
     customer_info: customerInfo,
     items: q.items || [],
@@ -135,13 +148,19 @@ export function toSupabaseQuotation(q) {
     status: q.status || 'draft',
     notes: q.notes || q.note || null,
     created_by: q.createdBy || q.created_by || null,
-    pdf_url: q.pdfUrl || q.pdf_url || null,
     created_at: q.createdAt || new Date().toISOString()
   };
 }
 
 export function fromSupabaseQuotation(row) {
   const cust = row.customer_info || {};
+  const region = row.customer_region || cust.customerRegion || cust.region || '';
+  const salesName = row.salesperson_name || cust.salespersonName || cust.salesName || '';
+  const salesPhone = row.salesperson_phone || cust.salespersonPhone || cust.salesPhone || '';
+  const projName = row.project_name || cust.projectName || cust.projName || '';
+  const approvedBy = row.approved_by || cust.approvedBy || '';
+  const approvedDate = row.approved_at || cust.approvedDate || '';
+
   return {
     id: row.id,
     quotationNumber: row.quotation_number,
@@ -149,14 +168,21 @@ export function fromSupabaseQuotation(row) {
     issuedDate: row.date ? String(row.date) : '',
     validUntilDate: row.valid_until ? String(row.valid_until) : '',
     customerId: row.customer_id,
-    customer: cust,
-    customerRegion: cust.customerRegion || cust.region || '',
+    customer: {
+      ...cust,
+      region,
+      customerRegion: region,
+      salespersonName: salesName,
+      salespersonPhone: salesPhone,
+      projectName: projName,
+    },
+    customerRegion: region,
     customerBranch: cust.branch || '',
-    salespersonName: cust.salespersonName || cust.salesName || '',
-    salespersonPhone: cust.salespersonPhone || cust.salesPhone || '',
-    projectName: cust.projectName || cust.projName || '',
-    approvedBy: cust.approvedBy || '',
-    approvedDate: cust.approvedDate || '',
+    salespersonName: salesName,
+    salespersonPhone: salesPhone,
+    projectName: projName,
+    approvedBy,
+    approvedDate,
     items: row.items || [],
     subtotal: Number(row.subtotal || 0),
     discount: Number(row.discount || 0),
