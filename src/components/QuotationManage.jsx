@@ -2239,6 +2239,7 @@ const CreateTab = ({
       items: validItems,
       subtotal: sub,
       vatAmount: docFormat === 'product_proposal' ? 0 : vat,
+      taxAmount: docFormat === 'product_proposal' ? 0 : vat,
       totalAmount: docFormat === 'product_proposal' ? sub : total,
       status: effectiveStatus,
       approvedBy: effectiveStatus === 'approved' ? (currentUser?.name || currentUser?.username || 'ไม่ระบุ') : undefined,

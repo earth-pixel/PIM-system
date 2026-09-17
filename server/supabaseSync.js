@@ -106,13 +106,24 @@ export function fromSupabaseProduct(row) {
 }
 
 export function toSupabaseQuotation(q) {
-  const custId = q.customerId && UUID_REGEX.test(String(q.customerId).trim()) ? String(q.customerId).trim() : null;
+  let custId = q.customerId && UUID_REGEX.test(String(q.customerId).trim()) ? String(q.customerId).trim() : null;
+  if (!custId && q.customer?.id && UUID_REGEX.test(String(q.customer.id).trim())) {
+    custId = String(q.customer.id).trim();
+  }
+
   const salesName = q.salespersonName || q.salesName || '';
   const salesPhone = q.salespersonPhone || q.salesPhone || '';
   const projName = q.projectName || q.projName || '';
   const region = q.customerRegion || q.customer?.region || '';
   const approvedBy = q.approvedBy || null;
   const approvedAt = q.approvedDate || q.approvedAt || null;
+
+  const vatRate = Number(q.vatRate ?? q.vat_rate ?? 7);
+  const subtotal = Number(q.subtotal || 0);
+  const discount = Number(q.discount || 0);
+  const calculatedTax = vatRate > 0 ? Number(((subtotal - discount) * (vatRate / 100)).toFixed(2)) : 0;
+  const taxAmount = Number(q.vatAmount ?? q.taxAmount ?? q.tax_amount ?? calculatedTax);
+  const totalAmount = Number(q.totalAmount ?? q.total_amount ?? (subtotal - discount + taxAmount));
 
   const customerInfo = {
     ...(q.customer || {}),
@@ -140,11 +151,11 @@ export function toSupabaseQuotation(q) {
     customer_id: custId,
     customer_info: customerInfo,
     items: q.items || [],
-    subtotal: Number(q.subtotal || 0),
-    discount: Number(q.discount || 0),
-    vat_rate: Number(q.vatRate ?? q.vat_rate ?? 7),
-    tax_amount: Number(q.taxAmount ?? q.tax_amount ?? 0),
-    total_amount: Number(q.totalAmount ?? q.total_amount ?? 0),
+    subtotal,
+    discount,
+    vat_rate: vatRate,
+    tax_amount: taxAmount,
+    total_amount: totalAmount,
     status: q.status || 'draft',
     notes: q.notes || q.note || null,
     created_by: q.createdBy || q.created_by || null,
@@ -160,6 +171,12 @@ export function fromSupabaseQuotation(row) {
   const projName = row.project_name || cust.projectName || cust.projName || '';
   const approvedBy = row.approved_by || cust.approvedBy || '';
   const approvedDate = row.approved_at || cust.approvedDate || '';
+
+  const subtotal = Number(row.subtotal || 0);
+  const discount = Number(row.discount || 0);
+  const vatRate = Number(row.vat_rate ?? 7);
+  const taxAmount = Number(row.tax_amount || (vatRate > 0 ? ((subtotal - discount) * (vatRate / 100)).toFixed(2) : 0));
+  const totalAmount = Number(row.total_amount || (subtotal - discount + taxAmount));
 
   return {
     id: row.id,
@@ -184,11 +201,12 @@ export function fromSupabaseQuotation(row) {
     approvedBy,
     approvedDate,
     items: row.items || [],
-    subtotal: Number(row.subtotal || 0),
-    discount: Number(row.discount || 0),
-    vatRate: Number(row.vat_rate ?? 7),
-    taxAmount: Number(row.tax_amount ?? 0),
-    totalAmount: Number(row.total_amount ?? 0),
+    subtotal,
+    discount,
+    vatRate,
+    taxAmount,
+    vatAmount: taxAmount,
+    totalAmount,
     status: row.status || 'draft',
     notes: row.notes || '',
     note: row.notes || '',
