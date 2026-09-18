@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { X, Printer, Download, ExternalLink, Mail, CheckCircle2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 import { isExpiredQuotation } from '../utils/validation';
+import BarcodeDisplay from './BarcodeDisplay';
 
 // ─── Thai Number to Words ─────────────────────────────────────
 const ONES = ['', 'หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า'];
@@ -229,6 +230,7 @@ const getDocTitle = (printType) => {
 export default function QuotationPrint({
   quotation,
   companyInfo = {},
+  products = [],
   onClose,
   printType = 'quotation',
   autoPrint = false,
@@ -351,15 +353,16 @@ export default function QuotationPrint({
     if (onClose) onClose();
   };
 
-  // Lookup database products from localStorage to fetch barcode and size details
+  // Lookup database products from props or fallback to localStorage
   const productsList = useMemo(() => {
+    if (products && products.length > 0) return products;
     try {
       const saved = localStorage.getItem('pim_products');
       return saved ? JSON.parse(saved) : [];
     } catch {
       return [];
     }
-  }, []);
+  }, [products]);
 
   const getProductDetails = (productCode) => {
     const p = productsList.find(item => item.code === productCode);
@@ -940,16 +943,7 @@ export default function QuotationPrint({
           {item.productCode || '—'}
         </td>
         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-          {itemBarcode ? (
-            <div style={{ display: 'inline-flex', flexDirection: 'column', alignItems: 'center', gap: '2px', backgroundColor: '#ffffff', color: '#111111', padding: '4px 6px', borderRadius: '6px', border: `1px solid ${BORDER}` }}>
-              <img
-                src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(itemBarcode)}&height=10&scale=3&includetext=false`}
-                style={{ height: '28px', maxWidth: '100%', objectFit: 'contain', imageRendering: 'pixelated', display: 'block', backgroundColor: '#ffffff' }}
-                alt={itemBarcode}
-              />
-              <span style={{ fontSize: '9px', fontFamily: 'monospace', color: '#111111', fontWeight: 'bold' }}>{itemBarcode}</span>
-            </div>
-          ) : '—'}
+          <BarcodeDisplay value={itemBarcode} height={25} width={1.4} fontSize={9} />
         </td>
         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
           {item.productImage ? (

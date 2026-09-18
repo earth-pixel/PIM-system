@@ -6,6 +6,7 @@ import {
   Users, UserCheck, Package, Barcode, Compass
 } from 'lucide-react';
 import QuotationPrint from './QuotationPrint';
+import BarcodeDisplay from './BarcodeDisplay';
 import * as XLSX from 'xlsx';
 import MobileDownloadModal from './MobileDownloadModal';
 import { checkIsInAppBrowser } from '../utils/browserUtils';
@@ -3404,54 +3405,7 @@ const PreviewTab = ({
                       ) : '—'}
                     </td>
                     <td className="p-2 sm:p-3 text-center">
-                      {it.barcode ? (
-                        <div
-                          style={{
-                            display: 'inline-flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: '#ffffff',
-                            color: '#111111',
-                            padding: '6px 10px',
-                            borderRadius: '10px',
-                            border: '1px solid #e2e8f0',
-                            boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-                          }}
-                        >
-                          <img
-                            src={`https://bwipjs-api.metafloor.com/?bcid=code128&text=${encodeURIComponent(it.barcode)}&height=10&scale=3&includetext=false`}
-                            alt={it.barcode}
-                            style={{
-                              height: '28px',
-                              maxWidth: '130px',
-                              objectFit: 'contain',
-                              userSelect: 'none',
-                              backgroundColor: '#ffffff',
-                              imageRendering: 'pixelated'
-                            }}
-                            loading="lazy"
-                          />
-                          <span
-                            style={{
-                              fontFamily: 'monospace',
-                              fontSize: '11px',
-                              fontWeight: 800,
-                              color: '#111111',
-                              letterSpacing: '0.5px',
-                              marginTop: '4px',
-                              backgroundColor: '#f1f5f9',
-                              padding: '1px 8px',
-                              borderRadius: '4px',
-                              border: '1px solid #cbd5e1'
-                            }}
-                          >
-                            {it.barcode}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-zinc-300 font-mono text-xs">—</span>
-                      )}
+                      <BarcodeDisplay value={it.barcode} height={26} width={1.5} fontSize={10} />
                     </td>
                     <td className="p-2 sm:p-3.5 text-left">
                       <div className="font-bold text-zinc-900 leading-snug text-xs sm:text-sm">{it.productName}</div>
@@ -3964,6 +3918,7 @@ export default function QuotationManage({
           <QuotationPrint
             quotation={printQt}
             companyInfo={companyInfo}
+            products={products}
             onClose={() => {
               setPrintQt(null);
               setAutoPrint(false);
