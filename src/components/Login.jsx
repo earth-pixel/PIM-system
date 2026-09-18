@@ -80,24 +80,14 @@ export default function Login({ onLogin }) {
           {/* Form Container */}
           <div className={`w-full max-w-[330px] sm:max-w-[360px] mx-auto my-auto space-y-4 sm:space-y-5 transition-all duration-300 ${isShaking ? 'animate-shake' : ''}`}>
 
-            {/* Logo and Titles */}
-            <div className="space-y-2 sm:space-y-3 text-center flex flex-col items-center">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 flex items-center justify-center text-zinc-900 transition-transform duration-300 hover:scale-105">
-                <svg viewBox="0 0 80 90" className="w-7 h-8 sm:w-8 sm:h-9 fill-current" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
-                  <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
-                  <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
-                </svg>
-              </div>
-
-              <div className="space-y-1">
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-zinc-900 tracking-tight">
-                  ลงชื่อเข้าใช้งาน
-                </h1>
-                <p className="text-[11px] sm:text-xs text-zinc-500 font-medium leading-relaxed max-w-[300px] sm:max-w-[320px] mx-auto">
-                  ระบบจัดการข้อมูลสินค้า บริษัท พันธ์วาดี จำกัด
-                </p>
-              </div>
+            {/* Titles */}
+            <div className="space-y-1 text-center">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-zinc-900 tracking-tight">
+                ลงชื่อเข้าใช้งาน
+              </h1>
+              <p className="text-[11px] sm:text-xs text-zinc-500 font-medium leading-relaxed max-w-[300px] sm:max-w-[320px] mx-auto">
+                ระบบจัดการข้อมูลสินค้า บริษัท พันธ์วาดี จำกัด
+              </p>
             </div>
 
             {/* Login Form */}

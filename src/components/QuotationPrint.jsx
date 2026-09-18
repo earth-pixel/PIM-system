@@ -931,7 +931,7 @@ export default function QuotationPrint({
 
   const renderProposalRow = (item, globalIdx, rowRef) => {
     const details = getProductDetails(item.productCode);
-    const itemBarcode = item.barcode || details.barcode;
+    const itemBarcode = item.barcode || details.barcode || item.productCode || '';
     const itemSize = item.size || details.size;
     const itemWeight = item.weight || '';
     const qtyPart = item.quantity > 1 ? ` x${item.quantity}` : '';
@@ -943,7 +943,7 @@ export default function QuotationPrint({
           {item.productCode || '—'}
         </td>
         <td style={{ padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
-          <BarcodeDisplay value={itemBarcode} height={34} width={1.3} fontSize={10} />
+          <BarcodeDisplay value={itemBarcode} height={30} maxWidth={120} fontSize={9.5} />
         </td>
         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
           {item.productImage ? (

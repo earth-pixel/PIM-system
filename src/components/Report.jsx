@@ -387,11 +387,6 @@ export default function Report({ products, brands, categories, subcategories = {
               {filteredProducts.length.toLocaleString()} รายการ
             </span>
           </div>
-          {filteredProducts.length > 0 && (
-            <p className="text-[10px] text-zinc-400 font-medium hidden sm:block">
-              เปิดใช้งาน {activeCount} · ปิดใช้งาน {inactiveCount}
-            </p>
-          )}
         </div>
 
         <div className="overflow-x-auto">

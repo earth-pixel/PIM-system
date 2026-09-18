@@ -3405,7 +3405,7 @@ const PreviewTab = ({
                       ) : '—'}
                     </td>
                     <td className="p-2 sm:p-3 text-center">
-                      <BarcodeDisplay value={it.barcode} height={26} width={1.5} fontSize={10} />
+                      <BarcodeDisplay value={it.barcode || it.productCode} height={26} maxWidth={110} fontSize={9.5} />
                     </td>
                     <td className="p-2 sm:p-3.5 text-left">
                       <div className="font-bold text-zinc-900 leading-snug text-xs sm:text-sm">{it.productName}</div>
