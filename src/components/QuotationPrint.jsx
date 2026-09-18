@@ -942,8 +942,8 @@ export default function QuotationPrint({
         <td style={{ padding: '8px 10px', textAlign: 'center', color: DARK, fontSize: '10.5px' }}>
           {item.productCode || '—'}
         </td>
-        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
-          <BarcodeDisplay value={itemBarcode} height={25} width={1.4} fontSize={9} />
+        <td style={{ padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
+          <BarcodeDisplay value={itemBarcode} height={34} width={1.3} fontSize={10} />
         </td>
         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
           {item.productImage ? (

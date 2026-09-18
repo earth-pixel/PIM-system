@@ -3,13 +3,11 @@ import { generateBarcodeDataUrl } from '../utils/barcodeUtils';
 
 export default function BarcodeDisplay({
   value,
-  height = 26,
-  width = 1.6,
-  fontSize = 9.5,
-  showText = true,
+  height = 36,
+  width = 1.35,
+  fontSize = 11,
   className = '',
   containerStyle = {},
-  textStyle = {},
   imageStyle = {}
 }) {
   const barcodeText = value ? String(value).trim() : '';
@@ -17,11 +15,12 @@ export default function BarcodeDisplay({
   const dataUrl = useMemo(() => {
     if (!barcodeText) return '';
     return generateBarcodeDataUrl(barcodeText, {
-      height: Math.round(height * 1.6),
       width,
-      margin: 1
+      height: 28,
+      fontSize,
+      margin: 2
     });
-  }, [barcodeText, height, width]);
+  }, [barcodeText, width, fontSize]);
 
   if (!barcodeText) {
     return <span style={{ color: '#9ca3af', fontFamily: 'monospace', fontSize: '11px' }}>—</span>;
@@ -31,15 +30,15 @@ export default function BarcodeDisplay({
     <div
       style={{
         display: 'inline-flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         backgroundColor: '#ffffff',
-        color: '#111111',
-        padding: '3px 6px',
+        padding: '2px 4px',
         borderRadius: '6px',
         border: '1px solid #e2e8f0',
         boxSizing: 'border-box',
+        overflow: 'hidden',
+        maxWidth: '100%',
         ...containerStyle
       }}
       className={className}
@@ -58,22 +57,13 @@ export default function BarcodeDisplay({
           }}
         />
       ) : (
-        <div style={{ height: `${height}px`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <span style={{ fontSize: '9px', color: '#64748b' }}>Barcode</span>
-        </div>
-      )}
-      {showText && (
         <span
           style={{
             fontFamily: 'monospace',
-            fontSize: `${fontSize}px`,
-            fontWeight: 800,
+            fontSize: '10px',
+            fontWeight: 700,
             color: '#111111',
-            letterSpacing: '0.4px',
-            lineHeight: 1.1,
-            marginTop: '2px',
-            userSelect: 'all',
-            ...textStyle
+            padding: '2px 4px'
           }}
         >
           {barcodeText}
