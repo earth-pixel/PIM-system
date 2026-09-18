@@ -344,34 +344,61 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
   const realMaxCount = useMemo(() => Math.max(...aggregatedData.map(d => d.count), 0), [aggregatedData]);
   
-  // Calculate clean, readable round max scale with headroom so peak data and tooltips never touch the ceiling
-  const calculateNiceMax = (realMax) => {
-    if (realMax <= 0) return 4;
-    if (realMax <= 3) return 4;
-    const targetWithHeadroom = realMax * 1.25;
+  // Calculate clean, exact integer scale with matching grid lines and headroom
+  const getNiceChartScale = (realMax) => {
+    if (realMax <= 0) {
+      return { maxCount: 4, ticks: [4, 3, 2, 1, 0], step: 1 };
+    }
+    if (realMax <= 5) {
+      const maxCount = realMax + 1;
+      const ticks = [];
+      for (let i = maxCount; i >= 0; i--) {
+        ticks.push(i);
+      }
+      return { maxCount, ticks, step: 1 };
+    }
+    if (realMax <= 10) {
+      const step = 2;
+      const maxCount = Math.ceil((realMax + 1) / step) * step;
+      const ticks = [];
+      for (let i = maxCount; i >= 0; i -= step) {
+        ticks.push(i);
+      }
+      return { maxCount, ticks, step };
+    }
+
     const targetSteps = 4;
-    const rawStep = targetWithHeadroom / targetSteps;
+    const rawStep = (realMax * 1.15) / targetSteps;
     const magnitude = Math.pow(10, Math.floor(Math.log10(rawStep)));
     const normalized = rawStep / magnitude;
+
     let niceStep;
     if (normalized <= 1) niceStep = 1 * magnitude;
-    else if (normalized <= 1.25) niceStep = 1.25 * magnitude;
-    else if (normalized <= 1.5) niceStep = 1.5 * magnitude;
     else if (normalized <= 2) niceStep = 2 * magnitude;
     else if (normalized <= 2.5) niceStep = 2.5 * magnitude;
-    else if (normalized <= 3) niceStep = 3 * magnitude;
-    else if (normalized <= 4) niceStep = 4 * magnitude;
     else if (normalized <= 5) niceStep = 5 * magnitude;
     else niceStep = 10 * magnitude;
 
-    let niceMax = Math.ceil(niceStep * targetSteps);
-    while (niceMax <= realMax) {
-      niceMax += niceStep;
+    niceStep = Math.max(1, Math.round(niceStep));
+
+    let maxCount = Math.ceil(realMax / niceStep) * niceStep;
+    if (maxCount <= realMax) {
+      maxCount += niceStep;
     }
-    return niceMax;
+
+    const ticks = [];
+    for (let v = maxCount; v >= 0; v -= niceStep) {
+      ticks.push(v);
+    }
+    if (ticks[ticks.length - 1] !== 0) {
+      ticks.push(0);
+    }
+
+    return { maxCount, ticks, step: niceStep };
   };
 
-  const maxCount = useMemo(() => calculateNiceMax(realMaxCount), [realMaxCount]);
+  const chartScale = useMemo(() => getNiceChartScale(realMaxCount), [realMaxCount]);
+  const maxCount = chartScale.maxCount;
   const N = aggregatedData.length;
 
   const svgPoints = useMemo(() => {
@@ -591,7 +618,8 @@ export default function Dashboard({ products, brands, categories, quotations = [
   }, [qtChartType, timeframeQuotations, customers]);
 
   const qtRealMax = useMemo(() => Math.max(...quotationBarData.map(d => d.count), 0), [quotationBarData]);
-  const qtMaxCount = useMemo(() => calculateNiceMax(qtRealMax), [qtRealMax]);
+  const qtChartScale = useMemo(() => getNiceChartScale(qtRealMax), [qtRealMax]);
+  const qtMaxCount = qtChartScale.maxCount;
 
   const [qtChartDisplay, setQtChartDisplay] = useState('bar'); // 'bar' | 'line'
   const qtContainerRef = useRef(null);
@@ -912,15 +940,18 @@ export default function Dashboard({ products, brands, categories, quotations = [
               
               {/* Y-axis Labels Column */}
               <div className="w-9 sm:w-11 shrink-0 relative select-none pointer-events-none">
-                {[100, 75, 50, 25, 0].map((pct) => (
-                  <div 
-                    key={pct} 
-                    className="absolute right-2 -translate-y-1/2 text-[10px] sm:text-[11px] font-semibold text-[#8e8e93] font-mono leading-none text-right"
-                    style={{ top: `${(100 - pct)}%` }}
-                  >
-                    {Math.round((pct / 100) * maxCount).toLocaleString()}
-                  </div>
-                ))}
+                {chartScale.ticks.map((val) => {
+                  const topPercent = maxCount > 0 ? ((maxCount - val) / maxCount) * 100 : 0;
+                  return (
+                    <div 
+                      key={val} 
+                      className="absolute right-2 -translate-y-1/2 text-[10px] sm:text-[11px] font-semibold text-[#8e8e93] font-mono leading-none text-right"
+                      style={{ top: `${topPercent}%` }}
+                    >
+                      {val.toLocaleString()}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Chart Plot Area (Grid lines, SVG line, Bars) */}
@@ -928,13 +959,16 @@ export default function Dashboard({ products, brands, categories, quotations = [
                 
                 {/* Horizontal Guide Lines */}
                 <div className="absolute inset-0 pointer-events-none">
-                  {[100, 75, 50, 25, 0].map(pct => (
-                    <div 
-                      key={pct} 
-                      className={`absolute left-0 right-0 ${pct === 0 ? 'border-b border-[#d2d2d7]' : 'border-b border-dashed border-[#f0f0f5]'}`}
-                      style={{ top: `${(100 - pct)}%` }}
-                    />
-                  ))}
+                  {chartScale.ticks.map((val) => {
+                    const topPercent = maxCount > 0 ? ((maxCount - val) / maxCount) * 100 : 0;
+                    return (
+                      <div 
+                        key={val} 
+                        className={`absolute left-0 right-0 ${val === 0 ? 'border-b border-[#d2d2d7]' : 'border-b border-dashed border-[#f0f0f5]'}`}
+                        style={{ top: `${topPercent}%` }}
+                      />
+                    );
+                  })}
                 </div>
 
                 {/* Line Chart Graphic */}
@@ -1280,30 +1314,36 @@ export default function Dashboard({ products, brands, categories, quotations = [
             <div className="relative flex min-h-[200px]">
               {/* Y-axis Labels Column - Left Side with Numbers */}
               <div className="w-9 sm:w-11 shrink-0 relative select-none pointer-events-none">
-                {[100, 75, 50, 25, 0].map((pct) => (
-                  <div
-                    key={pct}
-                    className="absolute right-2 -translate-y-1/2 text-[10px] sm:text-[11px] font-semibold text-[#8e8e93] font-mono leading-none text-right"
-                    style={{ top: `${100 - pct}%` }}
-                  >
-                    {Math.round((pct / 100) * qtMaxCount).toLocaleString()}
-                  </div>
-                ))}
+                {qtChartScale.ticks.map((val) => {
+                  const topPercent = qtMaxCount > 0 ? ((qtMaxCount - val) / qtMaxCount) * 100 : 0;
+                  return (
+                    <div
+                      key={val}
+                      className="absolute right-2 -translate-y-1/2 text-[10px] sm:text-[11px] font-semibold text-[#8e8e93] font-mono leading-none text-right"
+                      style={{ top: `${topPercent}%` }}
+                    >
+                      {val.toLocaleString()}
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Chart Plot Area */}
               <div className="relative flex-1 min-h-0" ref={qtContainerRef}>
                 {/* Horizontal Guide Lines */}
                 <div className="absolute inset-0 pointer-events-none">
-                  {[100, 75, 50, 25, 0].map((pct) => (
-                    <div
-                      key={pct}
-                      className={`absolute left-0 right-0 ${
-                        pct === 0 ? 'border-b border-[#d2d2d7]' : 'border-b border-dashed border-[#f0f0f5]'
-                      }`}
-                      style={{ top: `${100 - pct}%` }}
-                    />
-                  ))}
+                  {qtChartScale.ticks.map((val) => {
+                    const topPercent = qtMaxCount > 0 ? ((qtMaxCount - val) / qtMaxCount) * 100 : 0;
+                    return (
+                      <div
+                        key={val}
+                        className={`absolute left-0 right-0 ${
+                          val === 0 ? 'border-b border-[#d2d2d7]' : 'border-b border-dashed border-[#f0f0f5]'
+                        }`}
+                        style={{ top: `${topPercent}%` }}
+                      />
+                    );
+                  })}
                 </div>
 
                 {/* Line Chart Graphic for Quotation */}
