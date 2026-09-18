@@ -15,7 +15,7 @@ export function validateProduct(product) {
     const value = product[key];
     if (value === '' || value == null || !Number.isFinite(Number(value)) || Number(value) < 0 || (key === 'retailPrice' && Number(value) === 0)) errors.push(`${key}: ราคาไม่ถูกต้อง`);
   }
-  for (const key of ['packageLength', 'packageWidth', 'packageHeight', 'stock']) {
+  for (const key of ['packageLength', 'packageWidth', 'packageHeight']) {
     const value = product[key];
     if (value != null && value !== '' && (!Number.isFinite(Number(value)) || Number(value) < 0)) errors.push(`${key}: ต้องเป็นตัวเลขไม่ติดลบ`);
   }

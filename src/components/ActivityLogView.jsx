@@ -177,7 +177,6 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
       retailPrice: 'ราคาขายปลีก',
       wholesalePrice: 'ราคาขายส่ง',
       capFee: 'ค่าฝา',
-      stock: 'จำนวนสต็อก',
       status: 'สถานะ',
       totalAmount: 'ยอดรวมสุทธิ',
       username: 'ชื่อผู้ใช้งาน',

@@ -1839,7 +1839,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-bold text-[#1d1d1f] truncate">{product.name}</p>
-                      <p className="text-[10px] text-zinc-500 mt-0.5 font-mono">SKU: {product.code} · สต็อก: {product.stock || 0} ชิ้น</p>
+                      <p className="text-[10px] text-zinc-500 mt-0.5 font-mono">SKU: {product.code}</p>
                     </div>
                     <div className="text-right">
                       <p className="text-xs font-extrabold text-[#0071e3]">฿{(product.retailPrice || 0).toLocaleString()}</p>

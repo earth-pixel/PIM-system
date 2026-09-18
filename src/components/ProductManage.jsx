@@ -1174,7 +1174,6 @@ export default function ProductManage({
         weight: weight.trim(),
         fdaNumber: fdaNumber.trim(),
         tisiNumber: tisiNumber.trim(),
-        stock: editProduct ? editProduct.stock : 0,
         status,
         createdAt: editProduct ? (createdAt || currentFormattedDate) : currentFormattedDate,
         updatedAt: currentFormattedDate,
@@ -2975,7 +2974,7 @@ export default function ProductManage({
                 </div>
               </div>
 
-              {/* Pricing & Stock Details */}
+              {/* Pricing Details */}
               <div className="bg-[#f5f5f7] p-4 rounded-xl border border-[#d2d2d7]/40 space-y-2.5">
                 <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
                   <span className="text-zinc-800 font-bold">ราคาขายส่ง</span>

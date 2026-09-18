@@ -106,7 +106,7 @@ function logCollectionChange(db, user, key, before) {
       if (typeof value === 'object') {
         const FIELD_MAP = {
           name: 'ชื่อ', code: 'รหัส SKU', username: 'ชื่อผู้ใช้', role: 'สิทธิ์', brand: 'แบรนด์', category: 'หมวดหมู่',
-          retailPrice: 'ราคาขายปลีก', wholesalePrice: 'ราคาขายส่ง', capFee: 'ค่าฝา', stock: 'สต็อก', status: 'สถานะ', totalAmount: 'ยอดรวม',
+          retailPrice: 'ราคาขายปลีก', wholesalePrice: 'ราคาขายส่ง', capFee: 'ค่าฝา', status: 'สถานะ', totalAmount: 'ยอดรวม',
           permissions: 'สิทธิ์การเข้าถึงหน้า/ปุ่ม',
           phone: 'เบอร์โทร', email: 'อีเมล', companyName: 'ชื่อบริษัท', taxId: 'เลขผู้เสียภาษี', address: 'ที่อยู่', note: 'หมายเหตุ'
         };
