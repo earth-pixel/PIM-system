@@ -309,14 +309,14 @@ export default function ProductProposalReport({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
-                  <th className="p-3.5 w-12 text-center">#</th>
-                  <th className="p-3.5 min-w-[180px]">เลขที่เอกสาร</th>
-                  <th className="p-3.5 min-w-[120px]">วันที่</th>
-                  <th className="p-3.5 min-w-[160px]">ผู้สร้าง</th>
-                  <th className="p-3.5 min-w-[260px]">สินค้า</th>
-                  <th className="p-3.5 text-right min-w-[90px]">จำนวน</th>
-                  <th className="p-3.5 text-right min-w-[130px]">มูลค่ารวม</th>
-                  <th className="p-3.5 text-center min-w-[100px] print-hide-col">การจัดการ</th>
+                  <th className="px-3 py-3 w-10 text-center">#</th>
+                  <th className="px-3 py-3 whitespace-nowrap">เลขที่เอกสาร</th>
+                  <th className="px-3 py-3 whitespace-nowrap">วันที่</th>
+                  <th className="px-3 py-3 min-w-[140px]">ผู้สร้าง</th>
+                  <th className="px-3 py-3 whitespace-nowrap">สินค้า</th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">จำนวน</th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">มูลค่ารวม</th>
+                  <th className="px-3 py-3 text-center w-16 whitespace-nowrap print-hide-col">การจัดการ</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f0f0f5] text-xs">
@@ -335,13 +335,13 @@ export default function ProductProposalReport({
                           : index % 2 === 0 ? 'bg-white' : 'bg-violet-50/20'
                       }`}
                     >
-                      <td className="p-3.5 text-center font-mono text-[#86868b]">{index + 1}</td>
-                      <td className="p-3.5 font-mono font-bold text-violet-700">
+                      <td className="px-3 py-3 text-center font-mono text-[#86868b]">{index + 1}</td>
+                      <td className="px-3 py-3 font-mono font-bold text-violet-700 whitespace-nowrap">
                         {proposal.quotationNumber || proposal.id}
                       </td>
-                      <td className="p-3.5 text-[#555557] whitespace-nowrap">{formatDate(proposal.issuedDate)}</td>
-                      <td className="p-3.5 text-[#555557] font-medium">{proposal.salespersonName || proposal.createdBy || '-'}</td>
-                      <td className="p-3.5 text-[#1d1d1f]">
+                      <td className="px-3 py-3 text-[#555557] whitespace-nowrap">{formatDate(proposal.issuedDate)}</td>
+                      <td className="px-3 py-3 text-[#555557] font-medium leading-snug">{proposal.salespersonName || proposal.createdBy || '-'}</td>
+                      <td className="px-3 py-3 text-[#1d1d1f] whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 font-bold text-xs text-violet-900 bg-violet-50 rounded-lg border border-violet-100 whitespace-nowrap print:hidden">
                           <Package className="w-3.5 h-3.5 text-violet-600" />
                           <span>{items.length.toLocaleString()} รายการ</span>
@@ -370,9 +370,9 @@ export default function ProductProposalReport({
                           )}
                         </div>
                       </td>
-                      <td className="p-3.5 text-right font-bold tabular-nums">{quantity.toLocaleString()}</td>
-                      <td className="p-3.5 text-right font-black text-[#1d1d1f] tabular-nums">฿{formatMoney(proposal.totalAmount)}</td>
-                      <td className="p-3.5 text-center whitespace-nowrap print-hide-col">
+                      <td className="px-3 py-3 text-right font-bold tabular-nums whitespace-nowrap">{quantity.toLocaleString()}</td>
+                      <td className="px-3 py-3 text-right font-black text-[#1d1d1f] tabular-nums whitespace-nowrap">฿{formatMoney(proposal.totalAmount)}</td>
+                      <td className="px-3 py-3 text-center whitespace-nowrap print-hide-col w-16">
                         <button
                           type="button"
                           onClick={() => setViewDoc(proposal)}
@@ -380,7 +380,6 @@ export default function ProductProposalReport({
                           title="ดูรายละเอียดใบเสนอสินค้า"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          
                         </button>
                       </td>
                     </tr>

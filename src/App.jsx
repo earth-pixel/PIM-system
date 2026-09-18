@@ -308,48 +308,67 @@ export default function App() {
   const handleSaveQuotation = async data => {
     const exists = quotations.some(q => q.id === data.id);
     const result = await saveCollection('quotations', exists ? quotations.map(q => q.id === data.id ? data : q) : [data, ...quotations]);
+    // Sync customer information with Master Customer Management ("จัดการข้อมูลลูกค้า")
     if (data.customer && (data.customer.name || data.customer.companyName)) {
       const branch = customerBranchInfo(data.customer);
       const customerWithBranch = { ...data.customer, ...branch };
-      if (customerWithBranch.name || customerWithBranch.companyName) {
-        const alreadyHas = customers.some(c => sameCustomerBranch(c, customerWithBranch));
-        if (!alreadyHas) {
-          const newCust = {
-            id: crypto.randomUUID(),
-            name: (data.customer.name || '').trim() || (data.customer.companyName || '').trim(),
-            companyName: (data.customer.companyName || '').trim(),
-            ...branch,
-            region: data.customer.region || data.customerRegion || '',
-            phone: (data.customer.phone || '').trim(),
-            email: (data.customer.email || '').trim(),
-            taxId: (data.customer.taxId || '').trim(),
-            address: (data.customer.address || '').trim(),
-            note: (data.customer.note || '').trim(),
-            status: 'Active',
-            createdAt: new Date().toISOString()
-          };
-          const updated = [newCust, ...customers];
-          setCustomers(updated);
-          saveCollection('customers', updated).catch(() => {});
-        } else {
-          const updated = customers.map(c => {
-            if (sameCustomerBranch(c, customerWithBranch)) {
-              return {
-                ...c,
-                ...branch,
-                region: c.region || data.customer.region || data.customerRegion || '',
-                phone: c.phone || data.customer.phone,
-                email: c.email || data.customer.email,
-                taxId: c.taxId || data.customer.taxId,
-                address: c.address || data.customer.address,
-                note: c.note || data.customer.note || ''
-              };
-            }
-            return c;
-          });
-          setCustomers(updated);
-          saveCollection('customers', updated).catch(() => {});
+      const custName = (data.customer.name || '').trim();
+      const custCompany = (data.customer.companyName || '').trim();
+      const custTax = (data.customer.taxId || '').trim();
+      const custId = data.customer.id;
+
+      // Find if customer already exists in master customers list
+      const existingIndex = customers.findIndex(c => {
+        if (custId && c.id === custId) return true;
+        if (sameCustomerBranch(c, customerWithBranch)) return true;
+        if (custTax && c.taxId && c.taxId.trim() === custTax) {
+          const cBranch = customerBranchInfo(c);
+          if (cBranch.branchType === branch.branchType && (cBranch.branchName || '').toLowerCase() === (branch.branchName || '').toLowerCase()) {
+            return true;
+          }
         }
+        return false;
+      });
+
+      if (existingIndex >= 0) {
+        // Update existing customer in master list so "จัดการข้อมูลลูกค้า" stays aligned
+        const target = customers[existingIndex];
+        const updatedCustomer = {
+          ...target,
+          name: custName || target.name,
+          companyName: custCompany || target.companyName,
+          ...branch,
+          region: data.customer.region || data.customerRegion || target.region || '',
+          phone: (data.customer.phone || '').trim() || target.phone,
+          email: (data.customer.email || '').trim() || target.email,
+          taxId: custTax || target.taxId,
+          address: (data.customer.address || '').trim() || target.address,
+          note: data.customer.note !== undefined ? (data.customer.note || '').trim() : target.note,
+          updatedAt: new Date().toISOString()
+        };
+        const updatedList = [...customers];
+        updatedList[existingIndex] = updatedCustomer;
+        setCustomers(updatedList);
+        saveCollection('customers', updatedList).catch(() => {});
+      } else if (custName || custCompany) {
+        // Auto-create new customer in master list
+        const newCust = {
+          id: custId || crypto.randomUUID(),
+          name: custName || custCompany,
+          companyName: custCompany,
+          ...branch,
+          region: data.customer.region || data.customerRegion || '',
+          phone: (data.customer.phone || '').trim(),
+          email: (data.customer.email || '').trim(),
+          taxId: custTax,
+          address: (data.customer.address || '').trim(),
+          note: (data.customer.note || '').trim(),
+          status: 'Active',
+          createdAt: new Date().toISOString()
+        };
+        const updatedList = [newCust, ...customers];
+        setCustomers(updatedList);
+        saveCollection('customers', updatedList).catch(() => {});
       }
     }
     return result.quotations.find(q => q.id === data.id);

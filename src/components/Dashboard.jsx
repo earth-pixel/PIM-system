@@ -504,6 +504,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
 
   // Aggregated data for quotation bar chart
   const quotationBarData = useMemo(() => {
+    const defaultGradient = 'from-[#0284c7] to-[#38bdf8]';
     if (qtChartType === 'region') {
       const allRegions = THAI_REGIONS;
       const baseData = allRegions.map(reg => {
@@ -512,13 +513,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
           name: reg,
           fullName: reg,
           count,
-          gradient: reg === 'ภาคกลาง' ? 'from-[#0284c7] to-[#38bdf8]' :
-                    reg === 'ภาคเหนือ' ? 'from-[#7c3aed] to-[#a855f7]' :
-                    reg === 'ภาคตะวันออกเฉียงเหนือ' ? 'from-[#d97706] to-[#f59e0b]' :
-                    reg === 'ภาคตะวันออก' ? 'from-[#0d9488] to-[#14b8a6]' :
-                    reg === 'ภาคตะวันตก' ? 'from-[#4f46e5] to-[#6366f1]' :
-                    reg === 'ภาคใต้' ? 'from-[#059669] to-[#10b981]' :
-                    'from-[#71717a] to-[#a1a1aa]'
+          gradient: defaultGradient
         };
       });
 
@@ -532,7 +527,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
           name: 'ไม่ระบุภาค',
           fullName: 'ไม่ระบุภาค',
           count: unassignedCount,
-          gradient: 'from-[#64748b] to-[#94a3b8]'
+          gradient: defaultGradient
         });
       }
 
@@ -553,16 +548,14 @@ export default function Dashboard({ products, brands, categories, quotations = [
         name,
         fullName: name,
         count,
-        gradient: name === 'สำนักงานใหญ่'
-          ? 'from-[#0284c7] to-[#38bdf8]'
-          : 'from-[#d97706] to-[#f59e0b]'
+        gradient: defaultGradient
       }));
     } else if (qtChartType === 'status') {
       const statuses = [
-        { key: 'approved', name: 'อนุมัติแล้ว', gradient: 'from-[#059669] to-[#10b981]' },
-        { key: 'sent', name: 'รอการอนุมัติ', gradient: 'from-[#d97706] to-[#f59e0b]' },
-        { key: 'draft', name: 'แบบร่าง', gradient: 'from-[#71717a] to-[#a1a1aa]' },
-        { key: 'rejected', name: 'ไม่อนุมัติ', gradient: 'from-[#e11d48] to-[#f43f5e]' }
+        { key: 'approved', name: 'อนุมัติแล้ว', gradient: defaultGradient },
+        { key: 'sent', name: 'รอการอนุมัติ', gradient: defaultGradient },
+        { key: 'draft', name: 'แบบร่าง', gradient: defaultGradient },
+        { key: 'rejected', name: 'ไม่อนุมัติ', gradient: defaultGradient }
       ];
       return statuses.map(s => ({
         name: s.name,
@@ -592,7 +585,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
           const d = new Date(rawDate);
           return d.getFullYear() === m.y && d.getMonth() === m.m;
         }).length,
-        gradient: 'from-[#0071e3] to-[#38bdf8]'
+        gradient: defaultGradient
       }));
     }
   }, [qtChartType, timeframeQuotations, customers]);
@@ -1473,7 +1466,7 @@ export default function Dashboard({ products, brands, categories, quotations = [
                             `}>
                               <span className="text-zinc-300 font-normal">{fullName}:</span>
                               <div className="flex items-center gap-1">
-                                <span className="text-[#34d399] font-extrabold text-xs">{count.toLocaleString()}</span>
+                                <span className="text-[#38bdf8] font-extrabold text-xs">{count.toLocaleString()}</span>
                                 <span className="text-zinc-400 text-[9px]">ฉบับ</span>
                               </div>
                               {isClickable && (

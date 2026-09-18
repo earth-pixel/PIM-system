@@ -1741,6 +1741,7 @@ const CreateTab = ({
         const branch = getBranchInfo(c);
         const key = `${c.name.trim()}_${(c.companyName || '').trim()}_${branch.branchType}_${branch.branchName}`;
         custMap.set(key, {
+          id: c.id,
           name: c.name.trim(),
           companyName: (c.companyName || '').trim(),
           ...branch,
@@ -1761,6 +1762,7 @@ const CreateTab = ({
         const key = `${q.customer.name.trim()}_${(q.customer.companyName || '').trim()}_${branch.branchType}_${branch.branchName}`;
         if (!custMap.has(key)) {
           custMap.set(key, {
+            id: q.customer.id,
             name: q.customer.name.trim(),
             companyName: (q.customer.companyName || '').trim(),
             ...branch,
@@ -1787,72 +1789,68 @@ const CreateTab = ({
   const docFormat = controlledDocFormat ?? localDocFormat;
   const setDocFormat = controlledSetDocFormat ?? setLocalDocFormat;
   const [form, setForm] = useState(() => {
-    const defaultUser = (users && users.find(u => u.name)) || (users && users[0]) || null;
-    const defaultSalesName = currentUser?.name || currentUser?.username || defaultUser?.name || defaultUser?.username || 'สมศักดิ์ รักดี (Admin)';
-    const defaultSalesPhone = currentUser?.phone || '081-234-5678';
-    const defaultRegion = 'กรุงเทพและปริมณฑล';
-    const defaultProjName = 'โครงการทั่วไป';
+    const systemSalesName = currentUser?.name || currentUser?.username || '';
+    const systemSalesPhone = currentUser?.phone || '';
 
     if (editQt) {
       const branch = getBranchInfo(editQt.customer);
       return {
+        customerId: editQt.customer?.id || '',
         custName: editQt.customer?.name || '',
         custCompany: editQt.customer?.companyName || '',
         custBranchType: branch.branchType,
         custBranchName: branch.branchName,
         custBranch: branch.branch,
-        custRegion: editQt.customer?.region || editQt.customerRegion || defaultRegion,
+        custRegion: (editQt.customer?.region && THAI_REGIONS.includes(editQt.customer.region))
+          ? editQt.customer.region
+          : (editQt.customerRegion && THAI_REGIONS.includes(editQt.customerRegion) ? editQt.customerRegion : ''),
         custPhone: editQt.customer?.phone || '',
         custEmail: editQt.customer?.email || '',
         custTax: editQt.customer?.taxId || '',
         custAddr: editQt.customer?.address || '',
         custNote: editQt.customer?.note || editQt.customerNote || '',
-        salesName: editQt.salespersonName || defaultSalesName,
-        salesPhone: editQt.salespersonPhone || defaultSalesPhone,
-        projName: editQt.projectName || (editQt.customer?.companyName ? `โครงการ ${editQt.customer.companyName}` : defaultProjName),
+        salesName: editQt.salespersonName || systemSalesName,
+        salesPhone: editQt.salespersonPhone || systemSalesPhone,
+        projName: editQt.projectName || '',
         validDate: editQt.validUntilDate || '',
         vatRate: String(editQt.vatRate ?? 7),
         note: editQt.note || '',
       };
     }
     return {
+      customerId: '',
       custName: '', custCompany: '',
       custBranchType: 'head', custBranchName: '', custBranch: 'สำนักงานใหญ่',
-      custRegion: defaultRegion, custPhone: '', custEmail: '',
+      custRegion: '', custPhone: '', custEmail: '',
       custTax: '', custAddr: '', custNote: '',
-      salesName: defaultSalesName, salesPhone: defaultSalesPhone,
-      projName: defaultProjName, validDate: '', vatRate: '7', note: '',
+      salesName: systemSalesName,
+      salesPhone: systemSalesPhone,
+      projName: '',
+      validDate: '',
+      vatRate: '7',
+      note: '',
     };
   });
 
-  // Ensure salesperson and region are never left blank if available
+  // Ensure salesperson name matches the logged-in system employee
   useEffect(() => {
-    const defaultUser = (users && users.find(u => u.name)) || (users && users[0]) || null;
-    const defaultSalesName = currentUser?.name || currentUser?.username || defaultUser?.name || defaultUser?.username || 'สมศักดิ์ รักดี (Admin)';
-    const defaultSalesPhone = currentUser?.phone || '081-234-5678';
+    const systemSalesName = currentUser?.name || currentUser?.username || '';
+    const systemSalesPhone = currentUser?.phone || '';
 
     setForm(prev => {
       let changed = false;
       const next = { ...prev };
-      if (!next.salesName && defaultSalesName) {
-        next.salesName = defaultSalesName;
+      if (!next.salesName && systemSalesName) {
+        next.salesName = systemSalesName;
         changed = true;
       }
-      if (!next.salesPhone && defaultSalesPhone) {
-        next.salesPhone = defaultSalesPhone;
-        changed = true;
-      }
-      if (!next.custRegion) {
-        next.custRegion = 'กรุงเทพและปริมณฑล';
-        changed = true;
-      }
-      if (!next.projName) {
-        next.projName = next.custCompany ? `โครงการ ${next.custCompany}` : 'โครงการทั่วไป';
+      if (!next.salesPhone && systemSalesPhone) {
+        next.salesPhone = systemSalesPhone;
         changed = true;
       }
       return changed ? next : prev;
     });
-  }, [currentUser, users]);
+  }, [currentUser]);
 
   const [items, setItems] = useState(() => {
     if (editQt && editQt.items) {
@@ -1921,12 +1919,13 @@ const CreateTab = ({
       setSelectedCustName('');
       setForm(f => ({
         ...f,
+        customerId: '',
         custName: '',
         custCompany: '',
         custBranchType: 'head',
         custBranchName: '',
         custBranch: 'สำนักงานใหญ่',
-        custRegion: f.custRegion || 'กรุงเทพและปริมณฑล',
+        custRegion: '',
         custPhone: '',
         custEmail: '',
         custTax: '',
@@ -1938,18 +1937,19 @@ const CreateTab = ({
       const branch = getBranchInfo(cust);
       setForm(f => ({
         ...f,
+        customerId: cust.id || '',
         custName: cust.name || '',
         custCompany: cust.companyName || '',
         custBranchType: branch.branchType,
         custBranchName: branch.branchName,
         custBranch: branch.branch,
-        custRegion: cust.region || f.custRegion || 'กรุงเทพและปริมณฑล',
+        custRegion: (cust.region && THAI_REGIONS.includes(cust.region)) ? cust.region : '',
         custPhone: cust.phone || '',
         custEmail: cust.email || '',
         custTax: cust.taxId || '',
         custAddr: cust.address || '',
         custNote: cust.note || '',
-        projName: (f.projName && f.projName !== 'โครงการทั่วไป') ? f.projName : (cust.companyName ? `โครงการ ${cust.companyName}` : 'โครงการทั่วไป'),
+        projName: f.projName || '',
       }));
     }
   };
@@ -2117,9 +2117,9 @@ const CreateTab = ({
         scrollToField(fieldRefs.custBranchName);
         return;
       }
-      if (!form.custRegion.trim()) {
-        setAlert({ type: 'error', msg: 'กรุณาเลือกภาค (6 ภาค)' });
-        setErrorFields({ custRegion: true });
+      if (!form.custRegion.trim() || !THAI_REGIONS.includes(form.custRegion.trim())) {
+        setAlert({ type: 'error', msg: 'กรุณาเลือกภาค (จำเป็นต้องเลือก 1 ใน 6 ภาค)' });
+        setErrorFields(prev => ({ ...prev, custRegion: true }));
         scrollToField(fieldRefs.custRegion);
         return;
       }
@@ -2217,6 +2217,7 @@ const CreateTab = ({
       customer: docFormat === 'product_proposal'
         ? { name: '', companyName: '', email: '', phone: '', taxId: '', address: '' }
         : {
+            id: form.customerId || editQt?.customer?.id,
             name: form.custName.trim(),
             companyName: form.custCompany.trim(),
             ...branch,
@@ -2597,45 +2598,18 @@ const CreateTab = ({
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                   <div>
-                    <label className={labelClass}>พนักงานขาย <span className="text-red-500">*</span></label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs text-[#555557] font-semibold">
+                        พนักงานขาย <span className="text-red-500">*</span>
+                      </label>
+                    </div>
                     <input
                       ref={fieldRefs.salesName}
-                      className={getInputClass('salesName')}
-                      list="salesperson-datalist"
-                      value={form.salesName}
-                      onChange={e => {
-                        const val = e.target.value;
-                        const matchedUser = (users || []).find(u =>
-                          (u.username && u.username.toLowerCase() === val.trim().toLowerCase()) ||
-                          (u.name && u.name.toLowerCase() === val.trim().toLowerCase())
-                        );
-                        if (matchedUser) {
-                          setField('salesName', matchedUser.name || matchedUser.username);
-                          if (matchedUser.phone) setField('salesPhone', matchedUser.phone);
-                        } else {
-                          setField('salesName', val);
-                        }
-                      }}
-                      onBlur={e => {
-                        const val = e.target.value;
-                        const matchedUser = (users || []).find(u =>
-                          (u.username && u.username.toLowerCase() === val.trim().toLowerCase()) ||
-                          (u.name && u.name.toLowerCase() === val.trim().toLowerCase())
-                        );
-                        if (matchedUser) {
-                          setField('salesName', matchedUser.name || matchedUser.username);
-                          if (matchedUser.phone) setField('salesPhone', matchedUser.phone);
-                        }
-                      }}
-                      placeholder="พิมพ์ชื่อหรือรหัสพนักงาน..."
+                      className="w-full text-xs text-[#1d1d1f] font-bold bg-[#f0f0f4] border border-[#d2d2d7] rounded-xl px-3 py-2.5 cursor-not-allowed select-none focus:outline-none shadow-2xs"
+                      readOnly
+                      value={form.salesName || currentUser?.name || currentUser?.username || ''}
+                      placeholder="ชื่อพนักงานตามระบบ"
                     />
-                    <datalist id="salesperson-datalist">
-                      {(users || []).map(u => (
-                        <option key={u.id || u.username} value={u.name || u.username}>
-                          {u.username}
-                        </option>
-                      ))}
-                    </datalist>
                   </div>
                   <div>
                     <label className={labelClass}>เบอร์ติดต่อ <span className="text-red-500">*</span></label>
@@ -2644,7 +2618,6 @@ const CreateTab = ({
                       className={getInputClass('salesPhone')}
                       value={form.salesPhone}
                       onChange={e => setField('salesPhone', e.target.value)}
-                      placeholder="เช่น 081-234-5678"
                     />
                   </div>
                 </div>
@@ -2656,7 +2629,7 @@ const CreateTab = ({
                       className={getInputClass('projName')}
                       value={form.projName}
                       onChange={e => setField('projName', e.target.value)}
-                      placeholder="เช่น โครงการจัดซื้อสินค้า"
+
                     />
                   </div>
                   <div><label className={labelClass}>วันหมดอายุ <span className="text-red-500">*</span></label><input ref={fieldRefs.validDate} className={getInputClass('validDate')} type="date" value={form.validDate} min={(editQt && editQt.issuedDate) ? editQt.issuedDate : new Date().toLocaleDateString('sv-SE')} onChange={e => setField('validDate', e.target.value)} /></div>
@@ -3070,12 +3043,15 @@ const PreviewTab = ({
   }
 
 
+  const isApprovedQuotation = q.status === 'approved' && q.documentType !== 'product_proposal';
   const canPrint = canPerformAction(currentUser, 'quotations.print') && (q.status === 'approved' || q.documentType === 'product_proposal');
-  const canEdit = canPerformAction(currentUser, 'quotations.edit') && !isExpiredQuotation(q) && (currentUser?.role === 'admin' || (
-    (currentUser?.role === 'manager' || currentUser?.role === 'user') &&
-    isOwnDocument(q, currentUser) &&
-    (q.documentType === 'product_proposal' || q.status !== 'approved')
-  ));
+  const canEdit = canPerformAction(currentUser, 'quotations.edit') &&
+    !isExpiredQuotation(q) &&
+    !isApprovedQuotation &&
+    (currentUser?.role === 'admin' || (
+      (currentUser?.role === 'manager' || currentUser?.role === 'user') &&
+      isOwnDocument(q, currentUser)
+    ));
   const expiryStatus = useMemo(() => getExpiryStatus(q), [q]);
 
   return (
@@ -3152,6 +3128,8 @@ const PreviewTab = ({
               <Plus className="w-3.5 h-3.5" /> สร้างใบเสนอราคาใหม่
             </button>
           )}
+
+
 
           {canEdit && (
             <button
@@ -3680,6 +3658,10 @@ export default function QuotationManage({
   };
 
   const handleEdit = (q) => {
+    if (q && q.status === 'approved' && q.documentType !== 'product_proposal') {
+      showToast('ใบเสนอราคาที่อนุมัติแล้วไม่สามารถแก้ไขได้', 'error');
+      return;
+    }
     setEditQt(q);
     setConvertProposal(null);
     setTab('create');
@@ -3929,6 +3911,7 @@ export default function QuotationManage({
           onDelete={setDeleteTarget}
           onConvert={handleConvertToQuotation}
           currentUser={currentUser}
+          onCopyAsNew={handleCopyAsNew}
           onSendMailDirect={(q) => {
             if (checkIsInAppBrowser()) {
               setIsDownloadGuideOpen(true);
@@ -3939,7 +3922,6 @@ export default function QuotationManage({
           }}
           addActivityLog={addActivityLog}
           onSaveQuotation={onSaveQuotation}
-          onCopyAsNew={handleCopyAsNew}
         />
       )}
 

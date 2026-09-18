@@ -11,6 +11,7 @@ import { createApi } from '../server/api.js';
 import { revision } from '../server/store.js';
 import { readArchiveResponse } from '../src/utils/archiveResponse.js';
 import { findHeaderRow, parseNumericCell, validateProduct, mergeImportedProducts, ownsDocument, calculateQuotation } from '../src/utils/validation.js';
+import { fromSupabaseCustomer, fromSupabaseQuotation, toSupabaseCustomer, toSupabaseQuotation } from '../server/supabaseSync.js';
 
 const today = new Date().toLocaleDateString('sv-SE');
 const tomorrow = new Date(Date.now() + 86400000).toLocaleDateString('sv-SE');
@@ -19,6 +20,36 @@ const quotation = (id = 'q1', owner = 'ann') => ({ id, createdBy: owner, documen
 function fixture() {
   return { products: [product()], brands: ['Brand'], categories: ['Category'], users: ['admin', 'manager', 'ann', 'joann'].map((username, i) => ({ username, name: username, password: 'fixture-password', role: i === 0 ? 'admin' : i === 1 ? 'manager' : 'user' })), quotations: [quotation()], activityLog: [] };
 }
+
+test('Supabase customer and quotation mappings have one clear source per field', () => {
+  const customerRow = toSupabaseCustomer({
+    id: 'customer-1', name: 'Customer', companyName: 'Company', region: 'Central', updatedAt: '2026-09-18T03:00:00.000Z'
+  });
+  assert.equal(customerRow.region, 'Central');
+  assert.equal(fromSupabaseCustomer(customerRow).region, 'Central');
+
+  const quotationRow = toSupabaseQuotation({
+    ...quotation(),
+    customerRegion: 'Central',
+    approvedBy: 'Admin',
+    approvedDate: '2026-09-18T03:00:00.000Z',
+    customerAcceptedAt: '2026-09-18T04:00:00.000Z'
+  });
+  assert.equal(quotationRow.document_type, 'quotation');
+  assert.equal(quotationRow.issued_date, today);
+  assert.equal(quotationRow.customer_snapshot.region, 'Central');
+  assert.equal('customer_region' in quotationRow, false);
+  assert.equal('salespersonName' in quotationRow.customer_snapshot, false);
+  assert.equal('projectName' in quotationRow.customer_snapshot, false);
+  assert.equal('approvedBy' in quotationRow.customer_snapshot, false);
+
+  const restored = fromSupabaseQuotation(quotationRow);
+  assert.equal(restored.customer.region, 'Central');
+  assert.equal(restored.salespersonName, 'ann');
+  assert.equal(restored.projectName, 'Project');
+  assert.equal(restored.approvedBy, 'Admin');
+  assert.equal(restored.customerAcceptedAt, '2026-09-18T04:00:00.000Z');
+});
 async function setup(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pim-system-test-'));
   const dbPath = path.join(dir, 'db.json');

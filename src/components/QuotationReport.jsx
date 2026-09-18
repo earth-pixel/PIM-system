@@ -475,16 +475,16 @@ export default function QuotationReport({
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-[#f5f5f7]/80 text-[#86868b] font-black border-b border-[#e8e8ed] text-[10px] uppercase tracking-widest">
-                  <th className="p-3.5 w-12 text-center">#</th>
-                  <th className="p-3.5 min-w-[160px]">เลขที่เอกสาร</th>
-                  <th className="p-3.5 min-w-[110px]">วันที่</th>
-                  <th className="p-3.5 min-w-[180px]">ลูกค้า</th>
-                  <th className="p-3.5 min-w-[140px]">ผู้สร้าง / พนักงานขาย</th>
-                  <th className="p-3.5 text-center min-w-[110px] print-hide-col">สถานะ</th>
-                  <th className="p-3.5 min-w-[220px]">รายการสินค้า</th>
-                  <th className="p-3.5 text-right min-w-[110px]">ก่อนภาษี</th>
-                  <th className="p-3.5 text-right min-w-[130px]">ยอดรวมสุทธิ</th>
-                  <th className="p-3.5 text-center min-w-[100px] print-hide-col">การจัดการ</th>
+                  <th className="px-3 py-3 w-10 text-center">#</th>
+                  <th className="px-3 py-3 whitespace-nowrap">เลขที่เอกสาร</th>
+                  <th className="px-3 py-3 whitespace-nowrap">วันที่</th>
+                  <th className="px-3 py-3 min-w-[150px]">ลูกค้า</th>
+                  <th className="px-3 py-3 min-w-[130px]">ผู้สร้าง / พนักงานขาย</th>
+                  <th className="px-3 py-3 text-center whitespace-nowrap print-hide-col">สถานะ</th>
+                  <th className="px-3 py-3 whitespace-nowrap">รายการสินค้า</th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">ก่อนภาษี</th>
+                  <th className="px-3 py-3 text-right whitespace-nowrap">ยอดรวมสุทธิ</th>
+                  <th className="px-3 py-3 text-center w-16 whitespace-nowrap print-hide-col">รายละเอียด</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f0f0f5] text-xs">
@@ -504,21 +504,21 @@ export default function QuotationReport({
                           : index % 2 === 0 ? 'bg-white' : 'bg-[#fafafa]/50'
                       }`}
                     >
-                      <td className="p-3.5 text-center font-mono text-[#86868b]">{index + 1}</td>
-                      <td className="p-3.5">
+                      <td className="px-3 py-3 text-center font-mono text-[#86868b]">{index + 1}</td>
+                      <td className="px-3 py-3 whitespace-nowrap">
                         <span className="font-mono font-bold text-[#0071e3]">
                           {q.quotationNumber || q.id}
                         </span>
                       </td>
-                      <td className="p-3.5 text-[#555557] whitespace-nowrap">{formatDate(q.issuedDate)}</td>
-                      <td className="p-3.5 font-semibold text-[#1d1d1f]">
-                        <div>{getCustName(q) || '-'}</div>
+                      <td className="px-3 py-3 text-[#555557] whitespace-nowrap">{formatDate(q.issuedDate)}</td>
+                      <td className="px-3 py-3 font-semibold text-[#1d1d1f]">
+                        <div className="leading-snug">{getCustName(q) || '-'}</div>
                         {getCustTaxId(q) && (
                           <div className="text-[10px] text-zinc-400 font-mono">Tax: {getCustTaxId(q)}</div>
                         )}
                       </td>
-                      <td className="p-3.5 text-[#555557] font-medium">{q.salespersonName || q.createdBy || '-'}</td>
-                      <td className="p-3.5 text-center print-hide-col">
+                      <td className="px-3 py-3 text-[#555557] font-medium leading-snug">{q.salespersonName || q.createdBy || '-'}</td>
+                      <td className="px-3 py-3 text-center print-hide-col whitespace-nowrap">
                         <div className="flex flex-col items-center gap-1">
                           <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 text-[10px] font-bold rounded-full border ${st.bg} ${st.text} ${st.border} whitespace-nowrap`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
@@ -531,7 +531,7 @@ export default function QuotationReport({
                           )}
                         </div>
                       </td>
-                      <td className="p-3.5 text-[#1d1d1f]">
+                      <td className="px-3 py-3 text-[#1d1d1f] whitespace-nowrap">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 font-bold text-xs text-zinc-800 bg-[#f5f5f7] rounded-lg border border-[#d2d2d7]/60 whitespace-nowrap print:hidden">
                           <Package className="w-3.5 h-3.5 text-[#0071e3]" />
                           <span>{items.length.toLocaleString()} รายการ</span>
@@ -560,20 +560,20 @@ export default function QuotationReport({
                           )}
                         </div>
                       </td>
-                      <td className="p-3.5 text-right text-[#555557] tabular-nums font-medium">
+                      <td className="px-3 py-3 text-right text-[#555557] tabular-nums font-medium whitespace-nowrap">
                         ฿{formatMoney(q.subtotal || q.totalAmount)}
                       </td>
-                      <td className="p-3.5 text-right font-black text-[#1d1d1f] tabular-nums text-sm">
+                      <td className="px-3 py-3 text-right font-black text-[#1d1d1f] tabular-nums text-sm whitespace-nowrap">
                         ฿{formatMoney(q.totalAmount)}
                       </td>
-                      <td className="p-3.5 text-center whitespace-nowrap print-hide-col">
+                      <td className="px-3 py-3 text-center whitespace-nowrap print-hide-col w-16">
                         <button
                           type="button"
                           onClick={() => setViewDoc(q)}
                           className="inline-flex items-center gap-1 px-2.5 py-1 text-xs font-bold text-[#0071e3] bg-blue-50 hover:bg-blue-100 border border-blue-200/60 rounded-lg transition-colors cursor-pointer"
                           title="ดูรายละเอียดเอกสาร"
                         >
-                          <Eye className="w-2.5 h-2.5" />
+                          <Eye className="w-3 h-3" />
                         </button>
                       </td>
                     </tr>

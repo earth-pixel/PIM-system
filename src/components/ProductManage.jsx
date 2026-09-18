@@ -231,6 +231,7 @@ export default function ProductManage({
     packageWidth: false,
     packageHeight: false,
     category: false,
+    subCategory: false,
     brand: false,
     weight: false,
     retailPrice: false,
@@ -728,9 +729,10 @@ export default function ProductManage({
       setQuickAddModal({ isOpen: true, type: 'category', value: '' });
     } else {
       setCategory(val);
-      setSubCategory('');
+      const nextSubs = (val && subcategories[val]) || [];
+      setSubCategory(nextSubs.length > 0 ? nextSubs[0] : '');
       if (val) {
-        setFormErrors(prev => ({ ...prev, category: false }));
+        setFormErrors(prev => ({ ...prev, category: false, subCategory: false }));
       }
     }
   };
@@ -796,12 +798,16 @@ export default function ProductManage({
   }, [category, subcategories]);
 
   const resetForm = () => {
+    const defaultCat = (categories && categories.length > 0) ? categories[0] : '';
+    const defaultSubs = (defaultCat && subcategories[defaultCat]) ? subcategories[defaultCat] : [];
+    const defaultSub = defaultSubs.length > 0 ? defaultSubs[0] : '';
+    const defaultBrand = (brands && brands.length > 0) ? brands[0] : '';
     setCode('');
     setBarcode('');
     setName('');
-    if (brands.length > 0) setBrand(brands[0]);
-    if (categories.length > 0) setCategory(categories[0]);
-    setSubCategory('');
+    setBrand(defaultBrand);
+    setCategory(defaultCat);
+    setSubCategory(defaultSub);
     setWholesalePrice('');
     setRetailPrice('');
     setCapFee('');
@@ -836,6 +842,7 @@ export default function ProductManage({
       packageWidth: false,
       packageHeight: false,
       category: false,
+      subCategory: false,
       brand: false,
       weight: false,
       retailPrice: false,
@@ -892,6 +899,7 @@ export default function ProductManage({
         packageWidth: false,
         packageHeight: false,
         category: false,
+        subCategory: false,
         brand: false,
         weight: false,
         retailPrice: false,
@@ -910,23 +918,30 @@ export default function ProductManage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editProduct]);
 
-  useEffect(() => {
-    if (!editProduct) {
-      if (brands.length > 0) setBrand(brands[0]);
-      if (categories.length > 0) setCategory(categories[0]);
-    }
-  }, [brands, categories, editProduct]);
 
   useEffect(() => {
     if (showForm) {
       document.body.style.overflow = 'hidden';
+      if (!editProduct) {
+        if (!category && categories && categories.length > 0) {
+          const firstCat = categories[0];
+          setCategory(firstCat);
+          const firstSubs = subcategories[firstCat] || [];
+          if (!subCategory && firstSubs.length > 0) {
+            setSubCategory(firstSubs[0]);
+          }
+        }
+        if (!brand && brands && brands.length > 0) {
+          setBrand(brands[0]);
+        }
+      }
     } else {
       document.body.style.overflow = 'unset';
     }
     return () => {
       document.body.style.overflow = 'unset';
     };
-  }, [showForm]);
+  }, [showForm, editProduct, categories, brands, subcategories, category, brand, subCategory]);
 
   const processImageFile = (file) => {
     if (!file) return;
@@ -984,8 +999,9 @@ export default function ProductManage({
     const errors = {
       code: !code.trim(),
       name: !name.trim(),
-      category: !category,
-      brand: !brand,
+      category: !category || !category.trim(),
+      subCategory: !subCategory || !subCategory.trim(),
+      brand: !brand || !brand.trim(),
       weight: !weight.trim(),
       retailPrice: retailPrice === '' || isNaN(retailPrice) || Number(retailPrice) <= 0,
       wholesalePrice: wholesalePrice === '' || isNaN(wholesalePrice) || Number(wholesalePrice) < 0,
@@ -1039,8 +1055,13 @@ export default function ProductManage({
       return;
     }
     if (errors.category) {
-      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาเลือกหมวดหมู่สินค้า' });
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาเลือกหมวดหมู่สินค้าหลัก' });
       focusAndScroll('product-category');
+      return;
+    }
+    if (errors.subCategory) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาเลือกหมวดหมู่ย่อย' });
+      focusAndScroll('product-subcategory');
       return;
     }
     if (errors.brand) {
@@ -2372,7 +2393,9 @@ export default function ProductManage({
                               className={`form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white ${formErrors.category ? 'error' : ''
                                 }`}
                             >
-                              <option value="">-- ไม่ระบุ --</option>
+                              {categories.length === 0 && (
+                                <option value="" disabled>-- ไม่พบหมวดหมู่สินค้า --</option>
+                              )}
                               {currentUser?.role !== 'user' && (
                                 <option value="ADD_NEW">+ เพิ่มหมวดหมู่สินค้า</option>
                               )}
@@ -2384,7 +2407,7 @@ export default function ProductManage({
                               )}
                             </select>
                             {formErrors.category && (
-                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณาเลือกหมวดหมู่สินค้า</span>
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณาเลือกหมวดหมู่สินค้าหลัก</span>
                             )}
                           </div>
                           <div className="min-w-0">
@@ -2399,12 +2422,17 @@ export default function ProductManage({
                                   setQuickAddModal({ isOpen: true, type: 'subcategory', value: '' });
                                 } else {
                                   setSubCategory(val);
+                                  if (val) {
+                                    setFormErrors(prev => ({ ...prev, subCategory: false }));
+                                  }
                                 }
                               }}
                               disabled={!category}
-                              className={`form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white ${!category ? 'opacity-60 cursor-not-allowed' : ''}`}
+                              className={`form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white ${formErrors.subCategory ? 'error' : ''} ${!category ? 'opacity-60 cursor-not-allowed' : ''}`}
                             >
-                              <option value="">{category ? '-- เลือกหมวดหมู่ย่อย --' : '-- กรุณาเลือกหมวดหมู่หลักก่อน --'}</option>
+                              {availableSubCategories.length === 0 && (
+                                <option value="" disabled>-- ไม่มีหมวดหมู่ย่อย --</option>
+                              )}
                               {category && currentUser?.role !== 'user' && (
                                 <option value="ADD_NEW_SUB">+ เพิ่มหมวดหมู่ย่อยใหม่ในหมวดหมู่นี้</option>
                               )}
@@ -2415,6 +2443,9 @@ export default function ProductManage({
                                 <option value={subCategory}>{subCategory}</option>
                               )}
                             </select>
+                            {formErrors.subCategory && (
+                              <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณาเลือกหมวดหมู่ย่อย</span>
+                            )}
                           </div>
                           <div className="min-w-0">
                             <label className="form-label min-h-[28px] flex items-end pb-1">แบรนด์สินค้า<span className="text-red-500">*</span></label>
@@ -2425,7 +2456,9 @@ export default function ProductManage({
                               className={`form-input min-w-0 bg-[#f5f5f7] text-zinc-800 focus:bg-white ${formErrors.brand ? 'error' : ''
                                 }`}
                             >
-                              <option value="">-- ไม่ระบุ --</option>
+                              {brands.length === 0 && (
+                                <option value="" disabled>-- ไม่พบแบรนด์สินค้า --</option>
+                              )}
                               {currentUser?.role !== 'user' && (
                                 <option value="ADD_NEW">+ เพิ่มแบรนด์สินค้า</option>
                               )}

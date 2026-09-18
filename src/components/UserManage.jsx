@@ -227,7 +227,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
     if (!editingPermissionsUser) return;
     setPermissionConfirm({
       title: 'ยืนยันรีเซ็ตการตั้งค่า',
-      message: `คุณต้องการรีเซ็ตสิทธิ์ของ "${editingPermissionsUser.name}" กลับเป็นค่าเริ่มต้นตาม Role (${editingPermissionsUser.role}) ใช่หรือไม่? การตั้งค่าสิทธิ์เดิมจะถูกแทนที่`,
+      message: `คุณต้องการรีเซ็ตสิทธิ์ของ "${editingPermissionsUser.name}" กลับเป็นค่าเริ่มต้นตาม (${editingPermissionsUser.role}) ใช่หรือไม่? การตั้งค่าสิทธิ์เดิมจะถูกแทนที่`,
       type: 'warning',
       confirmText: 'ยืนยันรีเซ็ต',
       onConfirm: () => {

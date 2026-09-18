@@ -1,7 +1,6 @@
-import { request } from '../utils/api';
 import { useState, useEffect } from 'react';
 import { decodeQuotation } from '../utils/share';
-import { Printer, CheckCircle, AlertCircle, Globe, Building } from 'lucide-react';
+import { Printer, AlertCircle, Globe, Building } from 'lucide-react';
 
 const fmt = (n) =>
   Number(n || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -15,34 +14,19 @@ const fmtDate = (d) => {
   } catch { return d; }
 };
 
-// Deterministic pseudo-random configuration for confetti rendering (avoids Math.random inside render)
-const getConfettiConfig = (i) => {
-  const sin1 = Math.sin(i * 12.9898) * 43758.5453;
-  const left = Math.floor((sin1 - Math.floor(sin1)) * 100);
-  const sin2 = Math.sin(i * 78.233) * 43758.5453;
-  const delay = (sin2 - Math.floor(sin2)) * 2;
-  const sin3 = Math.sin(i * 45.123) * 43758.5453;
-  const size = Math.floor((sin3 - Math.floor(sin3)) * 8) + 6;
-  const colors = ['bg-red-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-pink-500'];
-  const colorIndex = Math.floor((sin1 - Math.floor(sin1)) * colors.length);
-  return { left, delay, size, randomColor: colors[colorIndex] };
-};
-
 export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
-  const [isAccepted, setIsAccepted] = useState(false);
-  const [showConfetti, setShowConfetti] = useState(false);
-
   const [quotation, setQuotation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [accepting, setAccepting] = useState(false);
+
   useEffect(() => {
     let active = true;
-    decodeQuotation(shareData).then(q => { if (active) { setQuotation(q); setIsAccepted(Boolean(q.customerAcceptedAt)); } })
+    decodeQuotation(shareData).then(q => { if (active) setQuotation(q); })
       .catch(error => { if (active) setError(error.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [shareData]);
+
   if (loading) return <div className="p-8 text-center">กำลังตรวจสอบเอกสาร…</div>;
 
   if (!quotation) {
@@ -80,49 +64,9 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
     website: companyInfo.website || 'https://www.phanvadee.com',
   };
 
-  const handleAccept = async () => {
-    if (accepting) return;
-    setAccepting(true); setError('');
-    try {
-      const result = await request('/api/public/quotations/' + shareData + '/accept', { method: 'POST' });
-      if (!result.success || !result.quotation?.customerAcceptedAt) throw new Error('ยังยืนยันการตอบรับไม่ได้');
-      setQuotation(result.quotation); setIsAccepted(true); setShowConfetti(true);
-      setTimeout(() => setShowConfetti(false), 5000);
-    } catch (error) { setError(error.message); }
-    finally { setAccepting(false); }
-  };
-
   return (
     <div className="min-h-screen bg-[#f5f5f7] pb-16 print:bg-white print:pb-0" style={{ fontFamily: "'Sarabun', 'Helvetica Neue', Arial, sans-serif" }}>
       {error && <p role="alert" className="p-4 text-red-700 text-center">{error}</p>}
-      {/* Confetti Animation Effect (Pure CSS) */}
-      {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-[9999] overflow-hidden">
-          {[...Array(50)].map((_, i) => {
-            const { left, delay, size, randomColor } = getConfettiConfig(i);
-            return (
-              <div
-                key={i}
-                className={`absolute rounded-full animate-bounce ${randomColor}`}
-                style={{
-                  left: `${left}%`,
-                  top: `-10px`,
-                  width: `${size}px`,
-                  height: `${size}px`,
-                  animation: `fall 3s linear infinite`,
-                  animationDelay: `${delay}s`,
-                }}
-              />
-            );
-          })}
-          <style>{`
-            @keyframes fall {
-              0% { transform: translateY(-20px) rotate(0deg); opacity: 1; }
-              100% { transform: translateY(100vh) rotate(360deg); opacity: 0; }
-            }
-          `}</style>
-        </div>
-      )}
 
       {/* Top Navbar / Action Panel */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#d2d2d7]/30 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm print:hidden">
@@ -148,37 +92,11 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
             <Printer className="w-4 h-4" />
             พิมพ์ / บันทึก PDF
           </button>
-
-          {!isAccepted ? (
-            <button type="button"
-              onClick={handleAccept}
-              disabled={accepting}
-              className="px-5 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
-            >
-              ยอมรับใบเสนอราคานี้
-            </button>
-          ) : (
-            <span className="px-4 py-2.5 bg-emerald-50 border border-emerald-250 text-emerald-600 text-xs font-extrabold rounded-xl flex items-center gap-1.5">
-              <CheckCircle className="w-4 h-4" />
-              ยอมรับข้อเสนอแล้ว
-            </span>
-          )}
         </div>
       </div>
 
       {/* Main Content Area */}
       <div className="max-w-[850px] mx-auto px-4 sm:px-6 pt-8 print:p-0 print:pt-0">
-
-        {/* Banner Alert for Status */}
-        {isAccepted && (
-          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-150 rounded-2xl flex items-center gap-3 animate-fade-in print:hidden shadow-xs">
-            <CheckCircle className="w-6 h-6 text-emerald-500 shrink-0" />
-            <div>
-              <h4 className="text-xs font-extrabold text-emerald-800">ขอบคุณที่เลือกใช้บริการของเรา!</h4>
-              <p className="text-[11px] text-emerald-600 mt-0.5 font-medium">ระบบบันทึกการยอมรับข้อเสนอของคุณแล้ว พนักงานขายตรวจสอบได้จากประวัติเอกสาร</p>
-            </div>
-          </div>
-        )}
 
         {/* Paper Document Representation */}
         <div className="bg-white rounded-3xl border border-[#d2d2d7]/40 shadow-xl p-8 sm:p-12 print:shadow-none print:border-none print:p-0">

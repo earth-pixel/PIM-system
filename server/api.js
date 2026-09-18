@@ -289,7 +289,7 @@ function normalizeQuotations(incoming, db, user) {
     let calculated;
     try { calculated = calculateQuotation({ ...normalizedRaw, documentType: type }); }
     catch (error) { fail(400, error.message); }
-    return { ...calculated, quotationNumber, issuedDate, createdBy: before?.createdBy || user.username, approvedBy: raw.status === 'approved' ? user.name || user.username : undefined, approvedDate: raw.status === 'approved' ? new Date().toISOString() : undefined, customerAcceptedAt: before?.customerAcceptedAt };
+    return { ...calculated, quotationNumber, issuedDate, createdAt: before?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: before?.createdBy || user.username, approvedBy: raw.status === 'approved' ? user.name || user.username : undefined, approvedDate: raw.status === 'approved' ? new Date().toISOString() : undefined, customerAcceptedAt: before?.customerAcceptedAt };
   });
   return [...result, ...hidden];
 }
@@ -314,7 +314,7 @@ export function createApi(dbPath) {
           const missingInSupa = (current.users || []).filter(u => !supaUsernames.has(u.username));
           if (missingInSupa.length > 0) {
             supaData.users = [...supaData.users, ...missingInSupa];
-            saveCollectionToSupabase('users', supaData.users).catch(() => {});
+            saveCollectionToSupabase('users', supaData.users).catch(() => { });
           }
 
           // Auto-link subcategories from products to ensure master category table has them
@@ -391,8 +391,8 @@ export function createApi(dbPath) {
     const hash = hashPassword(newPassword);
     const db = store.transact(db => { const user = db.users.find(u => u.id === req.user.id); user.passwordHash = hash; delete user.password; appendLog(db, user, 'เปลี่ยนรหัสผ่าน'); return db; });
     if (useSupabase) {
-      saveCollectionToSupabase('users', db.users).catch(() => {});
-      saveCollectionToSupabase('activityLog', db.activityLog).catch(() => {});
+      saveCollectionToSupabase('users', db.users).catch(() => { });
+      saveCollectionToSupabase('activityLog', db.activityLog).catch(() => { });
     }
     req.session.credentials = hash;
     res.json({ success: true, ...visibleDB(db, db.users.find(u => u.id === req.user.id)) });
@@ -413,8 +413,8 @@ export function createApi(dbPath) {
       return q;
     });
     if (useSupabase) {
-      saveCollectionToSupabase('quotations', store.read().quotations).catch(() => {});
-      saveCollectionToSupabase('activityLog', store.read().activityLog).catch(() => {});
+      saveCollectionToSupabase('quotations', store.read().quotations).catch(() => { });
+      saveCollectionToSupabase('activityLog', store.read().activityLog).catch(() => { });
     }
     res.json({ success: true, quotation });
   });
@@ -460,10 +460,10 @@ export function createApi(dbPath) {
       return db;
     });
     if (useSupabase) {
-      saveCollectionToSupabase('brands', result.brands).catch(() => {});
-      saveCollectionToSupabase('categories', result.categories).catch(() => {});
-      saveCollectionToSupabase('products', result.products).catch(() => {});
-      if (result.subcategories) saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});
+      saveCollectionToSupabase('brands', result.brands).catch(() => { });
+      saveCollectionToSupabase('categories', result.categories).catch(() => { });
+      saveCollectionToSupabase('products', result.products).catch(() => { });
+      if (result.subcategories) saveCollectionToSupabase('subcategories', result.subcategories).catch(() => { });
     }
     res.json({ success: true, ...visibleDB(result, req.user) });
   });
@@ -544,16 +544,16 @@ export function createApi(dbPath) {
         saveCollectionToSupabase('activityLog', result.activityLog).catch(err => console.error('Supabase activityLog sync error:', err));
       }
       if (key === 'products') {
-        saveCollectionToSupabase('brands', result.brands).catch(() => {});
+        saveCollectionToSupabase('brands', result.brands).catch(() => { });
         (async () => {
-          await saveCollectionToSupabase('categories', result.categories).catch(() => {});
+          await saveCollectionToSupabase('categories', result.categories).catch(() => { });
           if (result.subcategories) {
-            await saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});
+            await saveCollectionToSupabase('subcategories', result.subcategories).catch(() => { });
           }
         })();
       }
       if (key === 'categories' && result.subcategories) {
-        saveCollectionToSupabase('subcategories', result.subcategories).catch(() => {});
+        saveCollectionToSupabase('subcategories', result.subcategories).catch(() => { });
       }
     }
     const updatedUser = result.users.find(u => u.id === req.user.id);
@@ -564,7 +564,7 @@ export function createApi(dbPath) {
     const action = req.body?.entry?.action;
     if (typeof action !== 'string' || !action.trim() || action.length > 4000) fail(400, 'ข้อความประวัติไม่ถูกต้อง');
     const db = store.transact(db => { appendLog(db, req.user, action); return db; });
-    if (useSupabase) saveCollectionToSupabase('activityLog', db.activityLog).catch(() => {});
+    if (useSupabase) saveCollectionToSupabase('activityLog', db.activityLog).catch(() => { });
     res.json({ success: true, ...visibleDB(db, req.user) });
   });
   api.post('/quotations/archive-delete', (req, res) => {
@@ -585,7 +585,7 @@ export function createApi(dbPath) {
       appendLog(db, req.user, `ลบเอกสารเก่า ${deleted.size} รายการ`);
       return { db, count: deleted.size };
     });
-    if (useSupabase) saveCollectionToSupabase('quotations', result.db.quotations).catch(() => {});
+    if (useSupabase) saveCollectionToSupabase('quotations', result.db.quotations).catch(() => { });
     res.json({ success: true, ...visibleDB(result.db, req.user), deletedCount: result.count, skippedCount: skipped.length, skipped });
   });
   api.post('/quotations/:id/share', (req, res) => {

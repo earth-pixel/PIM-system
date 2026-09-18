@@ -118,6 +118,24 @@ export function toSupabaseQuotation(q) {
   const approvedBy = q.approvedBy || null;
   const approvedAt = q.approvedDate || q.approvedAt || null;
 
+  // Keep only customer fields in the document snapshot. Sales, project and
+  // approval data have dedicated quotation columns and must not be duplicated
+  // inside the JSON snapshot.
+  const sourceCustomer = q.customer || {};
+  const customerSnapshot = {
+    name: sourceCustomer.name || '',
+    companyName: sourceCustomer.companyName || '',
+    branchType: sourceCustomer.branchType || 'head',
+    branchName: sourceCustomer.branchName || '',
+    branch: sourceCustomer.branch || q.customerBranch || '',
+    region,
+    taxId: sourceCustomer.taxId || '',
+    phone: sourceCustomer.phone || '',
+    email: sourceCustomer.email || '',
+    address: sourceCustomer.address || '',
+    note: sourceCustomer.note || ''
+  };
+
   const vatRate = Number(q.vatRate ?? q.vat_rate ?? 7);
   const subtotal = Number(q.subtotal || 0);
   const discount = Number(q.discount || 0);
@@ -125,31 +143,19 @@ export function toSupabaseQuotation(q) {
   const taxAmount = Number(q.vatAmount ?? q.taxAmount ?? q.tax_amount ?? calculatedTax);
   const totalAmount = Number(q.totalAmount ?? q.total_amount ?? (subtotal - discount + taxAmount));
 
-  const customerInfo = {
-    ...(q.customer || {}),
-    region,
-    customerRegion: region,
-    salespersonName: salesName,
-    salespersonPhone: salesPhone,
-    projectName: projName,
-    approvedBy: approvedBy || '',
-    approvedDate: approvedAt || ''
-  };
-
   return {
     id: ensureUuid(q.id),
     quotation_number: q.quotationNumber || q.quotation_number,
-    doc_type: q.documentType || q.doc_type || 'quotation',
-    date: q.issuedDate || q.date || new Date().toISOString().slice(0, 10),
+    document_type: q.documentType || q.document_type || q.doc_type || 'quotation',
+    issued_date: q.issuedDate || q.issued_date || q.date || new Date().toISOString().slice(0, 10),
     valid_until: q.validUntilDate || q.valid_until || null,
     salesperson_name: salesName || null,
     salesperson_phone: salesPhone || null,
     project_name: projName || null,
-    customer_region: region || null,
     approved_by: approvedBy,
     approved_at: approvedAt,
     customer_id: custId,
-    customer_info: customerInfo,
+    customer_snapshot: customerSnapshot,
     items: q.items || [],
     subtotal,
     discount,
@@ -159,13 +165,15 @@ export function toSupabaseQuotation(q) {
     status: q.status || 'draft',
     notes: q.notes || q.note || null,
     created_by: q.createdBy || q.created_by || null,
-    created_at: q.createdAt || new Date().toISOString()
+    created_at: q.createdAt || q.created_at || new Date().toISOString(),
+    updated_at: q.updatedAt || q.updated_at || new Date().toISOString()
   };
 }
 
 export function fromSupabaseQuotation(row) {
-  const cust = row.customer_info || {};
-  const region = row.customer_region || cust.customerRegion || cust.region || '';
+  // Legacy fallbacks allow existing rows to be read before the migration is run.
+  const cust = row.customer_snapshot || row.customer_info || {};
+  const region = cust.region || row.customer_region || cust.customerRegion || '';
   const salesName = row.salesperson_name || cust.salespersonName || cust.salesName || '';
   const salesPhone = row.salesperson_phone || cust.salespersonPhone || cust.salesPhone || '';
   const projName = row.project_name || cust.projectName || cust.projName || '';
@@ -181,8 +189,8 @@ export function fromSupabaseQuotation(row) {
   return {
     id: row.id,
     quotationNumber: row.quotation_number,
-    documentType: row.doc_type || 'quotation',
-    issuedDate: row.date ? String(row.date) : '',
+    documentType: row.document_type || row.doc_type || 'quotation',
+    issuedDate: row.issued_date || row.date ? String(row.issued_date || row.date) : '',
     validUntilDate: row.valid_until ? String(row.valid_until) : '',
     customerId: row.customer_id,
     customer: {
@@ -212,7 +220,8 @@ export function fromSupabaseQuotation(row) {
     note: row.notes || '',
     createdBy: row.created_by || '',
     pdfUrl: row.pdf_url || '',
-    createdAt: row.created_at || new Date().toISOString()
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || row.created_at || new Date().toISOString()
   };
 }
 
@@ -227,8 +236,10 @@ export function toSupabaseCustomer(c) {
     phone: c.phone || null,
     email: c.email || null,
     address: c.address || null,
+    region: c.region || null,
     note: c.note || null,
-    created_at: c.createdAt || new Date().toISOString()
+    created_at: c.createdAt || c.created_at || new Date().toISOString(),
+    updated_at: c.updatedAt || c.updated_at || new Date().toISOString()
   };
 }
 
@@ -243,8 +254,10 @@ export function fromSupabaseCustomer(row) {
     phone: row.phone || '',
     email: row.email || '',
     address: row.address || '',
+    region: row.region || '',
     note: row.note || '',
-    createdAt: row.created_at
+    createdAt: row.created_at,
+    updatedAt: row.updated_at || row.created_at
   };
 }
 
@@ -527,6 +540,10 @@ export async function saveCollectionToSupabase(key, data) {
       if (incomingList.length === 0) {
         await supabase.from('activity_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
         return true;
+      }
+      // If this is a clear action (only 1 audit log about clearing logs), wipe previous logs from Supabase first
+      if (incomingList.length === 1 && (incomingList[0].action || '').includes('ล้างประวัติการดำเนินงานทั้งหมด')) {
+        await supabase.from('activity_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       }
       const rows = incomingList.map(item => ({
         id: item.id || randomUUID(),
