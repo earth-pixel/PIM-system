@@ -8,5 +8,5 @@ export const companyInfo = {
   phone: '02-4315111',
   mobile: '02-0055666',
   email: 'info@phanvadee.co.th',
-  website: 'https://www.phanvadee.co.th',
+  website: 'https://www.phanvadee.com',
 };

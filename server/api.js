@@ -298,7 +298,7 @@ export function createApi(dbPath) {
   // An Express sub-app also supplies req/res helpers when mounted in Vite Connect.
   const api = express();
   const store = createStore(dbPath);
-  const sessions = new Map(), loginAttempts = new Map();
+  const sessions = new Map();
   const cookieName = 'pim_session';
 
   const isTest = process.env.NODE_ENV === 'test' || (typeof dbPath === 'string' && (dbPath.includes('pim-system-test-') || dbPath.includes('Temp') || dbPath.includes('temp')));
@@ -309,9 +309,10 @@ export function createApi(dbPath) {
     loadDatabaseFromSupabase().then(supaData => {
       if (supaData && supaData.users && supaData.users.length > 0) {
         store.transact(current => {
+          current = current || {};
           // Preserve any local users (e.g. ea) not yet present in Supabase
           const supaUsernames = new Set((supaData.users || []).map(u => u.username));
-          const missingInSupa = (current.users || []).filter(u => !supaUsernames.has(u.username));
+          const missingInSupa = ((current.users) || []).filter(u => !supaUsernames.has(u.username));
           if (missingInSupa.length > 0) {
             supaData.users = [...supaData.users, ...missingInSupa];
             saveCollectionToSupabase('users', supaData.users).catch(() => { });
@@ -357,12 +358,7 @@ export function createApi(dbPath) {
   };
   const cookieOptions = req => ({ httpOnly: true, sameSite: 'strict', secure: req.secure || Boolean(process.env.PIM_PUBLIC_ORIGIN?.startsWith('https://')), path: '/', maxAge: 8 * 60 * 60 * 1000 });
   api.post('/auth/login', (req, res) => {
-    const ip = req.socket.remoteAddress;
     const now = Date.now();
-    for (const [key, value] of loginAttempts) if (value.until < now) loginAttempts.delete(key);
-    const attempts = loginAttempts.get(ip) || { count: 0, until: now + 15 * 60 * 1000 };
-    if (++attempts.count > 10) fail(429, 'เข้าสู่ระบบผิดหลายครั้ง กรุณารอ 15 นาที');
-    loginAttempts.set(ip, attempts);
     const username = normalizeCode(req.body?.username);
     const db = store.read(), candidate = db.users?.find(u => normalizeCode(u.username) === username);
     if (!candidate || !passwordMatches(candidate, req.body?.password)) fail(401, 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
@@ -376,7 +372,6 @@ export function createApi(dbPath) {
       }
       return matching;
     });
-    loginAttempts.delete(ip);
     for (const [token, session] of sessions) if (session.expires < now) sessions.delete(token);
     const token = randomBytes(32).toString('hex');
     sessions.set(token, { userId: user.id, credentials: user.passwordHash, expires: now + 8 * 60 * 60 * 1000 });
@@ -425,6 +420,7 @@ export function createApi(dbPath) {
         const supaData = await loadDatabaseFromSupabase();
         if (supaData) {
           store.transact(current => {
+            current = current || {};
             Object.assign(current, supaData);
             return current;
           });

@@ -22,6 +22,8 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+let quotationHasCustomerAcceptedAt = null;
+
 // Helper to remove an image file from Supabase Storage given its public URL
 export async function deleteStorageImage(url) {
   if (!url || typeof url !== 'string' || !isSupabaseConfigured || !supabase) return;
@@ -163,7 +165,7 @@ export function toSupabaseQuotation(q) {
     total_amount: totalAmount,
     status: q.status || 'draft',
     notes: q.notes || q.note || null,
-    created_by: q.createdBy || q.created_by || null,
+    created_by: salesName || q.createdBy || q.created_by || null,
     created_at: q.createdAt || q.created_at || new Date().toISOString(),
     updated_at: q.updatedAt || q.updated_at || new Date().toISOString()
   };
@@ -412,9 +414,23 @@ export async function saveCollectionToSupabase(key, data) {
 
       const rows = incomingList.map(toSupabaseQuotation);
       for (let i = 0; i < rows.length; i += 50) {
-        const batch = rows.slice(i, i + 50);
-        const { error } = await supabase.from('quotations').upsert(batch, { onConflict: 'id' });
-        if (error) throw error;
+        let batch = rows.slice(i, i + 50);
+        if (quotationHasCustomerAcceptedAt === false) {
+          batch = batch.map(({ customer_accepted_at, ...rest }) => rest);
+        }
+        let { error } = await supabase.from('quotations').upsert(batch, { onConflict: 'id' });
+        if (error && error.message && error.message.includes('customer_accepted_at')) {
+          quotationHasCustomerAcceptedAt = false;
+          const sanitizedBatch = batch.map(({ customer_accepted_at, ...rest }) => rest);
+          const retry = await supabase.from('quotations').upsert(sanitizedBatch, { onConflict: 'id' });
+          error = retry.error;
+        } else if (!error && quotationHasCustomerAcceptedAt === null) {
+          quotationHasCustomerAcceptedAt = true;
+        }
+        if (error) {
+          console.error('Supabase quotation upsert error:', error);
+          throw error;
+        }
       }
 
       const keepIds = rows.map(r => r.id).filter(Boolean);
@@ -438,7 +454,7 @@ export async function saveCollectionToSupabase(key, data) {
       const { error } = await supabase.from('customers').upsert(rows, { onConflict: 'id' });
       if (error) throw error;
 
-      const keepIds = incomingList.map(c => c.id).filter(Boolean);
+      const keepIds = rows.map(c => c.id).filter(Boolean);
       if (keepIds.length > 0) {
         const { data: existing } = await supabase.from('customers').select('id');
         const toDelete = (existing || []).filter(e => !keepIds.includes(e.id)).map(e => e.id);
@@ -546,7 +562,7 @@ export async function saveCollectionToSupabase(key, data) {
         await supabase.from('activity_logs').delete().neq('id', '00000000-0000-0000-0000-000000000000');
       }
       const rows = incomingList.map(item => ({
-        id: item.id || randomUUID(),
+        id: ensureUuid(item.id),
         user_name: item.userName || item.user_name || 'System',
         user_role: item.userRole || item.user_role || 'system',
         action: item.action || '',

@@ -19,8 +19,12 @@ export function createStore(dbPath) {
 
   const read = () => {
     if (usePureCloud && memoryDb) return memoryDb;
-    if (!memoryDb && fs.existsSync(dbPath)) {
-      try { memoryDb = JSON.parse(fs.readFileSync(dbPath, 'utf8')); } catch { memoryDb = {}; }
+    if (!memoryDb) {
+      if (typeof dbPath === 'string' && fs.existsSync(dbPath)) {
+        try { memoryDb = JSON.parse(fs.readFileSync(dbPath, 'utf8')); } catch { memoryDb = {}; }
+      } else {
+        memoryDb = {};
+      }
     }
     return memoryDb || {};
   };
@@ -28,7 +32,7 @@ export function createStore(dbPath) {
   const transact = callback => {
     // When using Supabase in production/dev, operate purely in memory and Supabase cloud (no local disk writes)
     if (usePureCloud) {
-      if (!memoryDb) read();
+      if (!memoryDb) memoryDb = read();
       const result = callback(memoryDb);
       return result;
     }

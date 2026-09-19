@@ -1,5 +1,12 @@
 export const normalizeCode = value => String(value ?? '').trim().toLowerCase();
-export const ownsDocument = (document, user) => Boolean(user && document.createdBy && document.createdBy === user.username);
+export const ownsDocument = (document, user) => Boolean(
+  user && document.createdBy && (
+    document.createdBy === user.username ||
+    (user.name && document.createdBy === user.name) ||
+    (user.Employee_name && document.createdBy === user.Employee_name) ||
+    (document.salespersonName && (document.salespersonName === user.name || document.salespersonName === user.username))
+  )
+);
 
 export function parseNumericCell(value) {
   const text = String(value ?? '').trim();

@@ -890,7 +890,7 @@ export default function CustomerManage({
                           required
                           value={form.name}
                           onChange={(e) => { setForm(f => ({ ...f, name: e.target.value })); clearCustFieldError('name'); }}
-                          placeholder="ระบุชื่อลูกค้า เช่น คุณสมชาย ใจดี"
+                         
                           className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.name ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
@@ -905,7 +905,7 @@ export default function CustomerManage({
                           required
                           value={form.companyName}
                           onChange={(e) => { setForm(f => ({ ...f, companyName: e.target.value })); clearCustFieldError('companyName'); }}
-                          placeholder="เช่น บริษัท สยาม พัฒนา จำกัด"
+                         
                           className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.companyName ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
@@ -924,7 +924,7 @@ export default function CustomerManage({
                           maxLength={13}
                           value={form.taxId}
                           onChange={(e) => { setForm(f => ({ ...f, taxId: e.target.value.replace(/\D/g, '').slice(0, 13) })); clearCustFieldError('taxId'); }}
-                          placeholder="เลข 13 หลัก เช่น 0105551234567"
+                         
                           className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-mono font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.taxId ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
@@ -942,7 +942,7 @@ export default function CustomerManage({
                             onChange={(e) => { setForm(f => ({ ...f, region: e.target.value })); clearCustFieldError('region'); }}
                             className={`w-full px-3.5 pr-8 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none cursor-pointer appearance-none ${errorFields.region ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                           >
-                            <option value="">-- เลือกภาค (ไม่ระบุ) --</option>
+                            <option value="">-- เลือกภาค --</option>
                             {THAI_REGIONS.map(r => (
                               <option key={r} value={r}>{r}</option>
                             ))}
@@ -990,7 +990,7 @@ export default function CustomerManage({
                             ref={refCustBranchName}
                             type="text"
                             required={form.branchType === 'sub'}
-                            placeholder="เช่น พระราม 9, ซอย 5 หรือ 00001"
+                            
                             value={form.branchName}
                             autoFocus
                             onChange={(e) => { setForm(f => ({ ...f, branchName: e.target.value })); clearCustFieldError('branchName'); }}
@@ -1012,7 +1012,7 @@ export default function CustomerManage({
                           required
                           value={form.phone}
                           onChange={(e) => { setForm(f => ({ ...f, phone: e.target.value })); clearCustFieldError('phone'); }}
-                          placeholder="เช่น 081-234-5678"
+                       
                           className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.phone ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
@@ -1027,7 +1027,7 @@ export default function CustomerManage({
                           required
                           value={form.email}
                           onChange={(e) => { setForm(f => ({ ...f, email: e.target.value })); clearCustFieldError('email'); }}
-                          placeholder="เช่น contact@example.com"
+                      
                           className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none ${errorFields.email ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                         />
                       </div>
@@ -1044,7 +1044,7 @@ export default function CustomerManage({
                         required
                         value={form.address}
                         onChange={(e) => { setForm(f => ({ ...f, address: e.target.value })); clearCustFieldError('address'); }}
-                        placeholder="เลขที่ ถนน ตำบล/แขวง อำเภอ/เขต จังหวัด รหัสไปรษณีย์"
+            
                         className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none resize-none leading-relaxed ${errorFields.address ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                       />
                     </div>
@@ -1060,7 +1060,7 @@ export default function CustomerManage({
                         required
                         value={form.note}
                         onChange={(e) => { setForm(f => ({ ...f, note: e.target.value })); clearCustFieldError('note'); }}
-                        placeholder="ระบุหมายเหตุหรือข้อความเพิ่มเติมสำหรับลูกค้า"
+             
                         className={`w-full px-3.5 py-2.5 bg-[#f5f5f7] rounded-xl text-xs font-semibold border focus:bg-white focus:ring-2 focus:ring-[#0071e3]/20 transition-all outline-none resize-none leading-relaxed ${errorFields.note ? 'border-red-500 ring-1 ring-red-500/30' : 'border-transparent focus:border-[#0071e3]'}`}
                       />
                     </div>
