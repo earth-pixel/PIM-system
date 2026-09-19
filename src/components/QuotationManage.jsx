@@ -98,6 +98,8 @@ const formatDate = (d) => {
 const canDeleteDocument = (q, currentUser) => {
   if (!currentUser) return false;
   if (!canPerformAction(currentUser, 'quotations.delete')) return false;
+  // เอกสารรออนุมัติ (sent) ไม่สามารถลบได้ ต้องดำเนินการอนุมัติหรือปฏิเสธก่อน
+  if (q?.status === 'sent') return false;
   if (currentUser.role === 'admin') return true;
   if (currentUser.role === 'manager' || currentUser.role === 'user') {
     if (q.documentType === 'product_proposal') {
