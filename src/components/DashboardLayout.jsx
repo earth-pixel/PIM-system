@@ -279,7 +279,7 @@ export default function DashboardLayout({
     { key: 'dashboard', name: 'Dashboard', icon: "bi bi-grid-1x2-fill", minRole: 'user' },
     { key: 'manage-data', name: 'จัดการข้อมูล', icon: "bi bi-database-fill", minRole: 'user' },
     { key: 'quotations', name: 'ใบเสนอราคา', icon: "bi bi-file-earmark-text-fill", minRole: 'user' },
-    { key: 'reports', name: 'รายงานสินค้า', icon: "bi bi-bar-chart-fill", minRole: 'user' },
+    { key: 'reports', name: 'รายงาน', icon: "bi bi-bar-chart-fill", minRole: 'user' },
   ];
 
   const hasAccess = (itemOrKey) => {

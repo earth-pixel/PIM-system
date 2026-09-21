@@ -821,7 +821,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                       : 'text-zinc-600 hover:text-zinc-900'
                   }`}
                 >
-                  <span>สิทธิ์การมองเห็นหน้า</span>
+                  <span>สิทธิ์การมองเห็นหน้า(Page)</span>
                   <span className={`text-[10px] px-2 py-0.5 rounded-full font-extrabold transition-all duration-200 ${
                     permissionTab === 'pages' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'bg-zinc-300/60 text-zinc-600'
                   }`}>

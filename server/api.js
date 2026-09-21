@@ -535,18 +535,26 @@ export function createApi(dbPath) {
       return db;
     });
     if (useSupabase) {
-      saveCollectionToSupabase(key, result[key]).catch(err => console.error('Supabase sync error:', err));
-      if (result.activityLog) {
-        saveCollectionToSupabase('activityLog', result.activityLog).catch(err => console.error('Supabase activityLog sync error:', err));
-      }
       if (key === 'products') {
-        saveCollectionToSupabase('brands', result.brands).catch(() => { });
         (async () => {
-          await saveCollectionToSupabase('categories', result.categories).catch(() => { });
-          if (result.subcategories) {
-            await saveCollectionToSupabase('subcategories', result.subcategories).catch(() => { });
+          try {
+            await Promise.all([
+              saveCollectionToSupabase('brands', result.brands).catch(() => { }),
+              saveCollectionToSupabase('categories', result.categories).catch(() => { })
+            ]);
+            if (result.subcategories) {
+              await saveCollectionToSupabase('subcategories', result.subcategories).catch(() => { });
+            }
+            await saveCollectionToSupabase('products', result.products);
+          } catch (err) {
+            console.error('Supabase products sync error:', err);
           }
         })();
+      } else {
+        saveCollectionToSupabase(key, result[key]).catch(err => console.error('Supabase sync error:', err));
+      }
+      if (result.activityLog) {
+        saveCollectionToSupabase('activityLog', result.activityLog).catch(err => console.error('Supabase activityLog sync error:', err));
       }
       if (key === 'categories' && result.subcategories) {
         saveCollectionToSupabase('subcategories', result.subcategories).catch(() => { });

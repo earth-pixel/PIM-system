@@ -376,19 +376,26 @@ export async function saveCollectionToSupabase(key, data) {
       const catMap = Object.fromEntries((cats || []).map(c => [(c.name || '').trim().toLowerCase(), c.id]));
       const brandMap = Object.fromEntries((brs || []).map(b => [(b.name || '').trim().toLowerCase(), b.id]));
       const subMap = {};
+      const fallbackSubMap = {};
       (subs || []).forEach(s => {
         const key = `${(s.category_name || '').trim().toLowerCase()}__${(s.name || '').trim().toLowerCase()}`;
         subMap[key] = s.id;
+        if (s.name) fallbackSubMap[(s.name || '').trim().toLowerCase()] = s.id;
       });
 
       const rows = incomingList.map(p => {
         const row = toSupabaseProduct(p);
         const catKey = (p.category || '').trim().toLowerCase();
         const brandKey = (p.brand || '').trim().toLowerCase();
-        const subKey = `${catKey}__${(p.subCategory || p.subcategory || '').trim().toLowerCase()}`;
+        const subRaw = (p.subCategory || p.subcategory || '').trim().toLowerCase();
+        const subKey = `${catKey}__${subRaw}`;
         if (catMap[catKey]) row.category_id = catMap[catKey];
         if (brandMap[brandKey]) row.brand_id = brandMap[brandKey];
-        if (subMap[subKey]) row.subcategory_id = subMap[subKey];
+        if (subMap[subKey]) {
+          row.subcategory_id = subMap[subKey];
+        } else if (fallbackSubMap[subRaw]) {
+          row.subcategory_id = fallbackSubMap[subRaw];
+        }
         return row;
       });
       // Upsert in batches of 50
@@ -498,28 +505,59 @@ export async function saveCollectionToSupabase(key, data) {
     if (key === 'subcategories') {
       // data is { [catName]: [sub1, sub2] }
       const { data: cats } = await supabase.from('categories').select('id, name');
-      const catMap = Object.fromEntries((cats || []).map(c => [c.name, c.id]));
+      const catMap = Object.fromEntries((cats || []).map(c => [(c.name || '').trim().toLowerCase(), c.id]));
 
       const rows = [];
       for (const [catName, subList] of Object.entries(data || {})) {
-        let catId = catMap[catName];
-        if (!catId) {
+        const cleanCat = (catName || '').trim();
+        const catKey = cleanCat.toLowerCase();
+        let catId = catMap[catKey];
+        if (!catId && cleanCat) {
           // If category not exists yet, insert/upsert it
-          const { data: newCat } = await supabase.from('categories').upsert({ name: catName }, { onConflict: 'name' }).select('id').single();
+          const { data: newCat } = await supabase.from('categories').upsert({ name: cleanCat }, { onConflict: 'name' }).select('id').single();
           catId = newCat?.id;
-          if (catId) catMap[catName] = catId;
+          if (catId) catMap[catKey] = catId;
         }
         if (catId && Array.isArray(subList)) {
           for (const sub of subList) {
-            if (sub && typeof sub === 'string') rows.push({ category_id: catId, category_name: catName, name: sub.trim() });
+            if (sub && typeof sub === 'string' && sub.trim()) {
+              rows.push({ category_id: catId, category_name: cleanCat, name: sub.trim() });
+            }
           }
         }
       }
 
-      await supabase.from('subcategories').delete().neq('name', '___NON_EXISTENT___');
-      if (rows.length > 0) {
-        await supabase.from('subcategories').insert(rows);
+      // Fetch existing subcategories to keep their IDs intact
+      const { data: currentSubs } = await supabase.from('subcategories').select('id, category_name, name');
+      const existingKeyMap = new Map();
+      (currentSubs || []).forEach(s => {
+        const k = `${(s.category_name || '').trim().toLowerCase()}__${(s.name || '').trim().toLowerCase()}`;
+        existingKeyMap.set(k, s.id);
+      });
+
+      const incomingKeySet = new Set();
+      const toInsert = [];
+      for (const r of rows) {
+        const k = `${(r.category_name || '').trim().toLowerCase()}__${(r.name || '').trim().toLowerCase()}`;
+        incomingKeySet.add(k);
+        if (!existingKeyMap.has(k)) {
+          toInsert.push(r);
+        }
       }
+
+      const toDeleteIds = (currentSubs || [])
+        .filter(s => !incomingKeySet.has(`${(s.category_name || '').trim().toLowerCase()}__${(s.name || '').trim().toLowerCase()}`))
+        .map(s => s.id);
+
+      if (toDeleteIds.length > 0) {
+        await supabase.from('subcategories').delete().in('id', toDeleteIds);
+      }
+      if (toInsert.length > 0) {
+        await supabase.from('subcategories').insert(toInsert);
+      }
+
+      // Automatically re-link products whose subcategory_id might be missing
+      await syncProductSubcategoryIds().catch(() => {});
       return true;
     }
 
@@ -604,5 +642,36 @@ export async function migrateInitialData(localDb) {
     }
   } catch (error) {
     console.warn('Initial migration notice:', error.message);
+  }
+}
+
+// Repair or link subcategory_id on products table from subcategories table
+export async function syncProductSubcategoryIds() {
+  if (!isSupabaseConfigured || !supabase) return;
+  try {
+    const [{ data: subs }, { data: prods }] = await Promise.all([
+      supabase.from('subcategories').select('id, name, category_name'),
+      supabase.from('products').select('id, category, subcategory, subcategory_id')
+    ]);
+
+    const subMap = {};
+    const fallbackSubMap = {};
+    (subs || []).forEach(s => {
+      const key = `${(s.category_name || '').trim().toLowerCase()}__${(s.name || '').trim().toLowerCase()}`;
+      subMap[key] = s.id;
+      if (s.name) fallbackSubMap[(s.name || '').trim().toLowerCase()] = s.id;
+    });
+
+    for (const p of (prods || [])) {
+      const catKey = (p.category || '').trim().toLowerCase();
+      const subRaw = (p.subcategory || '').trim().toLowerCase();
+      const subKey = `${catKey}__${subRaw}`;
+      const targetId = subMap[subKey] || fallbackSubMap[subRaw];
+      if (targetId && p.subcategory_id !== targetId) {
+        await supabase.from('products').update({ subcategory_id: targetId }).eq('id', p.id);
+      }
+    }
+  } catch (err) {
+    console.error('syncProductSubcategoryIds error:', err);
   }
 }

@@ -27,37 +27,28 @@ export const PAGE_DEFINITIONS = [
   {
     id: 'customers',
     name: 'จัดการข้อมูลลูกค้า',
-    description: 'ดูรายชื่อลูกค้า ข้อมูลติดต่อ บริษัท และประวัติเอกสารใบเสนอราคา',
     icon: 'bi bi-person-lines-fill',
-    category: 'ข้อมูลลูกค้า'
   },
   {
     id: 'quotations',
     name: 'ใบเสนอราคา & เอกสาร',
-    description: 'ดูรายการใบเสนอราคา และแคตตาล็อกนำเสนอสินค้า (Product Proposal)',
     icon: 'bi bi-file-earmark-text-fill',
-    category: 'เอกสารการขาย'
   },
   {
     id: 'reports',
-    name: 'รายงานสินค้า & สถิติ',
-    description: 'รายงานวิเคราะห์สินค้า หมวดหมู่ แบรนด์ และรายงานใบเสนอราคา',
+    name: 'รายงาน',
     icon: 'bi bi-bar-chart-fill',
-    category: 'รายงาน'
   },
   {
     id: 'users',
     name: 'จัดการผู้ใช้งานระบบ',
-    description: 'ดูบัญชีผู้ใช้งานระบบ อนุมัติสิทธิ์ และจัดการผู้ใช้',
     icon: 'bi bi-people-fill',
-    category: 'การตั้งค่าระบบ'
   },
   {
     id: 'activity-log',
     name: 'ประวัติการดำเนินงาน (Activity Log)',
-    description: 'ตรวจสอบประวัติการแก้ไข เพิ่ม ลบ และการทำงานในระบบทั้งหมด',
     icon: 'bi bi-clock-history',
-    category: 'การตั้งค่าระบบ'
+  
   }
 ];
 
