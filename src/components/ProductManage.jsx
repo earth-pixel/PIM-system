@@ -2244,8 +2244,7 @@ export default function ProductManage({
         {/* Selected Code Chips (Full Width Row - เรียงยาวตลอดแถวด้านล่าง) */}
         {activeCodeChips.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap pt-2.5 border-t border-zinc-150/80 animate-fade-in w-full">
-            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider shrink-0 flex items-center gap-1.5">
-              <Barcode className="w-3.5 h-3.5 text-[#0071e3]" />
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider shrink-0">
               รหัสที่เลือก ({activeCodeChips.length}):
             </span>
             <div className="flex items-center gap-1.5 flex-wrap flex-1">
@@ -2254,7 +2253,6 @@ export default function ProductManage({
                   key={idx}
                   className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-zinc-50 border border-[#d2d2d7] rounded-full text-xs font-semibold text-zinc-800 shadow-2xs transition-all animate-scale-in"
                 >
-                  <Barcode className="w-3.5 h-3.5 text-[#0071e3] shrink-0" />
                   <span className="font-mono text-xs font-bold text-zinc-900">{token}</span>
                   <button
                     type="button"
