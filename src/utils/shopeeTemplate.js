@@ -56,13 +56,18 @@ const SHOPEE_MANDATORY_COLS_SPEC = [
   {
     code: 'ps_stock|0|1',
     row2: '',
-    label: 'คลังสินค้า',
+    label: 'สต๊อกสินค้า',
     req: '',
     desc: '',
     validation: '',
     width: 14,
     numFmt: '0',
-    value: () => 0
+    value: (p) => {
+      const s = (p.stockShopee !== undefined && p.stockShopee !== null && p.stockShopee !== '')
+        ? Number(p.stockShopee)
+        : (p.stock !== undefined && p.stock !== null && p.stock !== '' ? Number(p.stock) : 0);
+      return s;
+    }
   },
   {
     code: 'ps_item_cover_image|0|3',
@@ -72,7 +77,10 @@ const SHOPEE_MANDATORY_COLS_SPEC = [
     desc: '',
     validation: '',
     width: 40,
-    value: (p) => p.image || ''
+    value: (p) => {
+      const raw = (Array.isArray(p.images) && p.images[0]) || p.image || p.imageUrl || p.image_url || p.coverImage || '';
+      return typeof raw === 'object' && raw !== null ? (raw.url || raw.preview || raw.src || '') : (raw || '');
+    }
   },
   {
     code: 'ps_item_image_1|0|3',
@@ -82,7 +90,10 @@ const SHOPEE_MANDATORY_COLS_SPEC = [
     desc: '',
     validation: '',
     width: 40,
-    value: (p) => p.image || ''
+    value: (p) => {
+      const raw = (Array.isArray(p.images) && p.images[0]) || p.image || p.imageUrl || p.image_url || p.coverImage || '';
+      return typeof raw === 'object' && raw !== null ? (raw.url || raw.preview || raw.src || '') : (raw || '');
+    }
   },
   {
     code: 'ps_weight|0|1',
@@ -271,10 +282,17 @@ export async function exportToShopeeMandatory(products = [], options = {}) {
         const cell = row.getCell(colIdx + 1);
         let val = col.value(p);
         if (col.code === 'ps_stock|0|1') {
-          if (options.stockMap && options.stockMap[p.id] !== undefined) {
-            val = Number(options.stockMap[p.id]) || 0;
+          if (options.stockMap) {
+            const mVal = options.stockMap[p.id] !== undefined ? options.stockMap[p.id] : (p.code ? options.stockMap[p.code] : undefined);
+            if (mVal !== undefined) val = Number(mVal) || 0;
+            else if (p.stockShopee !== undefined && p.stockShopee !== null && p.stockShopee !== '') val = Number(p.stockShopee) || 0;
+            else if (p.stock !== undefined && p.stock !== null && p.stock !== '') val = Number(p.stock) || 0;
           } else if (options.stock !== undefined) {
             val = Number(options.stock) || 0;
+          } else if (p.stockShopee !== undefined && p.stockShopee !== null && p.stockShopee !== '') {
+            val = Number(p.stockShopee) || 0;
+          } else if (p.stock !== undefined && p.stock !== null && p.stock !== '') {
+            val = Number(p.stock) || 0;
           }
         }
 

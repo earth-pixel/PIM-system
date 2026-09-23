@@ -52,8 +52,37 @@ export function mergeImportedProducts(existing, incoming) {
     codes.add(code);
     const index = result.findIndex(p => normalizeCode(p.code) === code);
     const clean = Object.fromEntries(Object.entries(product).filter(([key]) => !key.startsWith('_')));
-    if (index < 0) result.push({ ...clean, id: crypto.randomUUID() });
-    else result[index] = { ...result[index], ...clean, id: result[index].id, code: result[index].code, createdAt: result[index].createdAt };
+    if (index < 0) {
+      result.push({ ...clean, id: crypto.randomUUID() });
+    } else {
+      const prev = result[index];
+      const platform = product._platform;
+      let stockShopee = clean.stockShopee !== undefined ? clean.stockShopee : prev.stockShopee;
+      let stockLazada = clean.stockLazada !== undefined ? clean.stockLazada : prev.stockLazada;
+      let stockTiktok = clean.stockTiktok !== undefined ? clean.stockTiktok : prev.stockTiktok;
+
+      if (platform === 'shopee' && product.stock !== undefined) {
+        stockShopee = Number(product.stock) || 0;
+      } else if (platform === 'lazada' && product.stock !== undefined) {
+        stockLazada = Number(product.stock) || 0;
+      } else if (platform === 'tiktok' && product.stock !== undefined) {
+        stockTiktok = Number(product.stock) || 0;
+      }
+
+      const totalStock = ((Number(stockShopee) || 0) + (Number(stockLazada) || 0) + (Number(stockTiktok) || 0)) || (clean.stock !== undefined ? Number(clean.stock) : Number(prev.stock) || 0);
+
+      result[index] = {
+        ...prev,
+        ...clean,
+        stockShopee: stockShopee !== undefined ? Number(stockShopee) || 0 : (prev.stockShopee !== undefined ? Number(prev.stockShopee) || 0 : 0),
+        stockLazada: stockLazada !== undefined ? Number(stockLazada) || 0 : (prev.stockLazada !== undefined ? Number(prev.stockLazada) || 0 : 0),
+        stockTiktok: stockTiktok !== undefined ? Number(stockTiktok) || 0 : (prev.stockTiktok !== undefined ? Number(prev.stockTiktok) || 0 : 0),
+        stock: totalStock,
+        id: prev.id,
+        code: prev.code,
+        createdAt: prev.createdAt
+      };
+    }
     return result;
   }, [...existing]);
 }

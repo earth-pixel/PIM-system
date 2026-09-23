@@ -116,8 +116,36 @@ export default function DropdownFilter({
     };
   }, [isOpen, updatePosition]);
 
+  const timeoutRef = useRef(null);
+
+  const clearCloseTimeout = () => {
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  const handleMouseEnter = () => {
+    if (disabled) return;
+    clearCloseTimeout();
+    updatePosition();
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    clearCloseTimeout();
+    timeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 180);
+  };
+
+  useEffect(() => {
+    return () => clearCloseTimeout();
+  }, []);
+
   const handleToggle = () => {
     if (disabled) return;
+    clearCloseTimeout();
     if (!isOpen) {
       updatePosition();
       setIsOpen(true);
@@ -127,6 +155,7 @@ export default function DropdownFilter({
   };
 
   const handleSelect = (val) => {
+    clearCloseTimeout();
     setIsOpen(false);
     if (onChange) {
       const syntheticEvent = {
@@ -139,7 +168,12 @@ export default function DropdownFilter({
   };
 
   return (
-    <div className={`relative inline-block w-full md:w-auto select-none ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`} id={id}>
+    <div
+      className={`relative inline-block w-full md:w-auto select-none ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
+      id={id}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {/* Trigger Button */}
       <button
         ref={triggerRef}
@@ -166,6 +200,8 @@ export default function DropdownFilter({
       {isOpen && createPortal(
         <div
           ref={menuRef}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
           style={{
             position: 'fixed',
             top: `${coords.top}px`,

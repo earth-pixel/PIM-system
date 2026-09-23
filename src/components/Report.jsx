@@ -8,6 +8,7 @@ import ArchiveManage from './ArchiveManage';
 import DropdownFilter from './DropdownFilter';
 import { canPerformAction } from '../utils/permissions';
 import { useToast } from '../contexts/ToastContext';
+import { parseSearchTokens, doesProductMatchToken } from '../utils/searchUtils';
 
 // All roles can view all documents in reports
 const isOwnDocument = () => true;
@@ -43,26 +44,52 @@ export default function Report({ products, brands, categories, subcategories = {
   // Counts for tabs
   const productsCount = products.length;
   const quotationsCount = useMemo(() => {
-    return quotations.filter(q => q.documentType !== 'product_proposal' && isOwnDocument(q, currentUser)).length;
-  }, [quotations, currentUser]);
+    return quotations.filter(q => !q.is_archived).length;
+  }, [quotations]);
   const proposalsCount = useMemo(() => {
-    return quotations.filter(q => q.documentType === 'product_proposal' && isOwnDocument(q, currentUser)).length;
+    return quotations.filter(isOwnDocument).length;
   }, [quotations, currentUser]);
+
+  const searchTokens = useMemo(() => {
+    return parseSearchTokens(searchQuery, products);
+  }, [searchQuery, products]);
+
+  const handleSearchPaste = (e) => {
+    const pasteText = e.clipboardData?.getData('text') || '';
+    if (pasteText.includes('\n') || pasteText.includes('\r') || pasteText.includes('\t')) {
+      e.preventDefault();
+      const lines = pasteText
+        .split(/[\r\n\t]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (lines.length > 0) {
+        const uniquePasted = Array.from(new Set(lines));
+        const joined = uniquePasted.join(', ');
+        setSearchQuery(prev => {
+          if (!prev.trim()) return joined;
+          const existing = prev.trim();
+          return existing.endsWith(',') ? `${existing} ${joined}` : `${existing}, ${joined}`;
+        });
+      }
+    }
+  };
 
   const baseFilteredProducts = useMemo(() => {
     return products.filter(product => {
       const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
       const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
       const matchesSubCategory = selectedSubCategory === 'All' || product.subCategory === selectedSubCategory;
-      const q = searchQuery.trim().toLowerCase();
-      const matchesSearch = !q ||
-        (product.name || '').toLowerCase().includes(q) ||
-        (product.code || '').toLowerCase().includes(q) ||
-        (product.barcode || '').toLowerCase().includes(q) ||
-        (product.variants || []).some(v => (v.barcode || '').toLowerCase().includes(q) || (v.sku || '').toLowerCase().includes(q));
+      
+      let matchesSearch = true;
+      if (searchTokens.length === 1) {
+        matchesSearch = doesProductMatchToken(product, searchTokens[0]);
+      } else if (searchTokens.length > 1) {
+        matchesSearch = searchTokens.some(token => doesProductMatchToken(product, token));
+      }
+
       return matchesBrand && matchesCategory && matchesSubCategory && matchesSearch;
     });
-  }, [products, selectedBrand, selectedCategory, selectedSubCategory, searchQuery]);
+  }, [products, selectedBrand, selectedCategory, selectedSubCategory, searchTokens]);
 
   const filteredProducts = useMemo(() => {
     return baseFilteredProducts.filter(product => {
@@ -301,9 +328,10 @@ export default function Report({ products, brands, categories, subcategories = {
             <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0071e3] pointer-events-none" />
             <input
               type="text"
-              placeholder="ค้นหาชื่อสินค้า / SKU / บาร์โค้ด..."
+              placeholder="ค้นหาชื่อสินค้า / SKU / บาร์โค้ด (ใส่หลายรหัสคั่นด้วย ,)..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onPaste={handleSearchPaste}
               className="w-full pl-9 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400"
             />
             {searchQuery && (

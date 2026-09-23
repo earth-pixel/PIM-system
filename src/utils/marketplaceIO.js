@@ -144,13 +144,21 @@ const ALIAS = {
   name:  ['ชื่อสินค้า', 'product_name', 'ps_product_name|1|0'],
   desc:  ['รายละเอียดสินค้า', 'คำอธิบายสินค้า', 'product_description', 'คำอธิบายหลัก', 'ps_product_description|1|0'],
   price: ['ราคา', 'ราคาขายปลีก (สกุลเงินท้องถิ่น)', 'price', 'ps_price|1|1'],
-  stock: ['คลังสินค้า', 'จำนวน', 'ปริมาณ', 'quantity', 'ps_stock|0|1'],
+  stock: ['คลังสินค้า', 'จำนวน', 'ปริมาณ', 'quantity', 'ps_stock|0|1', 'stock', 'สต็อก', 'สต๊อก'],
+  stockShopee: ['สต็อก shopee', 'สต๊อก shopee', 'stock_shopee', 'stockshopee', 'shopee_stock'],
+  stockLazada: ['สต็อก lazada', 'สต๊อก lazada', 'stock_lazada', 'stocklazada', 'lazada_stock'],
+  stockTiktok: ['สต็อก tiktok', 'สต๊อก tiktok', 'stock_tiktok', 'stocktiktok', 'tiktok_stock'],
   weight:['น้ำหนัก', 'น้ำหนักพัสดุ', 'น้ำหนักพัสดุ(g)', 'น้ำหนัก แพคเกจ (กก)', 'parcel_weight', 'ps_weight|0|1'],
   image: ['รูปภาพสินค้า1', 'ภาพหลัก', 'main_image'],
   brand: ['ยี่ห้อ', 'แบรนด์', 'brand'],
   category: ['หมวดหมู่', 'category'],
   barcode:  ['บาร์โค้ด', 'บาร์โคด', 'barcode'],
   capFee:   ['ค่าฝา', 'หักค่าฝา', 'cap_fee', 'capfee'],
+  stylingLevel: ['ระดับการจัดทรง', 'stylinglevel', 'styling_level'],
+  hairType:     ['ประเภทเส้นผม', 'hairtype', 'hair_type'],
+  hairBenefit:  ['ประโยชน์เพื่อการดูแลเส้นผม', 'hairbenefit', 'hair_benefit'],
+  productForm:  ['รูปแบบของผลิตภัณฑ์', 'productform', 'product_form'],
+  hairColorType:['ประเภทสีย้อมผม', 'haircolortype', 'hair_color_type', 'dyetype', 'dye_type'],
 };
 
 // เติมคำหัวที่รู้จักทั้งหมดลงเซ็ต (ใช้ใน locateLayout / กันอ่านแถวหัวเป็นข้อมูล)
@@ -169,12 +177,20 @@ function readRow(sheet, rowIdx, map) {
     desc: get(ALIAS.desc),
     price: get(ALIAS.price),
     stock: get(ALIAS.stock),
+    stockShopee: get(ALIAS.stockShopee),
+    stockLazada: get(ALIAS.stockLazada),
+    stockTiktok: get(ALIAS.stockTiktok),
     weight: get(ALIAS.weight),
     image: get(ALIAS.image),
     brand: get(ALIAS.brand),
     category: get(ALIAS.category),
     barcode: get(ALIAS.barcode),
     capFee: get(ALIAS.capFee),
+    stylingLevel: get(ALIAS.stylingLevel),
+    hairType: get(ALIAS.hairType),
+    hairBenefit: get(ALIAS.hairBenefit),
+    productForm: get(ALIAS.productForm),
+    hairColorType: get(ALIAS.hairColorType),
   };
 }
 
@@ -183,7 +199,17 @@ function readRow(sheet, rowIdx, map) {
 // ==========================================
 function buildProduct(r, platform, weightUnit, category) {
   const retailPrice = r.price ? Number(r.price) || 0 : 0;
-  const stock = r.stock ? Number(r.stock) || 0 : 0;
+  const rawStock = r.stock !== '' && r.stock !== null && r.stock !== undefined ? (Number(r.stock) || 0) : 0;
+  
+  let stockShopee = r.stockShopee !== '' && r.stockShopee !== null && r.stockShopee !== undefined ? Number(r.stockShopee) : undefined;
+  let stockLazada = r.stockLazada !== '' && r.stockLazada !== null && r.stockLazada !== undefined ? Number(r.stockLazada) : undefined;
+  let stockTiktok = r.stockTiktok !== '' && r.stockTiktok !== null && r.stockTiktok !== undefined ? Number(r.stockTiktok) : undefined;
+
+  if (platform === 'shopee') stockShopee = rawStock;
+  else if (platform === 'lazada') stockLazada = rawStock;
+  else if (platform === 'tiktok') stockTiktok = rawStock;
+
+  const totalStock = ((stockShopee ?? 0) + (stockLazada ?? 0) + (stockTiktok ?? 0)) || rawStock;
   const weightStr = r.weight ? formatWeightStr(Number(r.weight), weightUnit) : '';
 
   const rawCat = category || r.category || '';
@@ -219,8 +245,16 @@ function buildProduct(r, platform, weightUnit, category) {
     image: r.image || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400&auto=format&fit=crop&q=60',
     size: 'N/A',
     weight: weightStr,
-    stock,
+    stock: totalStock,
+    stockShopee: stockShopee ?? 0,
+    stockLazada: stockLazada ?? 0,
+    stockTiktok: stockTiktok ?? 0,
     status: 'Active',
+    stylingLevel: r.stylingLevel || '',
+    hairType: r.hairType || '',
+    hairBenefit: r.hairBenefit || '',
+    productForm: r.productForm || '',
+    hairColorType: r.hairColorType || '',
     _platform: platform,
     _codeMissing: !(r.code || r.barcode),  // ธงไว้ให้ UI เตือนถ้าไฟล์ไม่มี SKU จริง ๆ
   };
@@ -302,7 +336,7 @@ export async function exportToShopeeCustom(products) {
     'ps_price|1|1', 'ps_stock|0|1', 'ps_weight|0|1', 'ps_length|0|1', 'ps_width|0|1', 'ps_height|0|1']);
   sheet.addRow([]); // แถว 2 ว่าง
   // แถว 3: หัวภาษาไทย (เพิ่ม "รหัสสินค้า (SKU)" นำหน้า)
-  sheet.addRow(['รหัสสินค้า (SKU)', 'ชื่อสินค้า', 'รายละเอียดสินค้า', 'ราคา', 'คลังสินค้า',
+  sheet.addRow(['รหัสสินค้า (SKU)', 'ชื่อสินค้า', 'รายละเอียดสินค้า', 'ราคา', 'สต๊อกสินค้า',
     'น้ำหนักพัสดุ', 'ความยาวพัสดุ', 'ความกว้างพัสดุ', 'ความสูงพัสดุ']);
   products.forEach((p) => {
     sheet.addRow([

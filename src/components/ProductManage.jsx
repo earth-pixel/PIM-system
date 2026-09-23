@@ -26,11 +26,13 @@ import {
   List,
   Barcode,
   Loader2,
-  Cloud
+  Cloud,
+  Package
 } from 'lucide-react';
 import { uploadProductImage, deleteProductImage, isRemoteUrl } from '../utils/imageUpload';
-import { exportShopee, exportLazada, exportTikTok, exportToExcel } from '../utils/exportUtils';
+import { exportShopee, exportLazada, exportTikTok, exportToExcel, getMissingExportColumns, getIncompleteExportDetails } from '../utils/exportUtils';
 import { playScanBeep, findProductByBarcodeOrCode } from '../utils/scannerUtils';
+import { parseSearchTokens, doesProductMatchToken } from '../utils/searchUtils';
 import {
   parseWeightToKg
 } from '../utils/marketplaceIO';
@@ -48,7 +50,7 @@ const shopeeCols = [
     }
   },
   { label: 'ราคา', value: (p) => (Number(p.retailPrice) || 0).toLocaleString() },
-  { label: 'คลังสินค้า', value: (p) => p.stock || 0 },
+  { label: 'สต๊อกสินค้า', value: (p) => p.stock || 0 },
   { label: 'ภาพปก', value: (p) => p.image || '' },
   { label: 'รูปภาพ 1', value: (p) => p.image || '' },
   { label: 'น้ำหนัก (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
@@ -100,7 +102,7 @@ const LAZADA_PREVIEW_COLS = {
     { label: 'ประเภทเส้นผม', value: () => '' },
     { label: 'ประโยชน์ดูแลผม', value: () => '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'จำนวน', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -112,7 +114,7 @@ const LAZADA_PREVIEW_COLS = {
     { label: 'ประเภทสีย้อมผม', value: () => '' },
     { label: 'รูปแบบของผลิตภัณฑ์', value: () => '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'จำนวน', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -124,7 +126,7 @@ const LAZADA_PREVIEW_COLS = {
     { label: 'ประเภทเส้นผม', value: () => '' },
     { label: 'รูปแบบของผลิตภัณฑ์', value: () => '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'จำนวน', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -135,7 +137,7 @@ const LAZADA_PREVIEW_COLS = {
     ...LAZADA_BASE_PREVIEW_COLS,
     { label: 'ประเภทเส้นผม', value: () => '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'จำนวน', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -146,7 +148,7 @@ const LAZADA_PREVIEW_COLS = {
     ...LAZADA_BASE_PREVIEW_COLS,
     { label: 'ประเภทเส้นผม', value: () => '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'จำนวน', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -157,7 +159,7 @@ const LAZADA_PREVIEW_COLS = {
     ...LAZADA_BASE_PREVIEW_COLS,
     { label: 'ประเภทเส้นผม', value: () => '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'จำนวน', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: () => 0 },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -190,7 +192,8 @@ export default function ProductManage({
   onImportProducts,
   onClearAllProducts = () => { },
   addActivityLog,
-  onAddSubCategory
+  onAddSubCategory,
+  onBulkUpdateProducts = () => {}
 }) {
   const [code, setCode] = useState('');
   const [barcode, setBarcode] = useState('');
@@ -221,6 +224,7 @@ export default function ProductManage({
   const [pendingImageFile, setPendingImageFile] = useState(null);
   const [imageDeleted, setImageDeleted] = useState(false);
   const previewUrlRef = useRef(null);
+  const searchInputRef = useRef(null);
 
   const [errorMsg, setErrorMsg] = useState('');
   const [formErrors, setFormErrors] = useState({
@@ -657,6 +661,7 @@ export default function ProductManage({
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeCodeChips, setActiveCodeChips] = useState([]);
   const [productToDelete, setProductToDelete] = useState(null);
   const [alertPopup, setAlertPopup] = useState(null);
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
@@ -681,6 +686,16 @@ export default function ProductManage({
   const [showExportPreviewModal, setShowExportPreviewModal] = useState(false);
   const [previewPlatform, setPreviewPlatform] = useState('shopee'); // 'shopee' | 'lazada' | 'tiktok'
   const [previewLazadaCategory, setPreviewLazadaCategory] = useState('ผลิตภัณฑ์จัดแต่งทรงผม');
+  const [incompleteExportModal, setIncompleteExportModal] = useState({
+    isOpen: false,
+    platformKey: '',
+    platformName: '',
+    missingHeaders: [],
+    incompleteProducts: [],
+    onConfirm: null
+  });
+  const [exportStockMap, setExportStockMap] = useState({});
+  const [batchStockVal, setBatchStockVal] = useState('');
   // Image zoom/preview state
   const [zoomedImage, setZoomedImage] = useState(null);
 
@@ -750,19 +765,73 @@ export default function ProductManage({
     }
   };
 
+  const searchTokens = useMemo(() => {
+    const rawTokens = searchQuery.trim() ? parseSearchTokens(searchQuery, products) : [];
+    return Array.from(new Set([...activeCodeChips, ...rawTokens]));
+  }, [activeCodeChips, searchQuery, products]);
+
+  const handleSearchChange = (e) => {
+    const val = e.target.value;
+
+    // Check if user entered a comma or delimiter
+    if (val.includes(',') || val.includes('\n') || val.includes('\t')) {
+      const tokens = val.split(/[,\n\t]+/).map(s => s.trim()).filter(Boolean);
+      if (tokens.length > 0) {
+        setActiveCodeChips(prev => Array.from(new Set([...prev, ...tokens])));
+        setSearchQuery('');
+        playScanBeep('success');
+        return;
+      }
+    }
+
+    setSearchQuery(val);
+
+    const trimmed = val.trim();
+    if (!trimmed || trimmed.length < 3) return;
+
+    // Automatically detect exact barcode or exact SKU match (from scanner or typing)
+    const match = findProductByBarcodeOrCode(products, trimmed);
+    if (match && match.product) {
+      const isBarcode = (match.product.barcode && String(match.product.barcode).trim().toLowerCase() === trimmed.toLowerCase()) ||
+        (match.variant?.barcode && String(match.variant.barcode).trim().toLowerCase() === trimmed.toLowerCase());
+      const isExactCode = (match.product.code && String(match.product.code).trim().toLowerCase() === trimmed.toLowerCase()) ||
+        (match.variant?.sku && String(match.variant.sku).trim().toLowerCase() === trimmed.toLowerCase());
+
+      if (isBarcode || isExactCode) {
+        const foundCode = match.variant?.barcode || match.product.barcode || match.variant?.sku || match.product.code || trimmed;
+        playScanBeep('success');
+        setActiveCodeChips(prev => Array.from(new Set([...prev, foundCode])));
+        setSearchQuery('');
+      }
+    }
+  };
+
+  const handleSearchPaste = (e) => {
+    const pasteText = e.clipboardData?.getData('text') || '';
+    if (pasteText.includes('\n') || pasteText.includes('\r') || pasteText.includes('\t') || pasteText.includes(',')) {
+      e.preventDefault();
+      const lines = pasteText
+        .split(/[\r\n\t,]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      if (lines.length > 0) {
+        const uniquePasted = Array.from(new Set(lines));
+        setActiveCodeChips(prev => Array.from(new Set([...prev, ...uniquePasted])));
+        setSearchQuery('');
+        playScanBeep('success');
+      }
+    }
+  };
+
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
-      const q = searchQuery.toLowerCase().trim();
-      const matchesSearch = !q ||
-        (product.name && product.name.toLowerCase().includes(q)) ||
-        (product.code && product.code.toLowerCase().includes(q)) ||
-        (product.barcode && product.barcode.toLowerCase().includes(q)) ||
-        (product.description && product.description.toLowerCase().includes(q)) ||
-        (product.variants && product.variants.some(v =>
-          (v.sku && v.sku.toLowerCase().includes(q)) ||
-          (v.barcode && v.barcode.toLowerCase().includes(q)) ||
-          (v.options && v.options.some(o => o.value && o.value.toLowerCase().includes(q)))
-        ));
+      let matchesSearch = true;
+      if (searchTokens.length === 1) {
+        matchesSearch = doesProductMatchToken(product, searchTokens[0]);
+      } else if (searchTokens.length > 1) {
+        matchesSearch = searchTokens.some(token => doesProductMatchToken(product, token));
+      }
+
       const matchesBrand = selectedBrand === 'All' || product.brand === selectedBrand;
       const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
       const matchesSubCategory = selectedSubCategory === 'All' || product.subCategory === selectedSubCategory;
@@ -770,23 +839,119 @@ export default function ProductManage({
 
       return matchesSearch && matchesBrand && matchesCategory && matchesSubCategory && matchesStatus;
     });
-  }, [products, searchQuery, selectedBrand, selectedCategory, selectedSubCategory, selectedStatus]);
+  }, [products, searchTokens, selectedBrand, selectedCategory, selectedSubCategory, selectedStatus]);
+
+  const triggerExportWithValidation = (platformKey, platformLabel, exportFn, logMsg) => {
+    setShowExportDropdown(false);
+    if (!filteredProducts || filteredProducts.length === 0) {
+      alert('ไม่มีรายการสินค้าสำหรับนำออก');
+      return;
+    }
+
+    const doExport = (customStocks = exportStockMap) => {
+      let productsToExport = filteredProducts;
+      if (customStocks && Object.keys(customStocks).length > 0) {
+        productsToExport = filteredProducts.map(p => {
+          const userVal = customStocks[p.id] !== undefined ? customStocks[p.id] : (p.code ? customStocks[p.code] : undefined);
+          if (userVal !== undefined && userVal !== '') {
+            const numVal = Number(userVal) || 0;
+            return {
+              ...p,
+              stock: numVal,
+              stockShopee: platformKey === 'shopee' ? numVal : (p.stockShopee ?? numVal),
+              stockLazada: platformKey === 'lazada' ? numVal : (p.stockLazada ?? numVal),
+              stockTiktok: platformKey === 'tiktok' ? numVal : (p.stockTiktok ?? numVal),
+            };
+          }
+          return p;
+        });
+
+        // Persist entered stock values back to products if bulk update handler is provided
+        if (typeof onBulkUpdateProducts === 'function') {
+          const updatedAll = products.map(p => {
+            const userVal = customStocks[p.id] !== undefined ? customStocks[p.id] : (p.code ? customStocks[p.code] : undefined);
+            if (userVal !== undefined && userVal !== '') {
+              const numVal = Number(userVal) || 0;
+              return {
+                ...p,
+                stock: numVal,
+                stockShopee: platformKey === 'shopee' ? numVal : (p.stockShopee ?? numVal),
+                stockLazada: platformKey === 'lazada' ? numVal : (p.stockLazada ?? numVal),
+                stockTiktok: platformKey === 'tiktok' ? numVal : (p.stockTiktok ?? numVal),
+              };
+            }
+            return p;
+          });
+          onBulkUpdateProducts(updatedAll);
+        }
+      }
+      exportFn(productsToExport, { stockMap: customStocks });
+      if (addActivityLog && logMsg) {
+        addActivityLog(logMsg);
+      }
+    };
+
+    const { missingHeaders, incompleteProducts } = getIncompleteExportDetails(platformKey, filteredProducts);
+    if (missingHeaders && missingHeaders.length > 0) {
+      const initialStocks = {};
+      filteredProducts.forEach(p => {
+        let currentS = '';
+        if (platformKey === 'shopee' && p.stockShopee !== undefined && p.stockShopee !== null) currentS = String(p.stockShopee);
+        else if (platformKey === 'lazada' && p.stockLazada !== undefined && p.stockLazada !== null) currentS = String(p.stockLazada);
+        else if (platformKey === 'tiktok' && p.stockTiktok !== undefined && p.stockTiktok !== null) currentS = String(p.stockTiktok);
+        else if (p.stock !== undefined && p.stock !== null) currentS = String(p.stock);
+        
+        if (p.id) initialStocks[p.id] = currentS;
+        if (p.code) initialStocks[p.code] = currentS;
+        const fallbackKey = p.id || p.code || p.name;
+        if (fallbackKey) initialStocks[fallbackKey] = currentS;
+      });
+      setExportStockMap(initialStocks);
+      setBatchStockVal('');
+
+      setIncompleteExportModal({
+        isOpen: true,
+        platformKey,
+        platformName: platformLabel,
+        missingHeaders,
+        incompleteProducts: incompleteProducts || [],
+        onConfirm: doExport
+      });
+    } else {
+      doExport();
+    }
+  };
 
   const handleProductSearchKeyDown = (e) => {
-    if (e.key === 'Enter') {
-      const term = searchQuery.trim();
-      if (!term) return;
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      const raw = searchQuery.trim();
+      if (!raw) return;
 
-      const match = findProductByBarcodeOrCode(products, term);
-      if (match && match.product) {
-        playScanBeep('success');
-        setDrawerProduct(match.product);
-      } else if (filteredProducts.length === 1) {
-        playScanBeep('success');
-        setDrawerProduct(filteredProducts[0]);
-      } else if (filteredProducts.length === 0) {
-        playScanBeep('error');
+      const newTokens = parseSearchTokens(raw, products);
+      if (newTokens.length > 0) {
+        const lastToken = newTokens[newTokens.length - 1];
+        const match = findProductByBarcodeOrCode(products, lastToken) || products.some(p => doesProductMatchToken(p, lastToken));
+        if (match) {
+          playScanBeep('success');
+        } else {
+          playScanBeep('error');
+        }
+
+        // Add to activeCodeChips
+        setActiveCodeChips(prev => Array.from(new Set([...prev, ...newTokens])));
+        // Clear search box so it disappears from the input and shows underneath instead
+        setSearchQuery('');
       }
+    } else if (e.key === 'Backspace' && !searchQuery && activeCodeChips.length > 0) {
+      setActiveCodeChips(prev => prev.slice(0, -1));
+    }
+  };
+
+  const handleRemoveChip = (chipToRemove) => {
+    setActiveCodeChips(prev => prev.filter(c => c.toLowerCase() !== chipToRemove.toLowerCase()));
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
     }
   };
 
@@ -1649,6 +1814,216 @@ export default function ProductManage({
         document.body
       )}
 
+      {/* Incomplete Export Warning Modal */}
+      {incompleteExportModal.isOpen && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in no-print">
+          <div
+            onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
+            className="absolute inset-0"
+          />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/80 shadow-2xl max-w-4xl w-full max-h-[90vh] p-6 flex flex-col gap-4 animate-scale-in text-[#1d1d1f] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-start gap-3.5 shrink-0">
+              <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center flex-shrink-0 text-amber-600 shadow-xs">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-zinc-900 leading-snug">
+                  ตรวจพบคอลัมน์ที่ข้อมูลไม่ครบถ้วน
+                </h3>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  คุณสามารถระบุจำนวนสต็อกสำหรับนำออก {incompleteExportModal.platformName} ได้ที่ช่องด้านขวาของแต่ละรายการ
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
+                className="text-zinc-400 hover:text-zinc-700 p-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto space-y-3.5 pr-0.5 min-h-0">
+              {/* Incomplete Table Headers Box */}
+              <div className="bg-zinc-50 border border-zinc-200/70 rounded-2xl p-3.5">
+                <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                  <span>คอลัมน์ที่ข้อมูลไม่ครบ:</span>
+                  <span className="text-rose-600 font-semibold">{incompleteExportModal.missingHeaders.length} คอลัมน์</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                  {incompleteExportModal.missingHeaders.map((headerName, idx) => (
+                    <span
+                      key={idx}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/70 shadow-2xs"
+                    >
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                      {headerName}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Incomplete Products List Box (พร้อมช่องกรอกสต็อกด้านหลัง) */}
+              {incompleteExportModal.incompleteProducts && incompleteExportModal.incompleteProducts.length > 0 && (
+                <div className="bg-zinc-50 border border-zinc-200/70 rounded-2xl p-3.5 flex flex-col min-h-0">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5 pb-2 border-b border-zinc-200/70">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider">
+                        รายการสินค้าที่ข้อมูลไม่ครบ:
+                      </span>
+                      <span className="text-amber-700 font-bold text-xs bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-300">
+                        {incompleteExportModal.incompleteProducts.length} รายการ
+                      </span>
+                    </div>
+
+                    {/* Quick batch stock */}
+                    <div className="flex items-center gap-1.5 self-end sm:self-auto bg-white px-2.5 py-1 rounded-xl border border-zinc-200 shadow-2xs">
+                      <span className="text-[10px] font-bold text-zinc-600">ใส่สต็อกเท่ากันทั้งหมด:</span>
+                      <input
+                        type="number"
+                        min="0"
+                        value={batchStockVal}
+                        onChange={(e) => setBatchStockVal(e.target.value)}
+                        placeholder="0"
+                        className="w-16 px-2 py-0.5 text-xs font-bold text-zinc-800 bg-zinc-50 border border-zinc-300 rounded-md text-center focus:outline-none focus:border-[#0071e3]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (batchStockVal === '') return;
+                          const newMap = { ...exportStockMap };
+                          incompleteExportModal.incompleteProducts.forEach(prod => {
+                            newMap[prod.id] = batchStockVal;
+                            if (prod.code) newMap[prod.code] = batchStockVal;
+                          });
+                          setExportStockMap(newMap);
+                        }}
+                        className="px-2.5 py-1 bg-[#1d1d1f] hover:bg-black text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                      >
+                        ใช้กับทั้งหมด
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                    {incompleteExportModal.incompleteProducts.map((p, idx) => {
+                      const userTypedStock = exportStockMap[p.id] !== undefined ? exportStockMap[p.id] : (p.code && exportStockMap[p.code] !== undefined ? exportStockMap[p.code] : '');
+                      const isStockFilled = userTypedStock !== undefined && userTypedStock !== '' && !isNaN(userTypedStock) && Number(userTypedStock) >= 0;
+
+                      return (
+                        <div
+                          key={p.id || idx}
+                          className="bg-white border border-zinc-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-zinc-300 transition-all"
+                        >
+                          {/* Left: Thumbnail & Details */}
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div className="w-11 h-11 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center overflow-hidden shrink-0">
+                              {p.image ? (
+                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                              ) : (
+                                <Package className="w-5 h-5 text-zinc-400" />
+                              )}
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200 shrink-0">
+                                  {p.code}
+                                </span>
+                                <p className="text-xs font-bold text-zinc-900 truncate" title={p.name}>
+                                  {p.name}
+                                </p>
+                              </div>
+
+                              {/* Missing fields tag */}
+                              <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                                <span className="text-[10px] text-zinc-400 font-medium">ขาด:</span>
+                                {p.missingFields.map((field, fIdx) => {
+                                  const isStockField = ['คลังสินค้า', 'จำนวน', 'สต็อกสินค้า', 'สต๊อกสินค้า'].includes(field);
+                                  if (isStockField && isStockFilled) {
+                                    return (
+                                      <span
+                                        key={fIdx}
+                                        className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded-md flex items-center gap-1"
+                                      >
+                                        <Check className="w-2.5 h-2.5" />
+                                        {field} ({userTypedStock})
+                                      </span>
+                                    );
+                                  }
+                                  return (
+                                    <span
+                                      key={fIdx}
+                                      className="text-[10px] font-medium text-rose-600 bg-rose-50 border border-rose-200/60 px-1.5 py-0.5 rounded-md"
+                                    >
+                                      {field}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Right: Stock Input Field */}
+                          <div className="shrink-0 flex items-center gap-3 pl-4 border-l border-zinc-200">
+                            <span className="text-xs font-bold text-zinc-700 whitespace-nowrap">กรอกจำนวนสต็อก :</span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={userTypedStock}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setExportStockMap(prev => ({
+                                  ...prev,
+                                  [p.id]: val,
+                                  ...(p.code ? { [p.code]: val } : {})
+                                }));
+                              }}
+                              placeholder="0"
+                              className={`w-28 px-3 py-2 text-sm font-bold text-zinc-900 rounded-xl border text-center transition-all focus:outline-none focus:ring-2 ${
+                                isStockFilled
+                                  ? 'bg-emerald-50/50 border-emerald-300 text-emerald-900 focus:border-emerald-500 focus:ring-emerald-200'
+                                  : 'bg-[#f5f5f7] border-[#d2d2d7] focus:bg-white focus:border-[#0071e3] focus:ring-[#0071e3]/20'
+                              }`}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7] text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                ยกเลิกเพื่อไปแก้ไข
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const onConfirm = incompleteExportModal.onConfirm;
+                  setIncompleteExportModal(prev => ({ ...prev, isOpen: false }));
+                  if (onConfirm) onConfirm(exportStockMap);
+                }}
+                className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-4 h-4" />
+                ยืนยันนำออกต่อไป
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print relative z-30">
         <div>
@@ -1714,11 +2089,12 @@ export default function ProductManage({
                     <button
                       type="button"
                       onClick={() => {
-                        exportShopee(filteredProducts);
-                        if (addActivityLog) {
-                          addActivityLog(`นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                        }
-                        setShowExportDropdown(false);
+                        triggerExportWithValidation(
+                          'shopee',
+                          'Shopee Excel',
+                          exportShopee,
+                          `นำออกสินค้า Shopee Excel (จำนวน ${filteredProducts.length} รายการ)`
+                        );
                       }}
                       className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#ff5722]/5 hover:text-[#ff5722] transition-colors cursor-pointer flex items-center gap-2"
                     >
@@ -1727,11 +2103,12 @@ export default function ProductManage({
                     <button
                       type="button"
                       onClick={() => {
-                        exportLazada(filteredProducts);
-                        if (addActivityLog) {
-                          addActivityLog(`นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                        }
-                        setShowExportDropdown(false);
+                        triggerExportWithValidation(
+                          'lazada',
+                          'Lazada Excel',
+                          exportLazada,
+                          `นำออกสินค้า Lazada Excel (จำนวน ${filteredProducts.length} รายการ)`
+                        );
                       }}
                       className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-[#000080]/5 hover:text-[#000080] transition-colors cursor-pointer flex items-center gap-2"
                     >
@@ -1740,11 +2117,12 @@ export default function ProductManage({
                     <button
                       type="button"
                       onClick={() => {
-                        exportTikTok(filteredProducts);
-                        if (addActivityLog) {
-                          addActivityLog(`นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                        }
-                        setShowExportDropdown(false);
+                        triggerExportWithValidation(
+                          'tiktok',
+                          'TikTok Shop Excel',
+                          exportTikTok,
+                          `นำออกสินค้า TikTok Shop Excel (จำนวน ${filteredProducts.length} รายการ)`
+                        );
                       }}
                       className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
                     >
@@ -1753,11 +2131,12 @@ export default function ProductManage({
                     <button
                       type="button"
                       onClick={() => {
-                        exportToExcel(filteredProducts);
-                        if (addActivityLog) {
-                          addActivityLog(`นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`);
-                        }
-                        setShowExportDropdown(false);
+                        triggerExportWithValidation(
+                          'excel',
+                          'ส่งออก Excel',
+                          exportToExcel,
+                          `นำออกข้อมูลสินค้าหลักทั้งหมดเป็นไฟล์ Excel (จำนวน ${filteredProducts.length} รายการ)`
+                        );
                       }}
                       className="w-full text-left px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 hover:text-black transition-colors cursor-pointer flex items-center gap-2"
                     >
@@ -1787,29 +2166,37 @@ export default function ProductManage({
       </div>
 
       {/* Filters Panel */}
-      <div className="no-print relative z-10 bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs">
+      <div className="no-print relative z-10 bg-white/80 backdrop-blur-sm p-4 rounded-2xl border border-[#d2d2d7]/50 shadow-xs space-y-3">
+        {/* Controls Row */}
         <div className="flex flex-col md:flex-row md:flex-wrap gap-3 items-stretch md:items-center">
           <div className="flex items-center gap-2 shrink-0">
             <div className="w-1.5 h-1.5 rounded-full bg-[#0071e3] animate-pulse" />
             <span className="text-[10px] font-black uppercase tracking-widest text-[#555557]">ตัวกรอง</span>
           </div>
 
-          {/* Search */}
+          {/* Search Input */}
           <div className="relative flex-1 min-w-[200px] md:max-w-sm">
             <Barcode className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#0071e3] pointer-events-none" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="ค้นหาชื่อ, รหัส SKU, บาร์โค้ด ..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={handleSearchChange}
+              onPaste={handleSearchPaste}
               onKeyDown={handleProductSearchKeyDown}
               className="w-full pl-9 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-[#1d1d1f] focus:outline-hidden focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 font-medium"
             />
-            {searchQuery && (
+            {(searchQuery || activeCodeChips.length > 0) && (
               <button
                 type="button"
-                onClick={() => setSearchQuery('')}
+                onClick={() => {
+                  setSearchQuery('');
+                  setActiveCodeChips([]);
+                  if (searchInputRef.current) searchInputRef.current.focus();
+                }}
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-700 p-0.5 cursor-pointer"
+                title="ล้างคำค้นหา"
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -1853,6 +2240,48 @@ export default function ProductManage({
             ]}
           />
         </div>
+
+        {/* Selected Code Chips (Full Width Row - เรียงยาวตลอดแถวด้านล่าง) */}
+        {activeCodeChips.length > 0 && (
+          <div className="flex items-center gap-2 flex-wrap pt-2.5 border-t border-zinc-150/80 animate-fade-in w-full">
+            <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider shrink-0 flex items-center gap-1.5">
+              <Barcode className="w-3.5 h-3.5 text-[#0071e3]" />
+              รหัสที่เลือก ({activeCodeChips.length}):
+            </span>
+            <div className="flex items-center gap-1.5 flex-wrap flex-1">
+              {activeCodeChips.map((token, idx) => (
+                <span
+                  key={idx}
+                  className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-zinc-50 border border-[#d2d2d7] rounded-full text-xs font-semibold text-zinc-800 shadow-2xs transition-all animate-scale-in"
+                >
+                  <Barcode className="w-3.5 h-3.5 text-[#0071e3] shrink-0" />
+                  <span className="font-mono text-xs font-bold text-zinc-900">{token}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveChip(token)}
+                    className="p-0.5 rounded-full hover:bg-zinc-200 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer ml-0.5"
+                    title={`ลบรหัส ${token}`}
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                </span>
+              ))}
+              {activeCodeChips.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveCodeChips([]);
+                    if (searchInputRef.current) searchInputRef.current.focus();
+                  }}
+                  className="text-[11px] text-rose-600 hover:text-rose-700 font-bold px-2 py-0.5 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer shrink-0 ml-1"
+                  title="ล้างรหัสที่เลือกทั้งหมด"
+                >
+                  ล้างทั้งหมด
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table/Grid Container */}

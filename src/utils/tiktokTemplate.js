@@ -67,7 +67,10 @@ export async function exportToTiktokMandatory(products = [], options = {}) {
           if (options.stock !== undefined) {
             return Number(options.stock) || 0;
           }
-          return Number(p.stock) || 0;
+          const s = (p.stockTiktok !== undefined && p.stockTiktok !== null && p.stockTiktok !== '')
+            ? Number(p.stockTiktok)
+            : (p.stock !== undefined && p.stock !== null && p.stock !== '' ? Number(p.stock) : 0);
+          return s;
         }
         return c.value(p);
       });

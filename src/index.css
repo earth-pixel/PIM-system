@@ -264,6 +264,16 @@ textarea {
   border-color: #ff3b30 !important;
 }
 
+.form-input:disabled,
+.form-input[disabled],
+.form-input[readonly] {
+  background-color: #e4e4e7 !important;
+  color: #52525b !important;
+  cursor: not-allowed !important;
+  border-color: #d4d4d8 !important;
+  user-select: none;
+}
+
 .form-input.error:focus {
   border-color: #ff3b30 !important;
   box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.18) !important;
@@ -397,42 +407,42 @@ textarea {
   /* ─── Product Report Table — Scoped Print Styles ─── */
   .product-report-table th:nth-child(1),
   .product-report-table td:nth-child(1) {
-    width: 5% !important;
+    width: 4% !important;
     text-align: center !important;
   }
   .product-report-table th:nth-child(2),
   .product-report-table td:nth-child(2) {
-    width: 13% !important;
+    width: 12% !important;
     text-align: left !important;
   }
   .product-report-table th:nth-child(3),
   .product-report-table td:nth-child(3) {
-    width: 25% !important;
+    width: 23% !important;
     text-align: left !important;
   }
   .product-report-table th:nth-child(4),
   .product-report-table td:nth-child(4) {
-    width: 10% !important;
+    width: 9% !important;
     text-align: left !important;
   }
   .product-report-table th:nth-child(5),
   .product-report-table td:nth-child(5) {
-    width: 11% !important;
+    width: 10% !important;
     text-align: left !important;
   }
   .product-report-table th:nth-child(6),
   .product-report-table td:nth-child(6) {
-    width: 11% !important;
+    width: 10% !important;
     text-align: left !important;
   }
   .product-report-table th:nth-child(7),
   .product-report-table td:nth-child(7) {
-    width: 8% !important;
+    width: 7% !important;
     text-align: right !important;
   }
   .product-report-table th:nth-child(8),
   .product-report-table td:nth-child(8) {
-    width: 8% !important;
+    width: 7% !important;
     text-align: right !important;
   }
   .product-report-table th:nth-child(9),
@@ -442,7 +452,12 @@ textarea {
   }
   .product-report-table th:nth-child(10),
   .product-report-table td:nth-child(10) {
-    width: 4% !important;
+    width: 7% !important;
+    text-align: right !important;
+  }
+  .product-report-table th:nth-child(11),
+  .product-report-table td:nth-child(11) {
+    width: 6% !important;
     text-align: center !important;
   }
 
