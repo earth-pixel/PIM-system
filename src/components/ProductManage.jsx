@@ -36,6 +36,7 @@ import { parseSearchTokens, doesProductMatchToken } from '../utils/searchUtils';
 import {
   parseWeightToKg
 } from '../utils/marketplaceIO';
+import { getLazadaFieldsForCategory } from '../utils/lazadaTemplate';
 import ExcelJS from 'exceljs';
 
 const shopeeCols = [
@@ -98,11 +99,11 @@ const LAZADA_BASE_PREVIEW_COLS = [
 const LAZADA_PREVIEW_COLS = {
   'ผลิตภัณฑ์จัดแต่งทรงผม': [
     ...LAZADA_BASE_PREVIEW_COLS,
-    { label: 'ระดับการจัดทรง', value: () => '' },
-    { label: 'ประเภทเส้นผม', value: () => '' },
-    { label: 'ประโยชน์ดูแลผม', value: () => '' },
+    { label: 'ระดับการจัดทรง', value: (p) => p.stylingLevel || '' },
+    { label: 'ประเภทเส้นผม', value: (p) => p.hairType || '' },
+    { label: 'ประโยชน์ดูแลผม', value: (p) => p.hairBenefit || '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'สต๊อกสินค้า', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: (p) => (p.stockLazada !== undefined && p.stockLazada !== null && p.stockLazada !== '') ? p.stockLazada : (p.stock ?? 0) },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -111,10 +112,10 @@ const LAZADA_PREVIEW_COLS = {
   ],
   'ผลิตภัณฑ์เปลี่ยนสีผม': [
     ...LAZADA_BASE_PREVIEW_COLS,
-    { label: 'ประเภทสีย้อมผม', value: () => '' },
-    { label: 'รูปแบบของผลิตภัณฑ์', value: () => '' },
+    { label: 'ประเภทสีย้อมผม', value: (p) => p.hairColorType || p.dyeType || '' },
+    { label: 'รูปแบบของผลิตภัณฑ์', value: (p) => p.productForm || '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'สต๊อกสินค้า', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: (p) => (p.stockLazada !== undefined && p.stockLazada !== null && p.stockLazada !== '') ? p.stockLazada : (p.stock ?? 0) },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -123,10 +124,10 @@ const LAZADA_PREVIEW_COLS = {
   ],
   'เซ็ทดูแลเส้นผม': [
     ...LAZADA_BASE_PREVIEW_COLS,
-    { label: 'ประเภทเส้นผม', value: () => '' },
-    { label: 'รูปแบบของผลิตภัณฑ์', value: () => '' },
+    { label: 'ประเภทเส้นผม', value: (p) => p.hairType || '' },
+    { label: 'รูปแบบของผลิตภัณฑ์', value: (p) => p.productForm || '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'สต๊อกสินค้า', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: (p) => (p.stockLazada !== undefined && p.stockLazada !== null && p.stockLazada !== '') ? p.stockLazada : (p.stock ?? 0) },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -135,9 +136,9 @@ const LAZADA_PREVIEW_COLS = {
   ],
   'ครีมบำรุงผม': [
     ...LAZADA_BASE_PREVIEW_COLS,
-    { label: 'ประเภทเส้นผม', value: () => '' },
+    { label: 'ประเภทเส้นผม', value: (p) => p.hairType || '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'สต๊อกสินค้า', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: (p) => (p.stockLazada !== undefined && p.stockLazada !== null && p.stockLazada !== '') ? p.stockLazada : (p.stock ?? 0) },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -146,9 +147,9 @@ const LAZADA_PREVIEW_COLS = {
   ],
   'ทรีทเมนต์สำหรับผม': [
     ...LAZADA_BASE_PREVIEW_COLS,
-    { label: 'ประเภทเส้นผม', value: () => '' },
+    { label: 'ประเภทเส้นผม', value: (p) => p.hairType || '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'สต๊อกสินค้า', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: (p) => (p.stockLazada !== undefined && p.stockLazada !== null && p.stockLazada !== '') ? p.stockLazada : (p.stock ?? 0) },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -157,9 +158,9 @@ const LAZADA_PREVIEW_COLS = {
   ],
   'แชมพู': [
     ...LAZADA_BASE_PREVIEW_COLS,
-    { label: 'ประเภทเส้นผม', value: () => '' },
+    { label: 'ประเภทเส้นผม', value: (p) => p.hairType || '' },
     { label: 'น้ำหนัก แพคเกจ (กก)', value: (p) => parseWeightToKg(p.weight) || '' },
-    { label: 'สต๊อกสินค้า', value: () => 0 },
+    { label: 'สต๊อกสินค้า', value: (p) => (p.stockLazada !== undefined && p.stockLazada !== null && p.stockLazada !== '') ? p.stockLazada : (p.stock ?? 0) },
     { label: 'ราคา', value: (p) => p.retailPrice || 0 },
     { label: 'ความยาว (ซม)', value: (p) => p.packageLength || '' },
     { label: 'ความกว้าง (ซม)', value: (p) => p.packageWidth || '' },
@@ -218,6 +219,13 @@ export default function ProductManage({
   const [packageWidth, setPackageWidth] = useState('');
   const [packageHeight, setPackageHeight] = useState('');
   const [platform, setPlatform] = useState('');
+  const [stylingLevel, setStylingLevel] = useState('');
+  const [hairType, setHairType] = useState('');
+  const [hairBenefit, setHairBenefit] = useState('');
+  const [productForm, setProductForm] = useState('');
+  const [hairColorType, setHairColorType] = useState('');
+
+  const lazadaConfig = useMemo(() => getLazadaFieldsForCategory(category), [category]);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -409,6 +417,21 @@ export default function ProductManage({
       }
       if (!newMapping.tisiNumber && (nameLower.includes('tisi') || nameLower.includes('มอก') || nameLower.includes('เลข มอก'))) {
         newMapping.tisiNumber = h.name;
+      }
+      if (!newMapping.stylingLevel && (nameLower.includes('styling') || nameLower.includes('จัดทรง') || nameLower.includes('ระดับการจัดทรง'))) {
+        newMapping.stylingLevel = h.name;
+      }
+      if (!newMapping.hairType && (nameLower.includes('hairtype') || nameLower.includes('ประเภทเส้นผม') || nameLower.includes('สภาพผม'))) {
+        newMapping.hairType = h.name;
+      }
+      if (!newMapping.hairBenefit && (nameLower.includes('hairbenefit') || nameLower.includes('ประโยชน์เพื่อการดูแล') || nameLower.includes('สรรพคุณ'))) {
+        newMapping.hairBenefit = h.name;
+      }
+      if (!newMapping.productForm && (nameLower.includes('productform') || nameLower.includes('รูปแบบของผลิตภัณฑ์') || nameLower.includes('รูปแบบผลิตภัณฑ์'))) {
+        newMapping.productForm = h.name;
+      }
+      if (!newMapping.hairColorType && (nameLower.includes('color') || nameLower.includes('สีย้อม') || nameLower.includes('ประเภทสีย้อมผม'))) {
+        newMapping.hairColorType = h.name;
       }
       if (!newMapping.packageLength && (nameLower.includes('length') || nameLower.includes('ยาว') || nameLower.includes('ความยาวพัสดุ'))) {
         newMapping.packageLength = h.name;
@@ -602,6 +625,11 @@ export default function ProductManage({
         packageLength: packageLengthVal,
         packageWidth: packageWidthVal,
         packageHeight: packageHeightVal,
+        stylingLevel: getVal(columnMapping.stylingLevel) || '',
+        hairType: getVal(columnMapping.hairType) || '',
+        hairBenefit: getVal(columnMapping.hairBenefit) || '',
+        productForm: getVal(columnMapping.productForm) || '',
+        hairColorType: getVal(columnMapping.hairColorType) || '',
         status: resolvedStatus,
         _platform: 'custom'
       });
@@ -999,6 +1027,11 @@ export default function ProductManage({
     setPackageWidth('');
     setPackageHeight('');
     setPlatform('');
+    setStylingLevel('');
+    setHairType('');
+    setHairBenefit('');
+    setProductForm('');
+    setHairColorType('');
     setFormErrors({
       code: false,
       name: false,
@@ -1054,6 +1087,11 @@ export default function ProductManage({
       setPackageWidth(editProduct.packageWidth || '');
       setPackageHeight(editProduct.packageHeight || '');
       setPlatform(editProduct.platform || editProduct._platform || '');
+      setStylingLevel(editProduct.stylingLevel || '');
+      setHairType(editProduct.hairType || '');
+      setHairBenefit(editProduct.hairBenefit || '');
+      setProductForm(editProduct.productForm || '');
+      setHairColorType(editProduct.hairColorType || editProduct.dyeType || '');
       setEditRemark('');
       setErrorMsg('');
       setFormErrors({
@@ -1346,6 +1384,11 @@ export default function ProductManage({
         packageLength: packageLength ? Number(packageLength) : null,
         packageWidth: packageWidth ? Number(packageWidth) : null,
         packageHeight: packageHeight ? Number(packageHeight) : null,
+        stylingLevel: stylingLevel ? stylingLevel.trim() : '',
+        hairType: hairType ? hairType.trim() : '',
+        hairBenefit: hairBenefit ? hairBenefit.trim() : '',
+        productForm: productForm ? productForm.trim() : '',
+        hairColorType: hairColorType ? hairColorType.trim() : '',
         platform: platform || '',
         _platform: platform || '',
         editRemark: editProduct ? editRemark.trim() : ''
@@ -2245,7 +2288,7 @@ export default function ProductManage({
         {activeCodeChips.length > 0 && (
           <div className="flex items-center gap-2 flex-wrap pt-2.5 border-t border-zinc-150/80 animate-fade-in w-full">
             <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider shrink-0">
-              รหัสที่เลือก ({activeCodeChips.length}):
+              รายการที่เลือก ({activeCodeChips.length}):
             </span>
             <div className="flex items-center gap-1.5 flex-wrap flex-1">
               {activeCodeChips.map((token, idx) => (
@@ -2901,6 +2944,51 @@ export default function ProductManage({
                           </div>
                         </div>
 
+                        {/* แถวข้อมูลจำเพาะตามหมวดหมู่หลัก (Lazada) */}
+                        {lazadaConfig.fields && lazadaConfig.fields.length > 0 && (
+                          <div className="bg-[#f8f9fc] border border-zinc-200/80 rounded-2xl p-3.5 sm:p-4 space-y-3 animate-fade-in">
+                            <div className="flex items-center gap-2 pb-1.5 border-b border-zinc-200/60">
+                              <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                              <span className="text-xs font-bold text-zinc-900">
+                                ข้อมูลคุณลักษณะตามหมวดหมู่ ({lazadaConfig.sheetName})
+                              </span>
+                            </div>
+                            <div className={`grid grid-cols-1 ${
+                              lazadaConfig.fields.length === 3 ? 'sm:grid-cols-3' :
+                              lazadaConfig.fields.length === 2 ? 'sm:grid-cols-2' : 'sm:grid-cols-1'
+                            } gap-3 sm:gap-4`}>
+                              {lazadaConfig.fields.map((field) => {
+                                const val = field.key === 'stylingLevel' ? stylingLevel :
+                                            field.key === 'hairType' ? hairType :
+                                            field.key === 'hairBenefit' ? hairBenefit :
+                                            field.key === 'productForm' ? productForm :
+                                            field.key === 'hairColorType' ? hairColorType : '';
+                                const setter = field.key === 'stylingLevel' ? setStylingLevel :
+                                               field.key === 'hairType' ? setHairType :
+                                               field.key === 'hairBenefit' ? setHairBenefit :
+                                               field.key === 'productForm' ? setProductForm :
+                                               field.key === 'hairColorType' ? setHairColorType : () => {};
+
+                                return (
+                                  <div key={field.key} className="min-w-0 flex flex-col justify-end">
+                                    <label className="form-label min-h-[44px] flex items-end pb-1.5 text-zinc-900 font-bold leading-tight">
+                                      {field.label}
+                                    </label>
+                                    <input
+                                      id={`cat-field-${field.key}`}
+                                      type="text"
+                                      value={val}
+                                      onChange={(e) => setter(e.target.value)}
+                                      placeholder={field.placeholder}
+                                      className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black text-xs placeholder:text-zinc-400 font-medium"
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+
                         {/* แถว 4: ขนาด และน้ำหนัก */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="min-w-0">
@@ -3399,6 +3487,44 @@ export default function ProductManage({
                   <span className="text-zinc-800 font-bold">มอก.</span>
                   <span className="font-extrabold text-black">{drawerProduct.tisiNumber || '-'}</span>
                 </div>
+                {(drawerProduct.stylingLevel || drawerProduct.hairType || drawerProduct.hairBenefit || drawerProduct.productForm || drawerProduct.hairColorType) && (
+                  <div className="pt-2 border-t border-zinc-200/80 mt-2 space-y-1.5">
+                    <div className="flex items-center gap-1.5 pb-1">
+                      <span className="w-2 h-2 rounded-full bg-blue-600"></span>
+                      <span className="text-xs font-bold text-zinc-900">ข้อมูลคุณลักษณะตามหมวดหมู่</span>
+                    </div>
+                    {drawerProduct.stylingLevel && (
+                      <div className="flex justify-between text-xs py-0.5">
+                        <span className="text-zinc-700 font-semibold">ระดับการจัดทรง:</span>
+                        <span className="font-extrabold text-black">{drawerProduct.stylingLevel}</span>
+                      </div>
+                    )}
+                    {drawerProduct.hairType && (
+                      <div className="flex justify-between text-xs py-0.5">
+                        <span className="text-zinc-700 font-semibold">ประเภทเส้นผม:</span>
+                        <span className="font-extrabold text-black">{drawerProduct.hairType}</span>
+                      </div>
+                    )}
+                    {drawerProduct.hairBenefit && (
+                      <div className="flex justify-between text-xs py-0.5">
+                        <span className="text-zinc-700 font-semibold">ประโยชน์เพื่อการดูแลเส้นผม:</span>
+                        <span className="font-extrabold text-black">{drawerProduct.hairBenefit}</span>
+                      </div>
+                    )}
+                    {drawerProduct.hairColorType && (
+                      <div className="flex justify-between text-xs py-0.5">
+                        <span className="text-zinc-700 font-semibold">ประเภทสีย้อมผม:</span>
+                        <span className="font-extrabold text-black">{drawerProduct.hairColorType}</span>
+                      </div>
+                    )}
+                    {drawerProduct.productForm && (
+                      <div className="flex justify-between text-xs py-0.5">
+                        <span className="text-zinc-700 font-semibold">รูปแบบของผลิตภัณฑ์:</span>
+                        <span className="font-extrabold text-black">{drawerProduct.productForm}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Pricing Details */}
