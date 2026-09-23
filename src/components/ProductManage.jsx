@@ -3528,14 +3528,6 @@ export default function ProductManage({
                   <span className="text-zinc-800 font-bold">น้ำหนัก</span>
                   <span className="font-extrabold text-black">{drawerProduct.weight || '-'}</span>
                 </div>
-                {(drawerProduct.packageWidth || drawerProduct.packageLength || drawerProduct.packageHeight) && (
-                  <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
-                    <span className="text-zinc-800 font-bold">ขนาดพัสดุ (ก×ย×ส)</span>
-                    <span className="font-extrabold text-black">
-                      {[drawerProduct.packageWidth || 0, drawerProduct.packageLength || 0, drawerProduct.packageHeight || 0].join(' × ')} ซม.
-                    </span>
-                  </div>
-                )}
                 <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
                   <span className="text-zinc-800 font-bold">หมายเลข อย.</span>
                   <span className="font-extrabold text-black">{drawerProduct.fdaNumber || '-'}</span>
