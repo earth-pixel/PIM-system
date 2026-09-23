@@ -3031,6 +3031,55 @@ export default function ProductManage({
                           </div>
                         </div>
 
+                        {/* แถวขนาดพัสดุ: กว้าง ยาว สูง (ซม.) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                          <div className="min-w-0">
+                            <label className="form-label min-h-[28px] flex items-end pb-1 text-zinc-900 font-bold">
+                              ความกว้าง (ซม.)
+                            </label>
+                            <input
+                              id="product-package-width"
+                              type="number"
+                              step="any"
+                              min="0"
+                              value={packageWidth}
+                              onChange={(e) => setPackageWidth(e.target.value)}
+                              placeholder="เช่น 10"
+                              className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <label className="form-label min-h-[28px] flex items-end pb-1 text-zinc-900 font-bold">
+                              ความยาว (ซม.)
+                            </label>
+                            <input
+                              id="product-package-length"
+                              type="number"
+                              step="any"
+                              min="0"
+                              value={packageLength}
+                              onChange={(e) => setPackageLength(e.target.value)}
+                              placeholder="เช่น 15"
+                              className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <label className="form-label min-h-[28px] flex items-end pb-1 text-zinc-900 font-bold">
+                              ความสูง (ซม.)
+                            </label>
+                            <input
+                              id="product-package-height"
+                              type="number"
+                              step="any"
+                              min="0"
+                              value={packageHeight}
+                              onChange={(e) => setPackageHeight(e.target.value)}
+                              placeholder="เช่น 5"
+                              className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black"
+                            />
+                          </div>
+                        </div>
+
                         {/* แถว 5: หมายเลข อย. และ มอก. */}
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div className="min-w-0">
@@ -3479,6 +3528,14 @@ export default function ProductManage({
                   <span className="text-zinc-800 font-bold">น้ำหนัก</span>
                   <span className="font-extrabold text-black">{drawerProduct.weight || '-'}</span>
                 </div>
+                {(drawerProduct.packageWidth || drawerProduct.packageLength || drawerProduct.packageHeight) && (
+                  <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
+                    <span className="text-zinc-800 font-bold">ขนาดพัสดุ (ก×ย×ส)</span>
+                    <span className="font-extrabold text-black">
+                      {[drawerProduct.packageWidth || 0, drawerProduct.packageLength || 0, drawerProduct.packageHeight || 0].join(' × ')} ซม.
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
                   <span className="text-zinc-800 font-bold">หมายเลข อย.</span>
                   <span className="font-extrabold text-black">{drawerProduct.fdaNumber || '-'}</span>
