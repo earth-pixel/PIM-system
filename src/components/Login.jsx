@@ -269,6 +269,10 @@ export default function Login({ onLogin }) {
               PHANVADEE
             </h2>
 
+            <p className="text-xs sm:text-sm lg:text-base font-light text-zinc-300/80 tracking-widest mt-2 sm:mt-2.5 drop-shadow-[0_1px_8px_rgba(0,0,0,0.5)]">
+              think global, act local
+            </p>
+
             {/* Soft System Indicator */}
             <div className="inline-flex items-center gap-2 px-3 sm:px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.1] backdrop-blur-md mt-6 sm:mt-8 lg:mt-10 shadow-[0_4px_24px_rgba(0,0,0,0.2)] max-w-full">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0 shadow-[0_0_10px_rgba(16,185,129,0.7)]" />
