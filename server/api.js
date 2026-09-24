@@ -40,7 +40,14 @@ function passwordMatches(user, password) {
   const expected = Buffer.from(encoded, 'hex');
   return expected.length === 64 && timingSafeEqual(expected, scryptSync(password, salt, 64));
 }
-const canRead = (q, user) => user.role === 'admin' || ownsDocument(q, user) || q.status === 'approved';
+const canApprove = (user) => Boolean(
+  user && (
+    user.role === 'admin' ||
+    user.role === 'manager' ||
+    user.permissions?.actions?.['quotations.approve']
+  )
+);
+const canRead = (q, user) => user.role === 'admin' || user.role === 'manager' || ownsDocument(q, user) || q.status === 'approved' || (canApprove(user) && q.status === 'sent');
 function visibleDB(db, user) {
   const result = publicDB(db);
   result.quotations = result.quotations.filter(q => canRead(q, user));
@@ -264,22 +271,36 @@ function normalizeQuotations(incoming, db, user) {
     const before = old.find(q => q.id === raw.id);
     if (before && !canRead(before, user)) fail(403, 'ไม่มีสิทธิ์เข้าถึงเอกสาร');
     if (before && same(before, raw)) return before;
-    if (before && user.role !== 'admin' && (!ownsDocument(before, user) || (before.documentType !== 'product_proposal' && before.status === 'approved'))) fail(403, 'ไม่มีสิทธิ์แก้ไขเอกสารนี้');
+    const isApprovalAction = before && ['approved', 'rejected'].includes(raw.status) && (before.status === 'sent' || before.status === 'draft') && canApprove(user);
+    if (before && user.role !== 'admin' && !isApprovalAction && (!ownsDocument(before, user) || (before.documentType !== 'product_proposal' && before.status === 'approved'))) fail(403, 'ไม่มีสิทธิ์แก้ไขเอกสารนี้');
     const type = raw.documentType || 'quotation';
     if (!['quotation', 'product_proposal'].includes(type) || !['draft', 'sent', 'approved', 'rejected'].includes(raw.status)) fail(400, 'ประเภทหรือสถานะเอกสารไม่ถูกต้อง');
     if (before && before.documentType !== type) fail(400, 'ไม่สามารถเปลี่ยนประเภทเอกสารเดิม');
-    if (type === 'quotation' && ['approved', 'rejected'].includes(raw.status) && user.role !== 'admin') fail(403, 'เฉพาะ Admin ที่อนุมัติหรือปฏิเสธใบเสนอราคาได้');
-    if (type === 'quotation' && raw.status === 'rejected' && before?.status !== 'sent') fail(400, 'ปฏิเสธได้เฉพาะเอกสารที่รออนุมัติ');
+    if (type === 'quotation' && ['approved', 'rejected'].includes(raw.status) && !canApprove(user)) fail(403, 'เฉพาะ Admin หรือผู้มีสิทธิ์เท่านั้นที่อนุมัติหรือปฏิเสธใบเสนอราคาได้');
+    if (type === 'quotation' && raw.status === 'rejected' && before?.status !== 'sent' && before?.status !== 'draft') fail(400, 'ปฏิเสธได้เฉพาะเอกสารที่รออนุมัติ');
     const branch = quotationBranchInfo(raw.customer);
     if (type === 'quotation' && branch.branchType === 'sub' && !branch.branchName) fail(400, 'กรุณาระบุชื่อหรือรหัสสาขาย่อย');
     const normalizedRaw = type === 'quotation'
-      ? { ...raw, customer: { ...(raw.customer || {}), ...branch }, customerBranch: branch.branch, customerRegion: raw.customerRegion || raw.customer?.region || '' }
+      ? {
+          ...raw,
+          salespersonName: raw.salespersonName || before?.salespersonName || '',
+          salespersonPhone: raw.salespersonPhone || before?.salespersonPhone || '',
+          projectName: raw.projectName || before?.projectName || '',
+          customer: { ...(raw.customer || {}), ...branch },
+          customerBranch: branch.branch,
+          customerRegion: raw.customerRegion || raw.customer?.region || ''
+        }
       : raw;
     const issuedDate = before?.issuedDate || new Date().toLocaleDateString('sv-SE');
-    if (type === 'quotation' && raw.status !== 'draft') {
-      for (const key of ['name', 'companyName', 'phone', 'taxId', 'address']) if (!String(raw.customer?.[key] || '').trim()) fail(400, 'กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน');
-      for (const key of ['salespersonName', 'salespersonPhone', 'projectName']) if (!String(raw[key] || '').trim()) fail(400, 'กรุณากรอกข้อมูลพนักงานขายและโครงการ');
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(raw.validUntilDate || '') || !Number.isFinite(Date.parse(raw.validUntilDate)) || new Date(raw.validUntilDate).toISOString().slice(0, 10) !== raw.validUntilDate || raw.validUntilDate < issuedDate) fail(400, 'วันหมดอายุต้องเป็นวันที่จริงและไม่ก่อนวันออกเอกสาร');
+    if (type === 'quotation' && raw.status !== 'draft' && raw.status !== 'rejected') {
+      for (const key of ['name', 'companyName', 'phone', 'taxId', 'address']) if (!String(normalizedRaw.customer?.[key] || '').trim()) fail(400, 'กรุณากรอกข้อมูลลูกค้าให้ครบถ้วน');
+      for (const key of ['salespersonName', 'projectName']) if (!String(normalizedRaw[key] || '').trim()) fail(400, 'กรุณากรอกข้อมูลพนักงานขายและโครงการ');
+      if (raw.status === 'sent' && (!before || before.status === 'draft')) {
+        const phoneVal = String(normalizedRaw.salespersonPhone || '').trim();
+        if (!phoneVal) fail(400, 'กรุณากรอกข้อมูลพนักงานขายและโครงการ');
+      }
+      const validUntil = raw.validUntilDate || before?.validUntilDate || '';
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(validUntil) || !Number.isFinite(Date.parse(validUntil)) || new Date(validUntil).toISOString().slice(0, 10) !== validUntil || validUntil < issuedDate) fail(400, 'วันหมดอายุต้องเป็นวันที่จริงและไม่ก่อนวันออกเอกสาร');
     }
     let quotationNumber = before?.quotationNumber;
     if (!quotationNumber) {
@@ -293,7 +314,7 @@ function normalizeQuotations(incoming, db, user) {
     let calculated;
     try { calculated = calculateQuotation({ ...normalizedRaw, documentType: type }); }
     catch (error) { fail(400, error.message); }
-    return { ...calculated, quotationNumber, issuedDate, createdAt: before?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: before?.createdBy || user.username, approvedBy: raw.status === 'approved' ? user.name || user.username : undefined, approvedDate: raw.status === 'approved' ? new Date().toISOString() : undefined, customerAcceptedAt: before?.customerAcceptedAt };
+    return { ...calculated, quotationNumber, issuedDate, createdAt: before?.createdAt || new Date().toISOString(), updatedAt: new Date().toISOString(), createdBy: before?.createdBy || user.username, approvedBy: raw.status === 'approved' ? (raw.approvedBy || user.name || user.username) : undefined, approvedDate: raw.status === 'approved' ? (raw.approvedDate || new Date().toISOString()) : undefined, customerAcceptedAt: before?.customerAcceptedAt };
   });
   return [...result, ...hidden];
 }

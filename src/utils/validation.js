@@ -93,12 +93,13 @@ export function calculateQuotation(quotation) {
   if (!Array.isArray(quotation.items) || (!quotation.items.length && quotation.status !== 'draft')) throw new Error('กรุณาเพิ่มรายการสินค้า');
   const items = quotation.items.map((item, index) => {
     const quantity = Number(item.quantity), unitPrice = Number(item.unitPrice), discount = Number(item.discount ?? 0);
+    const discountType = item.discountType || 'percent';
     if (typeof item.productName !== 'string' || !item.productName.trim() || !Number.isFinite(quantity) || quantity <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0 || !Number.isFinite(discount) || discount < 0) throw new Error(`รายการที่ ${index + 1}: ชื่อ จำนวน ราคา หรือส่วนลดไม่ถูกต้อง`);
-    if (!['percent', 'amount', 'fixed'].includes(item.discountType)) throw new Error('รูปแบบส่วนลดไม่ถูกต้อง');
+    if (!['percent', 'amount', 'fixed'].includes(discountType)) throw new Error('รูปแบบส่วนลดไม่ถูกต้อง');
     const gross = quantity * unitPrice;
-    if (!Number.isFinite(gross) || discount > (item.discountType === 'percent' ? 100 : gross)) throw new Error(`รายการที่ ${index + 1}: ส่วนลดต้องไม่เกินยอดสินค้า`);
-    const lineTotal = roundMoney(item.discountType === 'percent' ? gross * (1 - discount / 100) : gross - discount);
-    return { ...item, quantity, unitPrice, discount, lineTotal };
+    if (!Number.isFinite(gross) || discount > (discountType === 'percent' ? 100 : gross)) throw new Error(`รายการที่ ${index + 1}: ส่วนลดต้องไม่เกินยอดสินค้า`);
+    const lineTotal = roundMoney(discountType === 'percent' ? gross * (1 - discount / 100) : gross - discount);
+    return { ...item, quantity, unitPrice, discount, discountType, lineTotal };
   });
   const vatRate = proposal ? 0 : Number(quotation.vatRate ?? 7);
   if (!Number.isFinite(vatRate) || vatRate < 0 || vatRate > 100) throw new Error('อัตราภาษีไม่ถูกต้อง');

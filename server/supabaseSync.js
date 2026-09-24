@@ -240,7 +240,7 @@ export function fromSupabaseQuotation(row) {
     approvedBy,
     approvedDate,
     customerAcceptedAt: row.customer_accepted_at || row.customerAcceptedAt || '',
-    items: row.items || [],
+    items: (row.items || []).map(item => ({ ...item, discountType: item.discountType || 'percent' })),
     subtotal,
     discount,
     vatRate,

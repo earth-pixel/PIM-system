@@ -3673,19 +3673,27 @@ export default function QuotationManage({
     }
   };
 
-  const handleStatusChange = (q, status) => {
+  const handleStatusChange = async (q, status) => {
     if (q && q.id) {
       if (status === 'approved' && isExpiredQuotation(q)) {
+        showToast('ไม่สามารถอนุมัติเอกสารที่หมดอายุแล้วได้', 'error');
         return;
       }
-      // Find the exact quotation in the master quotations array by ID
-      const masterQ = quotations.find(x => x.id === q.id) || q;
-      onSaveQuotation({
-        ...masterQ,
-        status,
-        approvedBy: status === 'approved' ? currentUser?.name || currentUser?.username || 'ไม่ระบุ' : masterQ.approvedBy,
-        approvedDate: status === 'approved' ? new Date().toISOString() : masterQ.approvedDate
-      });
+      try {
+        // Find the exact quotation in the master quotations array by ID
+        const masterQ = quotations.find(x => x.id === q.id) || q;
+        await onSaveQuotation({
+          ...masterQ,
+          status,
+          salespersonPhone: masterQ.salespersonPhone || q.salespersonPhone || currentUser?.phone || '-',
+          projectName: masterQ.projectName || q.projectName || 'ทั่วไป',
+          approvedBy: status === 'approved' ? currentUser?.name || currentUser?.username || 'ไม่ระบุ' : undefined,
+          approvedDate: status === 'approved' ? new Date().toISOString() : undefined
+        });
+        showToast(status === 'approved' ? 'อนุมัติเอกสารเรียบร้อยแล้ว' : 'เปลี่ยนสถานะเป็นไม่อนุมัติเรียบร้อยแล้ว', 'success');
+      } catch (err) {
+        showToast(err?.message || 'ดำเนินการไม่สำเร็จ กรุณาลองใหม่อีกครั้ง', 'error');
+      }
     }
   };
 
