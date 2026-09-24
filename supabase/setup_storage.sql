@@ -1,7 +1,3 @@
--- =====================================================================
--- 📦 Script สำหรับตั้งค่า Supabase Storage สำหรับ PIM System
--- คัดลอกข้อความด้านล่างนี้ไปวางในเมนู SQL Editor บน supabase.com แล้วกด Run ได้เลย
--- =====================================================================
 
 -- 1. สร้าง Storage Bucket ชื่อ "product-images" และเปิด Public
 INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
