@@ -316,7 +316,7 @@ export default function ProductProposalReport({
                   <th className="px-3 py-3 whitespace-nowrap">สินค้า</th>
                   <th className="px-3 py-3 text-right whitespace-nowrap">จำนวน</th>
                   <th className="px-3 py-3 text-right whitespace-nowrap">มูลค่ารวม</th>
-                  <th className="px-3 py-3 text-center w-16 whitespace-nowrap print-hide-col">การจัดการ</th>
+                  <th className="px-3 py-3 text-center w-16 whitespace-nowrap print-hide-col">รายละเอียด</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#f0f0f5] text-xs">

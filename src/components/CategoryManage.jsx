@@ -198,7 +198,7 @@ export default function CategoryManage({ categories, subcategories = {}, product
                 <th className="p-2 sm:p-3.5 w-1/4">หมวดหมู่หลัก</th>
                 <th className="p-2 sm:p-3.5">หมวดหมู่ย่อย (Sub-categories)</th>
                 <th className="p-2 sm:p-3.5 text-center w-36">สินค้าที่เปิดใช้งาน</th>
-                {(canPerformAction(currentUser, 'categories.edit') || canPerformAction(currentUser, 'categories.delete')) && <th className="p-2 sm:p-3.5 text-center w-28">การจัดการ</th>}
+                {(canPerformAction(currentUser, 'categories.edit') || canPerformAction(currentUser, 'categories.delete')) && <th className="p-2 sm:p-3.5 text-center w-28">รายละเอียด</th>}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f0f5]">

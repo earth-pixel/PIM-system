@@ -3529,12 +3529,20 @@ export default function ProductManage({
                   <span className="font-extrabold text-black">{drawerProduct.weight || '-'}</span>
                 </div>
                 <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
+                  <span className="text-zinc-800 font-bold">ขนาดพัสดุ (ก x ย x ส)</span>
+                  <span className="font-extrabold text-black">
+                    {(drawerProduct.packageWidth || drawerProduct.packageLength || drawerProduct.packageHeight)
+                      ? `${drawerProduct.packageWidth || 0} x ${drawerProduct.packageLength || 0} x ${drawerProduct.packageHeight || 0} ซม.`
+                      : '-'}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
                   <span className="text-zinc-800 font-bold">หมายเลข อย.</span>
-                  <span className="font-extrabold text-black">{drawerProduct.fdaNumber || '-'}</span>
+                  <span className="font-extrabold text-black">{drawerProduct.fdaNumber || drawerProduct.fda || '-'}</span>
                 </div>
                 <div className="flex justify-between border-b border-[#d2d2d7]/20 pb-1.5">
                   <span className="text-zinc-800 font-bold">มอก.</span>
-                  <span className="font-extrabold text-black">{drawerProduct.tisiNumber || '-'}</span>
+                  <span className="font-extrabold text-black">{drawerProduct.tisiNumber || drawerProduct.tis || '-'}</span>
                 </div>
                 {(drawerProduct.stylingLevel || drawerProduct.hairType || drawerProduct.hairBenefit || drawerProduct.productForm || drawerProduct.hairColorType) && (
                   <div className="pt-2 border-t border-zinc-200/80 mt-2 space-y-1.5">

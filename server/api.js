@@ -108,7 +108,11 @@ function logCollectionChange(db, user, key, before) {
           name: 'ชื่อ', code: 'รหัส SKU', username: 'ชื่อผู้ใช้', role: 'สิทธิ์', brand: 'แบรนด์', category: 'หมวดหมู่',
           retailPrice: 'ราคาขายปลีก', wholesalePrice: 'ราคาขายส่ง', capFee: 'ค่าฝา', status: 'สถานะ', totalAmount: 'ยอดรวม',
           permissions: 'สิทธิ์การเข้าถึงหน้า/ปุ่ม',
-          phone: 'เบอร์โทร', email: 'อีเมล', companyName: 'ชื่อบริษัท', taxId: 'เลขผู้เสียภาษี', address: 'ที่อยู่', note: 'หมายเหตุ'
+          phone: 'เบอร์โทร', email: 'อีเมล', companyName: 'ชื่อบริษัท', taxId: 'เลขผู้เสียภาษี', address: 'ที่อยู่', note: 'หมายเหตุ',
+          packageWidth: 'ความกว้างพัสดุ (ซม.)', packageLength: 'ความยาวพัสดุ (ซม.)', packageHeight: 'ความสูงพัสดุ (ซม.)',
+          fdaNumber: 'หมายเลข อย.', tisiNumber: 'มอก.',
+          hairType: 'ประเภทเส้นผม', stylingLevel: 'ระดับการจัดทรง', hairBenefit: 'ประโยชน์ดูแลผม',
+          productForm: 'รูปแบบผลิตภัณฑ์', hairColorType: 'ประเภทสีผม', editRemark: 'หมายเหตุการแก้ไข'
         };
         for (const [fKey, fLabel] of Object.entries(FIELD_MAP)) {
           if (!same(previous[fKey], value[fKey])) {

@@ -54,6 +54,12 @@ export function toSupabaseProduct(p) {
     imageUrl = p.image_url && String(p.image_url).trim() ? String(p.image_url).trim() : null;
   }
 
+  const parseNumOrNull = (v) => {
+    if (v === undefined || v === null || v === '') return null;
+    const n = Number(v);
+    return isNaN(n) ? null : n;
+  };
+
   return {
     id: ensureUuid(p.id),
     SKU: p.code || p.SKU || null,
@@ -65,8 +71,8 @@ export function toSupabaseProduct(p) {
     brand: p.brand || null,
     size: p.size || null,
     weight: p.weight || null,
-    fda_no: p.fda || p.fdaNo || p.fda_no || null,
-    tis_no: p.tis || p.tisNo || p.tis_no || null,
+    fda_no: p.fdaNumber || p.fda || p.fdaNo || p.fda_no || null,
+    tis_no: p.tisiNumber || p.tis || p.tisNo || p.tis_no || null,
     wholesale_price: Number(p.wholesalePrice || p.wholesale_price || 0),
     retail_price: Number(p.retailPrice || p.retail_price || 0),
     cap_cost: Number(p.capFee || p.cap_cost || 0),
@@ -74,8 +80,18 @@ export function toSupabaseProduct(p) {
     description: p.description || null,
     highlights: p.highlight || p.highlights || null,
     how_to_use: p.howToUse || p.how_to_use || null,
+    package_width: parseNumOrNull(p.packageWidth ?? p.package_width),
+    package_length: parseNumOrNull(p.packageLength ?? p.package_length),
+    package_height: parseNumOrNull(p.packageHeight ?? p.package_height),
+    updated_by: p.updatedBy || p.updated_by || null,
+    edit_remark: p.editRemark || p.edit_remark || null,
+    hair_type: p.hairType || p.hair_type || null,
+    styling_level: p.stylingLevel || p.styling_level || null,
+    hair_benefit: p.hairBenefit || p.hair_benefit || null,
+    product_form: p.productForm || p.product_form || null,
+    hair_color_type: p.hairColorType || p.hair_color_type || null,
     created_at: p.createdAt || new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    updated_at: p.updatedAt || new Date().toISOString()
   };
 }
 
@@ -93,15 +109,29 @@ export function fromSupabaseProduct(row) {
     size: row.size || '',
     weight: row.weight || '',
     fda: row.fda_no || '',
+    fdaNumber: row.fda_no || '',
     tis: row.tis_no || '',
+    tisiNumber: row.tis_no || '',
     wholesalePrice: Number(row.wholesale_price || 0),
     retailPrice: Number(row.retail_price || 0),
     capFee: Number(row.cap_cost || 0),
     status: row.status || 'Active',
     description: row.description || '',
     highlight: row.highlights || '',
+    highlights: row.highlights || '',
     howToUse: row.how_to_use || '',
-    createdAt: row.created_at || new Date().toISOString()
+    packageWidth: row.package_width != null ? row.package_width : '',
+    packageLength: row.package_length != null ? row.package_length : '',
+    packageHeight: row.package_height != null ? row.package_height : '',
+    updatedBy: row.updated_by || '',
+    editRemark: row.edit_remark || '',
+    hairType: row.hair_type || '',
+    stylingLevel: row.styling_level || '',
+    hairBenefit: row.hair_benefit || '',
+    productForm: row.product_form || '',
+    hairColorType: row.hair_color_type || '',
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || row.created_at || new Date().toISOString()
   };
 }
 
