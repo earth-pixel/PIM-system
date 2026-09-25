@@ -453,6 +453,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
         password: password.trim(),
         name: name.trim(),
         role: allowedRole,
+        createdBy: currentUser?.name || currentUser?.username || '',
         createdAt: new Date().toLocaleDateString('sv-SE'),
       };
 
@@ -646,6 +647,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                 <th className="p-2 sm:p-3.5">Username</th>
                 <th className="p-2 sm:p-3.5">ชื่อ-นามสกุลพนักงาน</th>
                 <th className="p-2 sm:p-3.5">สิทธิ์เข้าถึง</th>
+                <th className="p-2 sm:p-3.5">ผู้สร้าง</th>
                 <th
                   onClick={() => setSortBy(prev => (prev === 'newest' ? 'oldest' : 'newest'))}
                   className="p-2 sm:p-3.5 cursor-pointer select-none group transition-colors"
@@ -677,7 +679,7 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
             <tbody className="divide-y divide-[#f0f0f5]">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="p-16 text-center text-zinc-400 text-xs">
+                  <td colSpan="6" className="p-16 text-center text-zinc-400 text-xs">
                     ไม่พบผู้ใช้งานตามเงื่อนไขที่เลือก
                   </td>
                 </tr>
@@ -700,6 +702,15 @@ export default function UserManage({ users, onAddUser, onUpdateUser, onDeleteUse
                     </td>
                     <td className="p-2 sm:p-3.5 font-semibold text-[#1d1d1f] leading-snug">{u.name}</td>
                     <td className="p-2 sm:p-3.5">{getRoleBadge(u.role)}</td>
+                    <td className="p-2 sm:p-3.5 text-xs text-[#555557]">
+                      {u.createdBy ? (
+                        <span className="inline-flex items-center gap-1 font-medium text-zinc-700 bg-[#f5f5f7] px-2 py-0.5 rounded-md text-[11px]">
+                          {u.createdBy}
+                        </span>
+                      ) : (
+                        <span className="text-zinc-400 italic text-[11px]">-</span>
+                      )}
+                    </td>
                     <td className="p-2 sm:p-3.5 text-[#555557] font-mono text-xs" title={u.createdAt || ''}>
                       {formatAccountDate(u.createdAt)}
                     </td>

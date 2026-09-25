@@ -342,6 +342,7 @@ export async function loadDatabaseFromSupabase() {
         role: u.role,
         passwordHash: u.password_hash,
         permissions: u.permissions,
+        createdBy: u.created_by || '',
         createdAt: u.created_at
       })),
       activityLog: (activityLog || []).map(log => ({
@@ -599,7 +600,8 @@ export async function saveCollectionToSupabase(key, data) {
         Employee_name: u.name || u.Employee_name || '',
         role: u.role || 'user',
         password_hash: u.passwordHash,
-        permissions: u.permissions || {}
+        permissions: u.permissions || {},
+        created_by: u.createdBy || u.created_by || null
       }));
       if (rows.length > 0) {
         const { error: upsertErr } = await supabase.from('app_users').upsert(rows, { onConflict: 'username' });

@@ -3037,6 +3037,14 @@ const PreviewTab = ({
   const q = selectedIndex !== null && quotations[selectedIndex] ? quotations[selectedIndex] : null;
 
   if (!q) {
+    if (!quotations || quotations.length === 0) {
+      return (
+        <div className="text-center py-28 text-sm text-[#555557] font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs flex flex-col items-center justify-center gap-3">
+          <div className="w-6 h-6 border-2 border-[#0071e3] border-t-transparent rounded-full animate-spin" />
+          <span>กำลังโหลดข้อมูลเอกสาร...</span>
+        </div>
+      );
+    }
     return (
       <div className="text-center py-28 text-sm text-[#555557] font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs flex flex-col items-center justify-center gap-3">
         <FileText className="w-12 h-12 text-zinc-300" />
@@ -3407,7 +3415,7 @@ const PreviewTab = ({
                       ) : '—'}
                     </td>
                     <td className="p-2 sm:p-3 text-center">
-                      <BarcodeDisplay value={it.barcode || it.productCode} height={26} maxWidth={110} fontSize={9.5} />
+                      <BarcodeDisplay value={it.barcode || it.productCode} height={44} maxWidth={165} fontSize={12} />
                     </td>
                     <td className="p-2 sm:p-3.5 text-left">
                       <div className="font-bold text-zinc-900 leading-snug text-xs sm:text-sm">{it.productName}</div>
@@ -3519,9 +3527,14 @@ export default function QuotationManage({
   });
 
   const setTab = (newTab) => {
-    setTabState(newTab);
+    const nextTab = typeof newTab === 'function' ? newTab(tab) : newTab;
+    setTabState(nextTab);
     try {
-      localStorage.setItem('pim_quotation_tab', typeof newTab === 'function' ? newTab(tab) : newTab);
+      localStorage.setItem('pim_quotation_tab', nextTab);
+      if (nextTab === 'list') {
+        localStorage.removeItem('pim_quotation_preview_id');
+        localStorage.removeItem('pim_quotation_edit_id');
+      }
     } catch { }
   };
   const [previewIndex, setPreviewIndex] = useState(null);
@@ -3602,14 +3615,70 @@ export default function QuotationManage({
   }, [userFilteredQuotations, products]);
 
 
+  // Automatically restore previewIndex or editQt after quotations are loaded
+  useEffect(() => {
+    if (!enrichedQuotations || enrichedQuotations.length === 0) return;
+
+    if (tab === 'preview') {
+      try {
+        const savedId = localStorage.getItem('pim_quotation_preview_id');
+        if (savedId) {
+          const idx = enrichedQuotations.findIndex(
+            q => String(q.id) === String(savedId) || String(q.quotationNumber) === String(savedId)
+          );
+          if (idx !== -1) {
+            setPreviewIndex(idx);
+            return;
+          }
+        }
+      } catch {}
+      if (previewIndex === null && enrichedQuotations.length > 0) {
+        setPreviewIndex(0);
+      }
+    } else if (tab === 'create') {
+      try {
+        const editId = localStorage.getItem('pim_quotation_edit_id');
+        if (editId && !editQt) {
+          const found = enrichedQuotations.find(
+            q => String(q.id) === String(editId) || String(q.quotationNumber) === String(editId)
+          );
+          if (found) {
+            setEditQt(found);
+          }
+        }
+      } catch {}
+    }
+  }, [enrichedQuotations, tab]);
+
+  const handleSelectPreviewIndex = (idx) => {
+    setPreviewIndex(idx);
+    const q = enrichedQuotations[idx];
+    const qId = q?.id || q?.quotationNumber;
+    if (qId) {
+      try {
+        localStorage.setItem('pim_quotation_preview_id', qId);
+      } catch {}
+    }
+  };
+
   const handleView = (i) => {
     setPreviewIndex(i);
     setTab('preview');
+    const q = userFilteredQuotations[i] || enrichedQuotations[i];
+    const qId = q?.id || q?.quotationNumber;
+    if (qId) {
+      try {
+        localStorage.setItem('pim_quotation_preview_id', qId);
+      } catch {}
+    }
   };
 
   const handleCreate = () => {
     setEditQt(null);
     setConvertProposal(null);
+    try {
+      localStorage.removeItem('pim_quotation_edit_id');
+    } catch {}
     setTab('create');
   };
 
@@ -3620,16 +3689,28 @@ export default function QuotationManage({
     }
     setEditQt(q);
     setConvertProposal(null);
+    const qId = q?.id || q?.quotationNumber;
+    if (qId) {
+      try {
+        localStorage.setItem('pim_quotation_edit_id', qId);
+      } catch {}
+    }
     setTab('create');
   };
 
   const handleConvertToQuotation = (proposal) => {
     setEditQt(null);
     setConvertProposal(proposal);
+    try {
+      localStorage.removeItem('pim_quotation_edit_id');
+    } catch {}
     setTab('create');
   };
 
   const handleSave = (data) => {
+    try {
+      localStorage.removeItem('pim_quotation_edit_id');
+    } catch {}
     const isEditingExisting = Boolean(editQt && editQt.id);
     const savedData = {
       ...data,
@@ -3788,7 +3869,13 @@ export default function QuotationManage({
         <div className="flex items-center gap-3">
           {tab === 'preview' && (
             <button
-              onClick={() => setTab('list')}
+              onClick={() => {
+                setTab('list');
+                setPreviewIndex(null);
+                try {
+                  localStorage.removeItem('pim_quotation_preview_id');
+                } catch {}
+              }}
               className="mr-1.5 group relative overflow-hidden px-3 py-1.5 bg-white border border-[#d2d2d7]/50 hover:bg-[#f5f5f7] text-[#1d1d1f] text-xs font-bold rounded-xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center gap-1 cursor-pointer"
             >
               <span className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
@@ -3858,7 +3945,7 @@ export default function QuotationManage({
         <PreviewTab
           quotations={enrichedQuotations}
           selectedIndex={previewIndex !== null ? previewIndex : (userFilteredQuotations.length > 0 ? 0 : null)}
-          onSelectIndex={setPreviewIndex}
+          onSelectIndex={handleSelectPreviewIndex}
           onStatusChange={handleStatusChange}
           onPrint={(q) => {
             if (checkIsInAppBrowser()) {

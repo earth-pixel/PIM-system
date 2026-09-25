@@ -906,12 +906,12 @@ export default function QuotationPrint({
     <tr style={{ background: ACCENT, color: '#fff' }}>
       <th style={{ width: '5%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
       <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รหัสสินค้า</th>
-      <th style={{ width: '18%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>บาร์โค้ด</th>
+      <th style={{ width: '20%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>บาร์โค้ด</th>
       <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ภาพสินค้า</th>
       <th style={{ width: '23%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>ชื่อสินค้า</th>
-      <th style={{ width: '13%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ขนาด</th>
-      <th style={{ width: '13%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>น้ำหนัก</th>
-      <th style={{ width: '8%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา</th>
+      <th style={{ width: '11%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ขนาด</th>
+      <th style={{ width: '11%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>น้ำหนัก</th>
+      <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา</th>
     </tr>
   );
 
@@ -942,8 +942,8 @@ export default function QuotationPrint({
         <td style={{ padding: '8px 10px', textAlign: 'center', color: DARK, fontSize: '10.5px' }}>
           {item.productCode || '—'}
         </td>
-        <td style={{ padding: '6px 8px', textAlign: 'center', verticalAlign: 'middle' }}>
-          <BarcodeDisplay value={itemBarcode} height={30} maxWidth={120} fontSize={9.5} />
+        <td style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
+          <BarcodeDisplay value={itemBarcode} height={48} maxWidth={170} fontSize={12} />
         </td>
         <td style={{ padding: '8px 10px', textAlign: 'center' }}>
           {item.productImage ? (

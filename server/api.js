@@ -227,7 +227,7 @@ function normalizeUsers(incoming, db, caller) {
     const before = old.find(u => raw.id ? u.id === raw.id : u.username === raw.username);
     const username = normalizeCode(raw.username);
     if (typeof raw.username !== 'string' || !username || typeof raw.name !== 'string' || !raw.name.trim() || !['admin', 'manager', 'user'].includes(raw.role) || names.has(username)) fail(400, 'ชื่อผู้ใช้ซ้ำหรือข้อมูลไม่ครบถ้วน');
-    const candidate = { ...before, id: before?.id || randomUUID(), username, name: raw.name.trim(), role: raw.role, createdAt: before ? before.createdAt : new Date().toISOString() };
+    const candidate = { ...before, id: before?.id || randomUUID(), username, name: raw.name.trim(), role: raw.role, createdBy: before?.createdBy || raw.createdBy || caller?.name || caller?.username || null, createdAt: before ? before.createdAt : new Date().toISOString() };
     if (raw.permissions !== undefined) candidate.permissions = raw.permissions;
     if (ids.has(candidate.id)) fail(400, 'รหัสผู้ใช้ซ้ำ');
     ids.add(candidate.id);
