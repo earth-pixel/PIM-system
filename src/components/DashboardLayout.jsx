@@ -305,8 +305,8 @@ export default function DashboardLayout({
     }
   };
 
-  // Determine if activeTab belongs to users group
-  const isUserGroupActive = activeTab === 'users' || activeTab === 'activity-log';
+  // Determine if activeTab belongs to organization group (company, users, activity-log)
+  const isUserGroupActive = activeTab === 'company' || activeTab === 'users' || activeTab === 'activity-log';
 
   // Determine if activeTab belongs to data group (products, brands, categories, customers)
   const isDataGroupActive = activeTab === 'manage-products' || activeTab === 'brands' || activeTab === 'categories' || activeTab === 'customers';
@@ -315,7 +315,7 @@ export default function DashboardLayout({
     if (canAccessPage(currentUser, 'dashboard')) {
       handleNavClick('dashboard');
     } else {
-      const allTabs = ['manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log'];
+      const allTabs = ['manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'company', 'users', 'activity-log'];
       const firstAllowed = allTabs.find(t => canAccessPage(currentUser, t));
       if (firstAllowed) handleNavClick(firstAllowed);
     }
@@ -471,13 +471,16 @@ export default function DashboardLayout({
               );
             })}
 
-            {/* Dropdown for Manage Users (Respecting page permissions) */}
+            {/* Dropdown for Manage Organization (Separated into 2 groups: ข้อมูลบริษัท & ข้อมูลผู้ใช้งาน) */}
             {(() => {
+              const canCompany = canAccessPage(currentUser, 'company');
               const canUsers = canAccessPage(currentUser, 'users');
               const canActivityLog = canAccessPage(currentUser, 'activity-log');
-              if (!canUsers && !canActivityLog) return null;
+              if (!canCompany && !canUsers && !canActivityLog) return null;
 
-              if (canUsers && canActivityLog) {
+              const allowedCount = (canCompany ? 1 : 0) + (canUsers ? 1 : 0) + (canActivityLog ? 1 : 0);
+
+              if (allowedCount > 1) {
                 return (
                   <div
                     className="relative"
@@ -495,28 +498,63 @@ export default function DashboardLayout({
                         }
                       `}
                     >
-                      <span>จัดการผู้ใช้งาน</span>
+                      <span>จัดการข้อมูลองค์กร</span>
                       <i className={`bi bi-chevron-down text-[10px] transition-transform duration-200 ${isUsersDropdownOpen ? 'rotate-180' : ''}`}></i>
                     </button>
 
                     {isUsersDropdownOpen && (
-                      <div className="absolute top-full left-0 w-52 pt-2 z-30">
-                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-1.5 space-y-0.5 animate-scale-in">
-                          <button type="button"
-                            onClick={() => handleNavClick('users')}
-                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
-                          >
-                            <i className="bi bi-people-fill"></i>
-                            <span>บัญชีผู้ใช้งาน</span>
-                          </button>
+                      <div className="absolute top-full left-0 w-60 pt-2 z-30">
+                        <div className="bg-white/95 backdrop-blur-xl rounded-2xl border border-[#d2d2d7]/40 shadow-[0_16px_48px_rgba(0,0,0,0.1),0_4px_12px_rgba(0,0,0,0.06)] p-2 space-y-1.5 animate-scale-in">
 
-                          <button type="button"
-                            onClick={() => handleNavClick('activity-log')}
-                            className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer flex items-center gap-2 ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-zinc-50 hover:text-black'}`}
-                          >
-                            <i className="bi bi-clock-history"></i>
-                            <span>ประวัติการดำเนินงาน</span>
-                          </button>
+                          {/* Section 1: ข้อมูลบริษัท */}
+                          {canCompany && (
+                            <div>
+                              <div className="px-3 pt-1 pb-1 text-[10.5px] font-black text-[#86868b] tracking-wider uppercase">
+                                <span>ข้อมูลบริษัท</span>
+                              </div>
+                              <div className="space-y-0.5 mt-0.5">
+                                <button type="button"
+                                  onClick={() => handleNavClick('company')}
+                                  className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${activeTab === 'company' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-black'}`}
+                                >
+                                  <span>จัดการข้อมูลบริษัท</span>
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Section Divider */}
+                          {(canCompany && (canUsers || canActivityLog)) && (
+                            <div className="border-t border-[#d2d2d7]/50 my-1 mx-1" />
+                          )}
+
+                          {/* Section 2: ข้อมูลผู้ใช้งาน */}
+                          {(canUsers || canActivityLog) && (
+                            <div>
+                              <div className="px-3 pt-1 pb-1 text-[10.5px] font-black text-[#86868b] tracking-wider uppercase">
+                                <span>ข้อมูลผู้ใช้งาน</span>
+                              </div>
+                              <div className="space-y-0.5 mt-0.5">
+                                {canUsers && (
+                                  <button type="button"
+                                    onClick={() => handleNavClick('users')}
+                                    className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-black'}`}
+                                  >
+                                    <span>บัญชีผู้ใช้งาน</span>
+                                  </button>
+                                )}
+                                {canActivityLog && (
+                                  <button type="button"
+                                    onClick={() => handleNavClick('activity-log')}
+                                    className={`w-full text-left px-3.5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-700 hover:bg-zinc-100/80 hover:text-black'}`}
+                                  >
+                                    <span>ประวัติการดำเนินงาน</span>
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
                         </div>
                       </div>
                     )}
@@ -524,35 +562,21 @@ export default function DashboardLayout({
                 );
               }
 
-              if (canUsers) {
-                return (
-                  <button type="button"
-                    onClick={() => handleNavClick('users')}
-                    className={`
-                      px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap
-                      ${activeTab === 'users'
-                        ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
-                        : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
-                      }
-                    `}
-                  >
-                    จัดการผู้ใช้งาน
-                  </button>
-                );
-              }
+              const singleTab = canCompany ? 'company' : (canUsers ? 'users' : 'activity-log');
+              const singleLabel = canCompany ? 'จัดการข้อมูลบริษัท' : (canUsers ? 'บัญชีผู้ใช้งาน' : 'ประวัติการดำเนินงาน');
 
               return (
                 <button type="button"
-                  onClick={() => handleNavClick('activity-log')}
+                  onClick={() => handleNavClick(singleTab)}
                   className={`
                     px-3.5 py-1.5 text-xs font-bold rounded-full transition-all duration-200 cursor-pointer whitespace-nowrap
-                    ${activeTab === 'activity-log'
+                    ${activeTab === singleTab
                       ? 'bg-gradient-to-r from-[#0071e3]/15 to-[#0077ed]/10 text-[#0071e3] shadow-[0_1px_6px_rgba(0,113,227,0.18)] ring-1 ring-[#0071e3]/20'
                       : 'text-[#555557] hover:text-[#1d1d1f] hover:bg-zinc-100/80'
                     }
                   `}
                 >
-                  ประวัติการดำเนินงาน
+                  {singleLabel}
                 </button>
               );
             })()}
@@ -951,31 +975,52 @@ export default function DashboardLayout({
                   );
                 })}
 
-                {/* User management & Activity Log submenus in Mobile Drawer */}
-                {canAccessPage(currentUser, 'users') && (
-                  <button type="button"
-                    onClick={() => handleNavClick('users')}
-                    className={`
-                    w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
-                    ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
-                  `}
-                  >
-                    <i className="bi bi-people-fill text-sm"></i>
-                    <span>จัดการบัญชีผู้ใช้</span>
-                  </button>
+                {/* Organization Submenus in Mobile Drawer */}
+                {canAccessPage(currentUser, 'company') && (
+                  <div className="space-y-0.5 pt-1">
+                    <span className="text-[10px] font-bold text-zinc-400 block px-2 pt-1">ข้อมูลบริษัท</span>
+                    <button type="button"
+                      onClick={() => handleNavClick('company')}
+                      className={`
+                      w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
+                      ${activeTab === 'company' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
+                    `}
+                    >
+                      <i className="bi bi-building text-sm"></i>
+                      <span>จัดการข้อมูลบริษัท</span>
+                    </button>
+                  </div>
                 )}
 
-                {canAccessPage(currentUser, 'activity-log') && (
-                  <button type="button"
-                    onClick={() => handleNavClick('activity-log')}
-                    className={`
-                    w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
-                    ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
-                  `}
-                  >
-                    <i className="bi bi-clock-history text-sm"></i>
-                    <span>ประวัติการดำเนินงาน</span>
-                  </button>
+                {(canAccessPage(currentUser, 'users') || canAccessPage(currentUser, 'activity-log')) && (
+                  <div className="space-y-0.5 pt-1">
+                    <span className="text-[10px] font-bold text-zinc-400 block px-2 pt-1">ข้อมูลผู้ใช้งาน</span>
+                    {canAccessPage(currentUser, 'users') && (
+                      <button type="button"
+                        onClick={() => handleNavClick('users')}
+                        className={`
+                        w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
+                        ${activeTab === 'users' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
+                      `}
+                      >
+                        <i className="bi bi-people-fill text-sm"></i>
+                        <span>บัญชีผู้ใช้งาน</span>
+                      </button>
+                    )}
+
+                    {canAccessPage(currentUser, 'activity-log') && (
+                      <button type="button"
+                        onClick={() => handleNavClick('activity-log')}
+                        className={`
+                        w-full flex items-center gap-3 px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer menu-item
+                        ${activeTab === 'activity-log' ? 'bg-[#0071e3]/10 text-[#0071e3]' : 'text-zinc-650 hover:bg-[#f5f5f7] hover:text-black'}
+                      `}
+                      >
+                        <i className="bi bi-clock-history text-sm"></i>
+                        <span>ประวัติการดำเนินงาน</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 

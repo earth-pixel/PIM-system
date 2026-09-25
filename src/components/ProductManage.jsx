@@ -256,7 +256,12 @@ export default function ProductManage({
     barcode: false,
     size: false,
     fdaNumber: false,
-    tisiNumber: false
+    tisiNumber: false,
+    stylingLevel: false,
+    hairType: false,
+    hairBenefit: false,
+    productForm: false,
+    hairColorType: false
   });
 
   // Marketplace Import Modals States
@@ -1049,7 +1054,12 @@ export default function ProductManage({
       barcode: false,
       size: false,
       fdaNumber: false,
-      tisiNumber: false
+      tisiNumber: false,
+      stylingLevel: false,
+      hairType: false,
+      hairBenefit: false,
+      productForm: false,
+      hairColorType: false
     });
   };
 
@@ -1111,7 +1121,12 @@ export default function ProductManage({
         barcode: false,
         size: false,
         fdaNumber: false,
-        tisiNumber: false
+        tisiNumber: false,
+        stylingLevel: false,
+        hairType: false,
+        hairBenefit: false,
+        productForm: false,
+        hairColorType: false
       });
       setShowForm(true);
     } else {
@@ -1209,13 +1224,18 @@ export default function ProductManage({
       retailPrice: retailPrice === '' || isNaN(retailPrice) || Number(retailPrice) <= 0,
       wholesalePrice: wholesalePrice === '' || isNaN(wholesalePrice) || Number(wholesalePrice) < 0,
       capFee: capFee === '' || isNaN(capFee) || Number(capFee) < 0,
+      packageWidth: String(packageWidth).trim() === '' || isNaN(packageWidth) || Number(packageWidth) < 0,
+      packageLength: String(packageLength).trim() === '' || isNaN(packageLength) || Number(packageLength) < 0,
+      packageHeight: String(packageHeight).trim() === '' || isNaN(packageHeight) || Number(packageHeight) < 0,
+      stylingLevel: Boolean(lazadaConfig.fields?.some(f => f.key === 'stylingLevel') && !stylingLevel.trim()),
+      hairType: Boolean(lazadaConfig.fields?.some(f => f.key === 'hairType') && !hairType.trim()),
+      hairBenefit: Boolean(lazadaConfig.fields?.some(f => f.key === 'hairBenefit') && !hairBenefit.trim()),
+      productForm: Boolean(lazadaConfig.fields?.some(f => f.key === 'productForm') && !productForm.trim()),
+      hairColorType: Boolean(lazadaConfig.fields?.some(f => f.key === 'hairColorType') && !hairColorType.trim()),
       description: !description.trim(),
       highlights: !highlights.trim(),
       howToUse: !howToUse.trim(),
       image: false,
-      packageLength: false, // optional
-      packageWidth: false,  // optional
-      packageHeight: false, // optional
       editRemark: !!editProduct && !editRemark.trim(),
       barcode: !barcode.trim(),
       size: !size.trim(),
@@ -1306,6 +1326,34 @@ export default function ProductManage({
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกค่าฝาที่ถูกต้อง (ต้องมากกว่าหรือเท่ากับ 0)' });
       focusAndScroll('product-cap-fee');
       return;
+    }
+    if (errors.packageWidth) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความกว้างพัสดุ (ซม.)' });
+      focusAndScroll('product-package-width');
+      return;
+    }
+    if (errors.packageLength) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความยาวพัสดุ (ซม.)' });
+      focusAndScroll('product-package-length');
+      return;
+    }
+    if (errors.packageHeight) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกความสูงพัสดุ (ซม.)' });
+      focusAndScroll('product-package-height');
+      return;
+    }
+    if (lazadaConfig.fields && lazadaConfig.fields.length > 0) {
+      for (const field of lazadaConfig.fields) {
+        if (errors[field.key]) {
+          setAlertPopup({
+            type: 'error',
+            title: 'กรอกข้อมูลไม่ครบถ้วน',
+            message: `กรุณากรอก${field.label}`
+          });
+          focusAndScroll(`cat-field-${field.key}`);
+          return;
+        }
+      }
     }
     if (errors.description) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกรายละเอียดสินค้า' });
@@ -2972,16 +3020,24 @@ export default function ProductManage({
                                 return (
                                   <div key={field.key} className="min-w-0 flex flex-col justify-end">
                                     <label className="form-label min-h-[44px] flex items-end pb-1.5 text-zinc-900 font-bold leading-tight">
-                                      {field.label}
+                                      {field.label}<span className="text-red-500">*</span>
                                     </label>
                                     <input
                                       id={`cat-field-${field.key}`}
                                       type="text"
                                       value={val}
-                                      onChange={(e) => setter(e.target.value)}
+                                      onChange={(e) => {
+                                        setter(e.target.value);
+                                        if (e.target.value.trim()) {
+                                          setFormErrors(prev => ({ ...prev, [field.key]: false }));
+                                        }
+                                      }}
                                       placeholder={field.placeholder}
-                                      className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black text-xs placeholder:text-zinc-400 font-medium"
+                                      className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black text-xs placeholder:text-zinc-400 font-medium ${formErrors[field.key] ? 'error' : ''}`}
                                     />
+                                    {formErrors[field.key] && (
+                                      <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอก{field.label}</span>
+                                    )}
                                   </div>
                                 );
                               })}
@@ -3173,7 +3229,7 @@ export default function ProductManage({
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div className="min-w-0">
                           <label className="form-label min-h-[28px] flex items-end pb-1 text-zinc-900 font-bold">
-                            ความกว้าง (ซม.)
+                            ความกว้าง (ซม.)<span className="text-red-500">*</span>
                           </label>
                           <input
                             id="product-package-width"
@@ -3181,14 +3237,22 @@ export default function ProductManage({
                             step="any"
                             min="0"
                             value={packageWidth}
-                            onChange={(e) => setPackageWidth(e.target.value)}
+                            onChange={(e) => {
+                              setPackageWidth(e.target.value);
+                              if (e.target.value.trim() && !isNaN(e.target.value) && Number(e.target.value) >= 0) {
+                                setFormErrors(prev => ({ ...prev, packageWidth: false }));
+                              }
+                            }}
                             placeholder="เช่น 10"
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black"
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black ${formErrors.packageWidth ? 'error' : ''}`}
                           />
+                          {formErrors.packageWidth && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกความกว้างพัสดุ</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <label className="form-label min-h-[28px] flex items-end pb-1 text-zinc-900 font-bold">
-                            ความยาว (ซม.)
+                            ความยาว (ซม.)<span className="text-red-500">*</span>
                           </label>
                           <input
                             id="product-package-length"
@@ -3196,14 +3260,22 @@ export default function ProductManage({
                             step="any"
                             min="0"
                             value={packageLength}
-                            onChange={(e) => setPackageLength(e.target.value)}
+                            onChange={(e) => {
+                              setPackageLength(e.target.value);
+                              if (e.target.value.trim() && !isNaN(e.target.value) && Number(e.target.value) >= 0) {
+                                setFormErrors(prev => ({ ...prev, packageLength: false }));
+                              }
+                            }}
                             placeholder="เช่น 15"
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black"
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black ${formErrors.packageLength ? 'error' : ''}`}
                           />
+                          {formErrors.packageLength && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกความยาวพัสดุ</span>
+                          )}
                         </div>
                         <div className="min-w-0">
                           <label className="form-label min-h-[28px] flex items-end pb-1 text-zinc-900 font-bold">
-                            ความสูง (ซม.)
+                            ความสูง (ซม.)<span className="text-red-500">*</span>
                           </label>
                           <input
                             id="product-package-height"
@@ -3211,10 +3283,18 @@ export default function ProductManage({
                             step="any"
                             min="0"
                             value={packageHeight}
-                            onChange={(e) => setPackageHeight(e.target.value)}
+                            onChange={(e) => {
+                              setPackageHeight(e.target.value);
+                              if (e.target.value.trim() && !isNaN(e.target.value) && Number(e.target.value) >= 0) {
+                                setFormErrors(prev => ({ ...prev, packageHeight: false }));
+                              }
+                            }}
                             placeholder="เช่น 5"
-                            className="form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black"
+                            className={`form-input min-w-0 bg-[#f5f5f7] focus:bg-white text-black ${formErrors.packageHeight ? 'error' : ''}`}
                           />
+                          {formErrors.packageHeight && (
+                            <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณากรอกความสูงพัสดุ</span>
+                          )}
                         </div>
                       </div>
                     </div>

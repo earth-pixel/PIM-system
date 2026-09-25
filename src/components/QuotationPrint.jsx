@@ -721,15 +721,19 @@ export default function QuotationPrint({
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
       {/* Left: Company Details */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        {/* Logo (Vector SVG for Maximum Print Sharpness) */}
+        {/* Logo (Custom uploaded image or Vector SVG) */}
         <div style={{ flexShrink: 0, marginTop: '-4px' }}>
-          <svg viewBox="0 0 160 160" style={{ width: 62, height: 62, fill: '#1d1d1f' }} xmlns="http://www.w3.org/2000/svg">
-            <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
-            <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
-            <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
-            <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
-            <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
-          </svg>
+          {companyInfo.logo ? (
+            <img src={companyInfo.logo} alt="Logo" style={{ width: 62, height: 62, objectFit: 'contain' }} />
+          ) : (
+            <svg viewBox="0 0 160 160" style={{ width: 62, height: 62, fill: '#1d1d1f' }} xmlns="http://www.w3.org/2000/svg">
+              <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
+              <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
+              <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
+              <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
+              <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
+            </svg>
+          )}
         </div>
         <div style={{ fontSize: '10.5px', color: DARK, lineHeight: 1.6 }}>
           <div style={{ fontWeight: 800, fontSize: '13px', marginBottom: 3, color: '#000' }}>{co.name}</div>
@@ -1089,8 +1093,21 @@ export default function QuotationPrint({
 
           {/* Authorized Signature Box */}
           <div style={{ width: '230px', textAlign: 'center' }}>
-            <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
-            <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK, marginTop: 4 }}>ผู้อนุมัติ</div>
+            {companyInfo.signatureImage ? (
+              <div style={{ height: '30px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', marginBottom: 2 }}>
+                <img src={companyInfo.signatureImage} alt="Signature" style={{ maxHeight: '30px', maxWidth: '140px', objectFit: 'contain' }} />
+              </div>
+            ) : (
+              <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
+            )}
+            <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK, marginTop: 4 }}>
+              {companyInfo.signerTitle || 'ผู้อนุมัติ'}
+            </div>
+            {companyInfo.signerName && (
+              <div style={{ fontSize: '9.5px', color: GRAY, marginTop: 2 }}>
+                ({companyInfo.signerName})
+              </div>
+            )}
             <div style={{ fontSize: '10px', color: DARK, marginTop: 12, textAlign: 'center' }}>
               วันที่ {quotation.issuedDate ? fmtDate(quotation.issuedDate) : '.....................................................................'}
             </div>
@@ -1102,29 +1119,46 @@ export default function QuotationPrint({
       {docFormat === 'product_proposal' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, fontSize: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '230px', textAlign: 'center' }}>
-            {/* Company Seal/Stamp Placeholder */}
-            <div style={{
-              width: '65px',
-              height: '65px',
-              borderRadius: '50%',
-              border: '1.5px dashed #cbd5e1',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              textAlign: 'center',
-              fontSize: '9px',
-              color: '#94a3b8',
-              fontWeight: 'bold',
-              lineHeight: 1.2,
-              userSelect: 'none',
-              marginBottom: 4
-            }}>
-              ตราประทับ<br />บริษัท
-            </div>
+            {/* Company Seal/Stamp */}
+            {companyInfo.stampImage ? (
+              <img src={companyInfo.stampImage} alt="Stamp" style={{ width: 65, height: 65, objectFit: 'contain', marginBottom: 4 }} />
+            ) : (
+              <div style={{
+                width: '65px',
+                height: '65px',
+                borderRadius: '50%',
+                border: '1.5px dashed #cbd5e1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                textAlign: 'center',
+                fontSize: '9px',
+                color: '#94a3b8',
+                fontWeight: 'bold',
+                lineHeight: 1.2,
+                userSelect: 'none',
+                marginBottom: 4
+              }}>
+                ตราประทับ<br />บริษัท
+              </div>
+            )}
 
             {/* Signature Line */}
-            <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '20px' }} />
-            <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK }}>ผู้อนุมัติ</div>
+            {companyInfo.signatureImage ? (
+              <div style={{ height: '30px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', marginBottom: 2 }}>
+                <img src={companyInfo.signatureImage} alt="Signature" style={{ maxHeight: '30px', maxWidth: '140px', objectFit: 'contain' }} />
+              </div>
+            ) : (
+              <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '20px' }} />
+            )}
+            <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK }}>
+              {companyInfo.signerTitle || 'ผู้อนุมัติ'}
+            </div>
+            {companyInfo.signerName && (
+              <div style={{ fontSize: '9.5px', color: GRAY, marginTop: 2 }}>
+                ({companyInfo.signerName})
+              </div>
+            )}
 
             {/* Date Box */}
             <div style={{ fontSize: '10px', color: DARK, width: '100%', textAlign: 'center', marginTop: 12 }}>

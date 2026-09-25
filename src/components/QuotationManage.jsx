@@ -2264,6 +2264,28 @@ const CreateTab = ({
     }
   };
 
+  useEffect(() => {
+    if (!alert) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Enter' || e.key === 'Escape') {
+        handleCloseAlert();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    let timer;
+    if (alert.type === 'success') {
+      timer = setTimeout(() => {
+        handleCloseAlert();
+      }, 2000);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      if (timer) clearTimeout(timer);
+    };
+  }, [alert]);
+
   const labelClass = 'text-xs text-[#555557] font-semibold mb-1 block';
   const inputClass = 'w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/50 rounded-xl px-3 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all';
   const getInputClass = (fieldName, extra = '') => {
@@ -2285,8 +2307,8 @@ const CreateTab = ({
 
       {alert && createPortal(
         <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 animate-fade-in">
-          <div onClick={handleCloseAlert} className="absolute inset-0 bg-black/30 backdrop-blur-xs" />
-          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-sm w-full p-6 shadow-2xl z-10 animate-scale-in text-center flex flex-col items-center gap-4">
+          <div onClick={handleCloseAlert} className="absolute inset-0 bg-white/85 backdrop-blur-md" />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/60 max-w-sm w-full p-6 shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_16px_rgba(0,0,0,0.06)] z-10 animate-scale-in text-center flex flex-col items-center gap-4">
             <div className={`w-12 h-12 rounded-full flex items-center justify-center ${alert.type === 'error' ? 'bg-red-50 text-red-500' : 'bg-emerald-50 text-emerald-600'}`}>
               {alert.type === 'error' ? (
                 <AlertCircle className="w-6 h-6" />

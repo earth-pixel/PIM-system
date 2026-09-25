@@ -40,6 +40,11 @@ export const PAGE_DEFINITIONS = [
     icon: 'bi bi-bar-chart-fill',
   },
   {
+    id: 'company',
+    name: 'จัดการข้อมูลบริษัท',
+    icon: 'bi bi-building',
+  },
+  {
     id: 'users',
     name: 'จัดการผู้ใช้งานระบบ',
     icon: 'bi bi-people-fill',
@@ -48,7 +53,6 @@ export const PAGE_DEFINITIONS = [
     id: 'activity-log',
     name: 'ประวัติการดำเนินงาน (Activity Log)',
     icon: 'bi bi-clock-history',
-  
   }
 ];
 
@@ -141,6 +145,7 @@ export const DEFAULT_PERMISSIONS = {
       customers: true,
       quotations: true,
       reports: true,
+      company: true,
       users: true,
       'activity-log': true,
     },
@@ -184,6 +189,7 @@ export const DEFAULT_PERMISSIONS = {
       customers: true,
       quotations: true,
       reports: true,
+      company: true,
       users: true,
       'activity-log': false,
     },
@@ -227,6 +233,7 @@ export const DEFAULT_PERMISSIONS = {
       customers: true,
       quotations: true,
       reports: true,
+      company: false,
       users: false,
       'activity-log': false,
     },

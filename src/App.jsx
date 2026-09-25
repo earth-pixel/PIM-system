@@ -13,6 +13,7 @@ import UserManage from './components/UserManage';
 import ActivityLogView from './components/ActivityLogView';
 import QuotationManage from './components/QuotationManage';
 import CustomerManage from './components/CustomerManage';
+import CompanyManage from './components/CompanyManage';
 import PublicQuotationViewer from './components/PublicQuotationViewer';
 import { canAccessPage } from './utils/permissions';
 
@@ -51,6 +52,14 @@ export default function App() {
   const [quotations, setQuotations] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [activityLog, setActivityLog] = useState([]);
+  const [currentCompanyInfo, setCurrentCompanyInfo] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pim_company_info');
+      return saved ? JSON.parse(saved) : companyInfo;
+    } catch {
+      return companyInfo;
+    }
+  });
   const [activeTab, setActiveTab] = useState(() => {
     try {
       return localStorage.getItem('pim_active_tab') || 'dashboard';
@@ -81,6 +90,7 @@ export default function App() {
       if (db.subcategories) setSubcategories(db.subcategories);
       if (db.users) setUsers(db.users);
       if (db.quotations) setQuotations(db.quotations);
+      if (db.companyInfo) setCurrentCompanyInfo(db.companyInfo);
       if (db.customers && db.customers.length > 0) {
         setCustomers(db.customers);
       } else if (db.quotations && db.quotations.length > 0) {
@@ -509,6 +519,19 @@ export default function App() {
             onArchiveDeleteQuotations={handleArchiveDeleteQuotations}
           />
         );
+      case 'company':
+        if (!canAccessPage(currentUser, 'company')) {
+          return <div className="p-8 text-center text-red-500 font-semibold bg-white rounded-2xl border border-[#d2d2d7]/50 shadow-xs">ขออภัย คุณไม่ได้รับสิทธิ์ในการเข้าถึงหน้านี้</div>;
+        }
+        return (
+          <CompanyManage
+            companyInfo={currentCompanyInfo}
+            onUpdateCompanyInfo={handleUpdateCompanyInfo}
+            currentUser={currentUser}
+            addActivityLog={addActivityLog}
+          />
+        );
+
       case 'users':
         return (
           <UserManage
@@ -537,7 +560,7 @@ export default function App() {
             quotations={quotations}
             products={products}
             customers={customers}
-            companyInfo={companyInfo}
+            companyInfo={currentCompanyInfo}
             currentUser={currentUser}
             users={users}
             onSaveQuotation={handleSaveQuotation}
@@ -556,7 +579,7 @@ export default function App() {
   const urlParams = new URLSearchParams(window.location.search);
   const shareData = urlParams.get('share');
   if (shareData) {
-    return <PublicQuotationViewer shareData={shareData} companyInfo={companyInfo} />;
+    return <PublicQuotationViewer shareData={shareData} companyInfo={currentCompanyInfo} />;
   }
 
   // Authenticated Screen vs Guest Login
