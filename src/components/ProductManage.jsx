@@ -729,22 +729,27 @@ export default function ProductManage({
   });
   const [exportStockMap, setExportStockMap] = useState({});
   const [batchStockVal, setBatchStockVal] = useState('');
+  const [exportConfirmWarning, setExportConfirmWarning] = useState(null);
   // Image zoom/preview state
   const [zoomedImage, setZoomedImage] = useState(null);
 
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
-        setZoomedImage(null);
+        if (exportConfirmWarning) {
+          setExportConfirmWarning(null);
+        } else if (zoomedImage) {
+          setZoomedImage(null);
+        }
       }
     };
-    if (zoomedImage) {
+    if (zoomedImage || exportConfirmWarning) {
       window.addEventListener('keydown', handleEscape);
     }
     return () => {
       window.removeEventListener('keydown', handleEscape);
     };
-  }, [zoomedImage]);
+  }, [zoomedImage, exportConfirmWarning]);
 
   useEffect(() => {
     if (drawerProduct) {
@@ -2112,9 +2117,53 @@ export default function ProductManage({
                 <button
                   type="button"
                   onClick={() => {
-                    const onConfirm = incompleteExportModal.onConfirm;
-                    setIncompleteExportModal(prev => ({ ...prev, isOpen: false }));
-                    if (onConfirm) onConfirm(exportStockMap);
+                    const remainingMissingSet = new Set();
+                    let affectedCount = 0;
+
+                    (incompleteExportModal.incompleteProducts || []).forEach(p => {
+                      const userTypedStock = exportStockMap[p.id] !== undefined ? exportStockMap[p.id] : (p.code && exportStockMap[p.code] !== undefined ? exportStockMap[p.code] : '');
+                      const isStockFilled = userTypedStock !== undefined && userTypedStock !== '' && !isNaN(userTypedStock) && Number(userTypedStock) >= 0;
+
+                      let productHasMissing = false;
+                      (p.missingFields || []).forEach(f => {
+                        const isStockField = ['คลังสินค้า', 'จำนวน', 'สต็อกสินค้า', 'สต๊อกสินค้า'].includes(f);
+                        if (!isStockField || !isStockFilled) {
+                          remainingMissingSet.add(f);
+                          productHasMissing = true;
+                        }
+                      });
+
+                      if (productHasMissing) {
+                        affectedCount++;
+                      }
+                    });
+
+                    (incompleteExportModal.missingHeaders || []).forEach(h => {
+                      const isStockField = ['คลังสินค้า', 'จำนวน', 'สต็อกสินค้า', 'สต๊อกสินค้า'].includes(h);
+                      if (!isStockField || remainingMissingSet.has(h)) {
+                        remainingMissingSet.add(h);
+                      }
+                    });
+
+                    const missingList = Array.from(remainingMissingSet);
+
+                    if (missingList.length > 0) {
+                      setExportConfirmWarning({
+                        platformName: incompleteExportModal.platformName,
+                        missingFields: missingList,
+                        affectedCount: affectedCount || incompleteExportModal.incompleteProducts.length,
+                        onConfirm: () => {
+                          const onConfirm = incompleteExportModal.onConfirm;
+                          setExportConfirmWarning(null);
+                          setIncompleteExportModal(prev => ({ ...prev, isOpen: false }));
+                          if (onConfirm) onConfirm(exportStockMap);
+                        }
+                      });
+                    } else {
+                      const onConfirm = incompleteExportModal.onConfirm;
+                      setIncompleteExportModal(prev => ({ ...prev, isOpen: false }));
+                      if (onConfirm) onConfirm(exportStockMap);
+                    }
                   }}
                   className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
@@ -2127,6 +2176,95 @@ export default function ProductManage({
           document.body
         );
       })()}
+
+      {/* Export Incomplete Final Confirmation Popup */}
+      {exportConfirmWarning && createPortal(
+        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-fade-in no-print">
+          <div
+            onClick={() => setExportConfirmWarning(null)}
+            className="absolute inset-0"
+          />
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/80 shadow-2xl max-w-md w-full p-6 flex flex-col gap-4 animate-scale-in text-[#1d1d1f] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-start gap-3.5">
+              <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center shrink-0 text-amber-600 shadow-xs">
+                <AlertTriangle className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="text-base font-bold text-zinc-900 leading-snug">
+                  ยืนยันการนำออกข้อมูลหรือไม่?
+                </h3>
+                <p className="text-xs text-zinc-500 mt-0.5">
+                  ตรวจพบข้อมูลที่ยังไม่ครบถ้วนสำหรับการนำออก {exportConfirmWarning.platformName}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExportConfirmWarning(null)}
+                className="text-zinc-400 hover:text-zinc-700 p-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Missing Info Box */}
+            <div className="bg-rose-50/60 border border-rose-200/80 rounded-2xl p-4 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-bold text-rose-800">คอลัมน์ที่ยังขาดในการนำออก:</span>
+                <span className="text-[11px] font-bold text-rose-600 bg-rose-100/80 px-2 py-0.5 rounded-full border border-rose-200">
+                  {exportConfirmWarning.missingFields.length} คอลัมน์
+                </span>
+              </div>
+              
+              <div className="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto pr-1">
+                {exportConfirmWarning.missingFields.map((field, idx) => (
+                  <span
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-white text-rose-700 border border-rose-300/80 shadow-2xs"
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                    {field}
+                  </span>
+                ))}
+              </div>
+
+              <div className="pt-2 text-[11px] text-zinc-600 leading-relaxed border-t border-rose-200/60 flex items-center justify-between">
+                <span>จำนวนสินค้าที่ข้อมูลไม่ครบ:</span>
+                <span className="font-bold text-zinc-900">{exportConfirmWarning.affectedCount} รายการ</span>
+              </div>
+            </div>
+
+            {/* Warning Note */}
+            <p className="text-xs text-zinc-500 leading-relaxed">
+              หากกด <strong>"ยืนยันส่งออกต่อ"</strong> ระบบจะนำออกข้อมูลสินค้าตามที่มีอยู่ และเว้นว่างคอลัมน์ที่ข้อมูลไม่ครบถ้วนไว้
+            </p>
+
+            {/* Actions */}
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setExportConfirmWarning(null)}
+                className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7] text-xs font-bold rounded-xl transition-all cursor-pointer"
+              >
+                กลับไปตรวจสอบ
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  if (exportConfirmWarning.onConfirm) {
+                    exportConfirmWarning.onConfirm();
+                  }
+                }}
+                className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+              >
+                <Download className="w-4 h-4" />
+                ยืนยันส่งออกต่อ
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print relative z-30">
