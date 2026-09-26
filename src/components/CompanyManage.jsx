@@ -89,16 +89,36 @@ export default function CompanyManage({
 
   const handleSave = async (e) => {
     e?.preventDefault();
-    if (!form.name.trim()) {
-      showToast('กรุณากรอกชื่อบริษัท (ภาษาไทย)', 'error');
+    if (!form.name?.trim()) {
+      showToast('กรุณากรอกชื่อบริษัท', 'error');
       return;
     }
-    if (!form.taxId.trim()) {
+    if (!form.address?.trim()) {
+      showToast('กรุณากรอกที่อยู่สำนักงาน', 'error');
+      return;
+    }
+    if (!form.phone?.trim()) {
+      showToast('กรุณากรอกเบอร์โทรศัพท์ (โทร)', 'error');
+      return;
+    }
+    if (!form.mobile?.trim()) {
+      showToast('กรุณากรอกเบอร์โทรศัพท์มือถือ', 'error');
+      return;
+    }
+    if (!form.email?.trim()) {
+      showToast('กรุณากรอกอีเมล', 'error');
+      return;
+    }
+    if (!form.website?.trim()) {
+      showToast('กรุณากรอกเว็บไซต์', 'error');
+      return;
+    }
+    if (!form.taxId?.trim()) {
       showToast('กรุณากรอกเลขประจำตัวผู้เสียภาษี', 'error');
       return;
     }
-    if (!form.address.trim()) {
-      showToast('กรุณากรอกที่อยู่บริษัท', 'error');
+    if (!form.signerTitle?.trim()) {
+      showToast('กรุณากรอกชื่อผู้ลงนาม', 'error');
       return;
     }
 
@@ -283,7 +303,7 @@ export default function CompanyManage({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                    เบอร์โทรศัพท์ (โทร)
+                    เบอร์โทรศัพท์ (โทร) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Phone className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -299,7 +319,7 @@ export default function CompanyManage({
 
                 <div>
                   <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                    เบอร์โทรศัพท์มือถือ (ถ้ามี)
+                    เบอร์โทรศัพท์มือถือ <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Smartphone className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -317,7 +337,7 @@ export default function CompanyManage({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                    อีเมล (Email)
+                    อีเมล (Email) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -333,7 +353,7 @@ export default function CompanyManage({
 
                 <div>
                   <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                    เว็บไซต์ (Website)
+                    เว็บไซต์ (Website) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
                     <Globe className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -438,7 +458,7 @@ export default function CompanyManage({
               {/* ข้อมูลผู้มีอำนาจลงนาม */}
               <div className="space-y-3">
                 <label className="text-xs text-[#555557] font-semibold block">
-                  ชื่อผู้ลงนาม
+                  ชื่อผู้ลงนาม <span className="text-red-500">*</span>
                 </label>
 
                 <div>
