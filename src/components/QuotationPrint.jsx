@@ -192,29 +192,35 @@ const PRINT_CSS = `
       width: 100% !important;
       table-layout: fixed !important;
     }
-    .print-page .proposal-table th,
+    .print-page .proposal-table th {
+      padding: 6px 4px !important;
+      font-size: 11px !important;
+      white-space: nowrap !important;
+      vertical-align: middle !important;
+    }
     .print-page .proposal-table td {
-      padding: 6px 8px !important;
+      padding: 6px 6px !important;
       font-size: 11px !important;
       word-break: break-word !important;
       white-space: normal !important;
+      vertical-align: middle !important;
     }
     .print-page .proposal-table th:nth-child(1),
-    .print-page .proposal-table td:nth-child(1) { width: 5% !important; text-align: center !important; }
+    .print-page .proposal-table td:nth-child(1) { width: 4% !important; text-align: center !important; }
     .print-page .proposal-table th:nth-child(2),
-    .print-page .proposal-table td:nth-child(2) { width: 10% !important; text-align: center !important; }
+    .print-page .proposal-table td:nth-child(2) { width: 9% !important; text-align: center !important; }
     .print-page .proposal-table th:nth-child(3),
-    .print-page .proposal-table td:nth-child(3) { width: 18% !important; text-align: center !important; }
+    .print-page .proposal-table td:nth-child(3) { width: 16% !important; text-align: center !important; }
     .print-page .proposal-table th:nth-child(4),
-    .print-page .proposal-table td:nth-child(4) { width: 10% !important; text-align: center !important; }
+    .print-page .proposal-table td:nth-child(4) { width: 8% !important; text-align: center !important; }
     .print-page .proposal-table th:nth-child(5),
-    .print-page .proposal-table td:nth-child(5) { width: 23% !important; text-align: left !important; }
+    .print-page .proposal-table td:nth-child(5) { width: 38% !important; text-align: left !important; }
     .print-page .proposal-table th:nth-child(6),
-    .print-page .proposal-table td:nth-child(6) { width: 13% !important; text-align: center !important; }
+    .print-page .proposal-table td:nth-child(6) { width: 7% !important; text-align: center !important; }
     .print-page .proposal-table th:nth-child(7),
-    .print-page .proposal-table td:nth-child(7) { width: 13% !important; text-align: center !important; }
+    .print-page .proposal-table td:nth-child(7) { width: 8% !important; text-align: center !important; }
     .print-page .proposal-table th:nth-child(8),
-    .print-page .proposal-table td:nth-child(8) { width: 8% !important; text-align: right !important; }
+    .print-page .proposal-table td:nth-child(8) { width: 10% !important; text-align: right !important; }
   }
 `;
 
@@ -445,14 +451,15 @@ export default function QuotationPrint({
         const companyLines = [
           companyInfo.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
           companyInfo.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
-          `โทร: ${companyInfo.phone && companyInfo.mobile ? `${companyInfo.phone} / ${companyInfo.mobile}` : (companyInfo.phone || companyInfo.mobile || '02-4315111 / 02-0055666')}`,
+          `โทร: ${companyInfo.phone && companyInfo.mobile && companyInfo.phone !== companyInfo.mobile && !companyInfo.phone.includes(companyInfo.mobile) ? `${companyInfo.phone} / ${companyInfo.mobile}` : (companyInfo.phone || companyInfo.mobile || '02-4315111 / 02-0055666')}`,
           `อีเมล: ${companyInfo.email || 'info@phanvadee.co.th'}`,
           `เว็บไซต์: ${companyInfo.website ? (companyInfo.website.startsWith('http') ? companyInfo.website : `https://${companyInfo.website}`) : 'https://www.phanvadee.co.th'}`,
           `เลขประจำตัวผู้เสียภาษี: ${companyInfo.taxId || '0105546026064'}`
         ].join('\n');
 
         const subject = encodeURIComponent(`[${docLabel}] เลขที่ ${quotation.quotationNumber || quotation.id} - โครงการ ${quotation.projectName || '-'}`);
-        const body = encodeURIComponent(`เรียนคุณ ${quotation.customer?.name || 'ลูกค้า'}${quotation.customer?.companyName ? ` (${quotation.customer.companyName})` : ''},\n\nเรื่อง: นำเสนอ${docLabel} เลขที่ ${quotation.quotationNumber || quotation.id}\n\nทางเรามีความยินดีเป็นอย่างยิ่งที่ได้รับโอกาสในการนำเสนอราคาสำหรับโครงการ "${quotation.projectName || '-'}"\n\nรายละเอียดรายการสินค้า ยอดรวม และเงื่อนไขการค้าต่างๆ ปรากฏตามเอกสาร${docLabel}แนบ PDF ในอีเมลฉบับนี้\n\nหากท่านมีข้อสงสัยประการใด โปรดติดต่อกลับที่เบอร์โทร ${quotation.salespersonPhone || '-'}\n\nขอแสดงความนับถืออย่างสูง\n${cleanSalesName || 'ผู้ประสานงานขาย'}\n\n${companyLines}`);
+        const textBody = `เรียนคุณ ${quotation.customer?.name || 'ลูกค้า'}${quotation.customer?.companyName ? ` (${quotation.customer.companyName})` : ''},\n\nเรื่อง: นำเสนอ${docLabel} เลขที่ ${quotation.quotationNumber || quotation.id}\n\nทางเรามีความยินดีเป็นอย่างยิ่งที่ได้รับโอกาสในการนำเสนอราคาสำหรับโครงการ "${quotation.projectName || '-'}"\n\nรายละเอียดรายการสินค้า ยอดรวม และเงื่อนไขการค้าต่างๆ ปรากฏตามเอกสาร${docLabel}แนบ PDF ในอีเมลฉบับนี้\n\nหากท่านมีข้อสงสัยประการใด โปรดติดต่อกลับที่เบอร์โทร ${quotation.salespersonPhone || '-'}\n\nขอแสดงความนับถืออย่างสูง\n${cleanSalesName || 'ผู้ประสานงานขาย'}\n\n${companyLines}`;
+        const body = encodeURIComponent(textBody);
 
         const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(email)}&su=${subject}&body=${body}`;
         setEmailRedirectUrl(gmailUrl);
@@ -723,15 +730,15 @@ export default function QuotationPrint({
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
         {/* Logo (Custom uploaded image) */}
         {companyInfo.logo ? (
-          <div style={{ flexShrink: 0, marginTop: '-4px' }}>
-            <img src={companyInfo.logo} alt="Logo" style={{ width: 62, height: 62, objectFit: 'contain' }} />
+          <div style={{ flexShrink: 0, marginTop: '-1px' }}>
+            <img src={companyInfo.logo} alt="Logo" style={{ maxHeight: '54px', maxWidth: '88px', width: 'auto', height: 'auto', objectFit: 'contain' }} />
           </div>
         ) : null}
         <div style={{ fontSize: '10.5px', color: DARK, lineHeight: 1.5 }}>
           <div style={{ fontWeight: 800, fontSize: '13px', color: '#000', lineHeight: 1.25 }}>{co.name || co.nameEn}</div>
           {co.name && co.nameEn && <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#333', marginBottom: 2 }}>{co.nameEn}</div>}
           <div style={{ color: GRAY }}>{co.address}</div>
-          <div>โทร: {co.phone}{co.mobile ? ` / ${co.mobile}` : ''}</div>
+          <div>โทร: {co.phone && co.mobile && co.phone !== co.mobile && !co.phone.includes(co.mobile) ? `${co.phone} / ${co.mobile}` : (co.phone || co.mobile)}</div>
           {co.email && <div>อีเมล: {co.email}</div>}
           {co.website && <div>เว็บไซต์: {co.website}</div>}
           <div>เลขประจำตัวผู้เสียภาษี: {co.taxId}</div>
@@ -901,14 +908,14 @@ export default function QuotationPrint({
 
   const renderProposalTableHeaderRow = () => (
     <tr style={{ background: ACCENT, color: '#fff' }}>
-      <th style={{ width: '5%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ลำดับ</th>
-      <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>รหัสสินค้า</th>
-      <th style={{ width: '20%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>บาร์โค้ด</th>
-      <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ภาพสินค้า</th>
-      <th style={{ width: '23%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none' }}>ชื่อสินค้า</th>
-      <th style={{ width: '11%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>ขนาด</th>
-      <th style={{ width: '11%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none' }}>น้ำหนัก</th>
-      <th style={{ width: '10%', padding: '8px 10px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none' }}>ราคา</th>
+      <th style={{ width: '4%', padding: '8px 4px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>ลำดับ</th>
+      <th style={{ width: '9%', padding: '8px 4px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>รหัสสินค้า</th>
+      <th style={{ width: '16%', padding: '8px 4px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>บาร์โค้ด</th>
+      <th style={{ width: '8%', padding: '8px 4px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>ภาพสินค้า</th>
+      <th style={{ width: '38%', padding: '8px 8px', fontWeight: 700, fontSize: '11px', textAlign: 'left', border: 'none', verticalAlign: 'middle' }}>ชื่อสินค้า</th>
+      <th style={{ width: '7%', padding: '8px 4px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>ขนาด</th>
+      <th style={{ width: '8%', padding: '8px 4px', fontWeight: 700, fontSize: '11px', textAlign: 'center', border: 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>น้ำหนัก</th>
+      <th style={{ width: '10%', padding: '8px 6px', fontWeight: 700, fontSize: '11px', textAlign: 'right', border: 'none', whiteSpace: 'nowrap', verticalAlign: 'middle' }}>ราคา</th>
     </tr>
   );
 
@@ -935,16 +942,16 @@ export default function QuotationPrint({
 
     return (
       <tr key={item.id || globalIdx} ref={rowRef} style={{ borderBottom: `1px solid ${BORDER}` }}>
-        <td style={{ padding: '8px 10px', textAlign: 'center', color: GRAY }}>{globalIdx + 1}</td>
-        <td style={{ padding: '8px 10px', textAlign: 'center', color: DARK, fontSize: '10.5px' }}>
+        <td style={{ padding: '8px 4px', textAlign: 'center', color: GRAY, verticalAlign: 'middle' }}>{globalIdx + 1}</td>
+        <td style={{ padding: '8px 4px', textAlign: 'center', color: DARK, fontSize: '10.5px', verticalAlign: 'middle' }}>
           {item.productCode || '—'}
         </td>
-        <td style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
-          <BarcodeDisplay value={itemBarcode} height={48} maxWidth={170} fontSize={12} />
+        <td style={{ padding: '6px 2px', textAlign: 'center', verticalAlign: 'middle' }}>
+          <BarcodeDisplay value={itemBarcode} height={44} maxWidth={145} fontSize={11} />
         </td>
-        <td style={{ padding: '8px 10px', textAlign: 'center' }}>
+        <td style={{ padding: '6px 4px', textAlign: 'center', verticalAlign: 'middle' }}>
           {item.productImage ? (
-            <div style={{ width: '56px', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', background: '#fafafa', borderRadius: '8px', border: `1px solid ${BORDER}`, padding: '2px', overflow: 'hidden' }}>
+            <div style={{ width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto', background: '#fafafa', borderRadius: '6px', border: `1px solid ${BORDER}`, padding: '2px', overflow: 'hidden' }}>
               <img
                 src={item.productImage}
                 alt=""
@@ -962,16 +969,15 @@ export default function QuotationPrint({
             <span style={{ color: '#ccc', fontSize: '10px' }}>—</span>
           )}
         </td>
-        <td style={{ padding: '8px 10px', textAlign: 'left' }}>
-
-          <div style={{ fontWeight: 'bold', color: '#000' }}>{item.productName}{qtyPart}</div>
+        <td style={{ padding: '8px 8px', textAlign: 'left', verticalAlign: 'middle' }}>
+          <div style={{ fontWeight: 'bold', color: '#000', fontSize: '11px', lineHeight: 1.35 }}>{item.productName}{qtyPart}</div>
           {item.description && (
             <div style={{ color: GRAY, fontSize: '10px', marginTop: 2, whiteSpace: 'pre-line' }}>{item.description}</div>
           )}
         </td>
-        <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '500', color: DARK }}>{itemSize || '—'}</td>
-        <td style={{ padding: '8px 10px', textAlign: 'center', fontWeight: '500', color: DARK }}>{itemWeight || '—'}</td>
-        <td style={{ padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: DARK }}>฿{fmt(item.unitPrice)}</td>
+        <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '500', color: DARK, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{itemSize || '—'}</td>
+        <td style={{ padding: '8px 4px', textAlign: 'center', fontWeight: '500', color: DARK, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>{itemWeight || '—'}</td>
+        <td style={{ padding: '8px 6px', textAlign: 'right', fontWeight: 'bold', color: DARK, whiteSpace: 'nowrap', verticalAlign: 'middle' }}>฿{fmt(item.unitPrice)}</td>
       </tr>
     );
   };
@@ -1087,8 +1093,8 @@ export default function QuotationPrint({
           {/* Authorized Signature Box */}
           <div style={{ width: '230px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
             {(companyInfo.signatureImage || companyInfo.stampImage) ? (
-              <div style={{ height: '42px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', marginBottom: 2 }}>
-                <img src={companyInfo.signatureImage || companyInfo.stampImage} alt="Signature" style={{ maxHeight: '42px', maxWidth: '150px', objectFit: 'contain' }} />
+              <div style={{ minHeight: '56px', maxHeight: '68px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 4 }}>
+                <img src={companyInfo.signatureImage || companyInfo.stampImage} alt="Signature" style={{ maxHeight: '64px', maxWidth: '160px', objectFit: 'contain' }} />
               </div>
             ) : null}
             <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: (companyInfo.signatureImage || companyInfo.stampImage) ? '0px' : '36px' }} />
@@ -1107,8 +1113,8 @@ export default function QuotationPrint({
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, fontSize: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: '230px', textAlign: 'center' }}>
             {(companyInfo.signatureImage || companyInfo.stampImage) ? (
-              <div style={{ height: '42px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', marginBottom: 2 }}>
-                <img src={companyInfo.signatureImage || companyInfo.stampImage} alt="Signature" style={{ maxHeight: '42px', maxWidth: '150px', objectFit: 'contain' }} />
+              <div style={{ minHeight: '56px', maxHeight: '68px', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 4 }}>
+                <img src={companyInfo.signatureImage || companyInfo.stampImage} alt="Signature" style={{ maxHeight: '64px', maxWidth: '160px', objectFit: 'contain' }} />
               </div>
             ) : null}
             <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: (companyInfo.signatureImage || companyInfo.stampImage) ? '0px' : '36px' }} />

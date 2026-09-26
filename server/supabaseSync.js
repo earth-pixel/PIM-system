@@ -661,7 +661,7 @@ export async function saveCollectionToSupabase(key, data) {
       }
 
       // Automatically re-link products whose subcategory_id might be missing
-      await syncProductSubcategoryIds().catch(() => {});
+      await syncProductSubcategoryIds().catch(() => { });
       return true;
     }
 

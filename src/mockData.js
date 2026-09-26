@@ -9,4 +9,5 @@ export const companyInfo = {
   mobile: '02-0055666',
   email: 'info@phanvadee.co.th',
   website: 'https://www.phanvadee.com',
+  logo: '/logo.png',
 };
