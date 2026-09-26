@@ -202,7 +202,7 @@ export default function App() {
       // Do not navigate if user is currently selecting text to copy
       if (window.getSelection()?.toString()) return;
 
-      const allTabs = ['dashboard', 'manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log'];
+      const allTabs = ['dashboard', 'manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'company', 'users', 'activity-log'];
       const tabs = allTabs.filter(tab => canAccessPage(currentUser, tab));
       const index = tabs.indexOf(activeTab);
       if (index >= 0) {
@@ -226,6 +226,15 @@ export default function App() {
   const handleUpdateProfile = async data => {
     const updated = { ...currentUser, ...data };
     return saveCollection('users', users.map(u => u.id === currentUser.id ? updated : u));
+  };
+  const handleUpdateCompanyInfo = async updated => {
+    setCurrentCompanyInfo(updated);
+    try {
+      localStorage.setItem('pim_company_info', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Failed to save company info to localStorage:', e);
+    }
+    return updated;
   };
   const handleSaveProduct = async data => {
     const before = products.find(p => p.id === data.id);
