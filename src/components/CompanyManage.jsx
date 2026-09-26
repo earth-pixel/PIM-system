@@ -18,13 +18,20 @@ export default function CompanyManage({
   const logoInputRef = useRef(null);
 
   // Form state focusing strictly on Header (Image 1) & Stamp/Signature (Image 2)
+  const getInitialPhone = (info) => {
+    if (info.phone && info.mobile && info.phone !== info.mobile) {
+      return `${info.phone} / ${info.mobile}`;
+    }
+    return info.phone || info.mobile || '02-4315111 / 02-0055666';
+  };
+
   const [form, setForm] = useState({
     name: companyInfo.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
     nameEn: companyInfo.nameEn || 'Phanvadee Co., Ltd.',
     address: companyInfo.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
     taxId: companyInfo.taxId || '0105546026064',
-    phone: companyInfo.phone || '02-4315111',
-    mobile: companyInfo.mobile || '02-0055666',
+    phone: getInitialPhone(companyInfo),
+    mobile: '',
     email: companyInfo.email || 'info@phanvadee.co.th',
     website: companyInfo.website || 'https://www.phanvadee.com',
     logo: companyInfo.logo || '',
@@ -45,8 +52,8 @@ export default function CompanyManage({
       nameEn: companyInfo.nameEn || 'Phanvadee Co., Ltd.',
       address: companyInfo.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
       taxId: companyInfo.taxId || '0105546026064',
-      phone: companyInfo.phone || '02-4315111',
-      mobile: companyInfo.mobile || '02-0055666',
+      phone: getInitialPhone(companyInfo),
+      mobile: '',
       email: companyInfo.email || 'info@phanvadee.co.th',
       website: companyInfo.website || 'https://www.phanvadee.com',
       logo: companyInfo.logo || '',
@@ -98,11 +105,7 @@ export default function CompanyManage({
       return;
     }
     if (!form.phone?.trim()) {
-      showToast('กรุณากรอกเบอร์โทรศัพท์ (โทร)', 'error');
-      return;
-    }
-    if (!form.mobile?.trim()) {
-      showToast('กรุณากรอกเบอร์โทรศัพท์มือถือ', 'error');
+      showToast('กรุณากรอกเบอร์โทรศัพท์', 'error');
       return;
     }
     if (!form.email?.trim()) {
@@ -300,37 +303,19 @@ export default function CompanyManage({
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                    เบอร์โทรศัพท์ (โทร) <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={form.phone}
-                      onChange={e => handleChange('phone', e.target.value)}
-                      placeholder="เช่น 02-4315111"
-                      className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                    เบอร์โทรศัพท์มือถือ <span className="text-red-500">*</span>
-                  </label>
-                  <div className="relative">
-                    <Smartphone className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={form.mobile}
-                      onChange={e => handleChange('mobile', e.target.value)}
-                      placeholder="เช่น 02-0055666"
-                      className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
-                    />
-                  </div>
+              <div>
+                <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                  เบอร์โทรศัพท์ <span className="text-red-500">*</span>
+                </label>
+                <div className="relative">
+                  <Phone className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={form.phone}
+                    onChange={e => handleChange('phone', e.target.value)}
+                    placeholder="เช่น 02-4315111 หรือ 02-4315111 / 02-0055666"
+                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
+                  />
                 </div>
               </div>
 
