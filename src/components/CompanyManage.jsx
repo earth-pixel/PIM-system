@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Building2, Phone, Mail, Globe, MapPin, Check,
   Save, RotateCcw, Eye, ShieldCheck, Hash, Smartphone,
-  Stamp, PenTool, Upload, Trash2, Image as ImageIcon
+  Stamp, PenTool, Upload, Trash2, Image as ImageIcon,
+  AlertCircle
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
 
@@ -16,6 +17,17 @@ export default function CompanyManage({
   const stampInputRef = useRef(null);
   const signatureInputRef = useRef(null);
   const logoInputRef = useRef(null);
+
+  // Field refs for error scrolling and focusing
+  const nameInputRef = useRef(null);
+  const phoneInputRef = useRef(null);
+  const addressInputRef = useRef(null);
+  const emailInputRef = useRef(null);
+  const websiteInputRef = useRef(null);
+  const taxIdInputRef = useRef(null);
+  const signerTitleInputRef = useRef(null);
+
+  const [errorFields, setErrorFields] = useState({});
 
   // Form state focusing strictly on Header (Image 1) & Stamp/Signature (Image 2)
   const getInitialPhone = (info) => {
@@ -73,6 +85,22 @@ export default function CompanyManage({
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
+    if (errorFields[field]) {
+      setErrorFields(prev => {
+        const copy = { ...prev };
+        delete copy[field];
+        return copy;
+      });
+    }
+  };
+
+  const getFieldClass = (fieldName, extra = '') => {
+    const isErr = !!errorFields[fieldName];
+    return `w-full text-xs text-[#1d1d1f] rounded-xl transition-all ${
+      isErr
+        ? 'border-2 border-red-500 bg-red-50/40 ring-4 ring-red-500/15 focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/25 animate-shake'
+        : 'bg-[#f5f5f7] border border-[#d2d2d7]/60 focus:outline-none focus:border-[#0071e3] focus:bg-white'
+    } ${extra}`;
   };
 
   const handleFileUpload = (field, file) => {
@@ -96,34 +124,74 @@ export default function CompanyManage({
 
   const handleSave = async (e) => {
     e?.preventDefault();
+
+    const newErrors = {};
+    let firstErrorRef = null;
+    let firstErrorMessage = '';
+
     if (!form.name?.trim()) {
-      showToast('กรุณากรอกชื่อบริษัท', 'error');
-      return;
-    }
-    if (!form.address?.trim()) {
-      showToast('กรุณากรอกที่อยู่สำนักงาน', 'error');
-      return;
+      newErrors.name = true;
+      if (!firstErrorRef) {
+        firstErrorRef = nameInputRef;
+        firstErrorMessage = 'กรุณากรอกชื่อบริษัท';
+      }
     }
     if (!form.phone?.trim()) {
-      showToast('กรุณากรอกเบอร์โทรศัพท์', 'error');
-      return;
+      newErrors.phone = true;
+      if (!firstErrorRef) {
+        firstErrorRef = phoneInputRef;
+        firstErrorMessage = 'กรุณากรอกเบอร์โทรศัพท์';
+      }
+    }
+    if (!form.address?.trim()) {
+      newErrors.address = true;
+      if (!firstErrorRef) {
+        firstErrorRef = addressInputRef;
+        firstErrorMessage = 'กรุณากรอกที่อยู่สำนักงาน';
+      }
     }
     if (!form.email?.trim()) {
-      showToast('กรุณากรอกอีเมล', 'error');
-      return;
+      newErrors.email = true;
+      if (!firstErrorRef) {
+        firstErrorRef = emailInputRef;
+        firstErrorMessage = 'กรุณากรอกอีเมล';
+      }
     }
     if (!form.website?.trim()) {
-      showToast('กรุณากรอกเว็บไซต์', 'error');
-      return;
+      newErrors.website = true;
+      if (!firstErrorRef) {
+        firstErrorRef = websiteInputRef;
+        firstErrorMessage = 'กรุณากรอกเว็บไซต์';
+      }
     }
     if (!form.taxId?.trim()) {
-      showToast('กรุณากรอกเลขประจำตัวผู้เสียภาษี', 'error');
-      return;
+      newErrors.taxId = true;
+      if (!firstErrorRef) {
+        firstErrorRef = taxIdInputRef;
+        firstErrorMessage = 'กรุณากรอกเลขประจำตัวผู้เสียภาษี';
+      }
     }
     if (!form.signerTitle?.trim()) {
-      showToast('กรุณากรอกชื่อผู้ลงนาม', 'error');
+      newErrors.signerTitle = true;
+      if (!firstErrorRef) {
+        firstErrorRef = signerTitleInputRef;
+        firstErrorMessage = 'กรุณากรอกชื่อผู้ลงนาม';
+      }
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrorFields(newErrors);
+      showToast(firstErrorMessage, 'error');
+      if (firstErrorRef?.current) {
+        firstErrorRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setTimeout(() => {
+          firstErrorRef.current?.focus({ preventScroll: true });
+        }, 120);
+      }
       return;
     }
+
+    setErrorFields({});
 
     setIsSaving(true);
     try {
@@ -170,16 +238,14 @@ export default function CompanyManage({
           <button
             type="button"
             onClick={handleSave}
-            disabled={!hasChanges || isSaving}
+            disabled={isSaving}
             className={`group relative overflow-hidden px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-lg ${
-              hasChanges && !isSaving
-                ? 'bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
-                : savedSuccess
+              savedSuccess
                 ? 'bg-emerald-600 text-white shadow-emerald-500/30'
-                : 'bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none border border-zinc-300/60'
+                : 'bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
             }`}
           >
-            {hasChanges && !isSaving && (
+            {!isSaving && (
               <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
             )}
             {savedSuccess ? (
@@ -275,97 +341,139 @@ export default function CompanyManage({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                  <label className={`text-xs font-semibold mb-1 block transition-colors ${errorFields.name ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
                     ชื่อบริษัท <span className="text-red-500">*</span>
                   </label>
                   <input
+                    ref={nameInputRef}
                     type="text"
                     value={form.name}
                     onChange={e => handleChange('name', e.target.value)}
                     placeholder="เช่น บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)"
-                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-bold"
+                    className={getFieldClass('name', 'px-3.5 py-2.5 font-bold')}
                   />
+                  {errorFields.name && (
+                    <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                      <span>กรุณากรอกชื่อบริษัท</span>
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                  <label className={`text-xs font-semibold mb-1 block transition-colors ${errorFields.phone ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
                     เบอร์โทรศัพท์ <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Phone className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Phone className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${errorFields.phone ? 'text-red-500' : 'text-zinc-400'}`} />
                     <input
+                      ref={phoneInputRef}
                       type="text"
                       value={form.phone}
                       onChange={e => handleChange('phone', e.target.value)}
                       placeholder="เช่น 02-4315111 หรือ 02-4315111 / 02-0055666"
-                      className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
+                      className={getFieldClass('phone', 'pl-9 pr-3.5 py-2.5 font-medium')}
                     />
                   </div>
+                  {errorFields.phone && (
+                    <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                      <span>กรุณากรอกเบอร์โทรศัพท์</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                <label className={`text-xs font-semibold mb-1 block transition-colors ${errorFields.address ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
                   ที่อยู่สำนักงาน <span className="text-red-500">*</span>
                 </label>
                 <textarea
+                  ref={addressInputRef}
                   rows={2}
                   value={form.address}
                   onChange={e => handleChange('address', e.target.value)}
                   placeholder="เช่น 19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170"
-                  className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium resize-none leading-relaxed"
+                  className={getFieldClass('address', 'px-3.5 py-2.5 font-medium resize-none leading-relaxed')}
                 />
+                {errorFields.address && (
+                  <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                    <span>กรุณากรอกที่อยู่สำนักงาน</span>
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                  <label className={`text-xs font-semibold mb-1 block transition-colors ${errorFields.email ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
                     อีเมล (Email) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Mail className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${errorFields.email ? 'text-red-500' : 'text-zinc-400'}`} />
                     <input
+                      ref={emailInputRef}
                       type="email"
                       value={form.email}
                       onChange={e => handleChange('email', e.target.value)}
                       placeholder="info@phanvadee.co.th"
-                      className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
+                      className={getFieldClass('email', 'pl-9 pr-3.5 py-2.5 font-medium')}
                     />
                   </div>
+                  {errorFields.email && (
+                    <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                      <span>กรุณากรอกอีเมล</span>
+                    </p>
+                  )}
                 </div>
 
                 <div>
-                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                  <label className={`text-xs font-semibold mb-1 block transition-colors ${errorFields.website ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
                     เว็บไซต์ (Website) <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
-                    <Globe className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <Globe className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${errorFields.website ? 'text-red-500' : 'text-zinc-400'}`} />
                     <input
+                      ref={websiteInputRef}
                       type="text"
                       value={form.website}
                       onChange={e => handleChange('website', e.target.value)}
                       placeholder="https://www.phanvadee.com"
-                      className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
+                      className={getFieldClass('website', 'pl-9 pr-3.5 py-2.5 font-medium')}
                     />
                   </div>
+                  {errorFields.website && (
+                    <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                      <span>กรุณากรอกเว็บไซต์</span>
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div>
-                <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                <label className={`text-xs font-semibold mb-1 block transition-colors ${errorFields.taxId ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
                   เลขประจำตัวผู้เสียภาษี <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
-                  <Hash className="w-4 h-4 text-zinc-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Hash className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${errorFields.taxId ? 'text-red-500' : 'text-zinc-400'}`} />
                   <input
+                    ref={taxIdInputRef}
                     type="text"
                     value={form.taxId}
                     onChange={e => handleChange('taxId', e.target.value)}
                     placeholder="เช่น 0105546026064"
                     maxLength={20}
-                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-mono font-bold"
+                    className={getFieldClass('taxId', 'pl-9 pr-3.5 py-2.5 font-mono font-bold')}
                   />
                 </div>
+                {errorFields.taxId && (
+                  <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                    <span>กรุณากรอกเลขประจำตัวผู้เสียภาษี</span>
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -440,18 +548,25 @@ export default function CompanyManage({
 
               {/* ข้อมูลผู้มีอำนาจลงนาม */}
               <div className="space-y-3">
-                <label className="text-xs text-[#555557] font-semibold block">
+                <label className={`text-xs font-semibold block transition-colors ${errorFields.signerTitle ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
                   ชื่อผู้ลงนาม <span className="text-red-500">*</span>
                 </label>
 
                 <div>
                   <input
+                    ref={signerTitleInputRef}
                     type="text"
                     value={form.signerTitle}
                     onChange={e => handleChange('signerTitle', e.target.value)}
                     placeholder="เช่น ผู้อนุมัติ"
-                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
+                    className={getFieldClass('signerTitle', 'px-3.5 py-2.5 font-medium')}
                   />
+                  {errorFields.signerTitle && (
+                    <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                      <span>กรุณากรอกชื่อผู้ลงนาม</span>
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
