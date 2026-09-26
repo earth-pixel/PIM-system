@@ -430,7 +430,6 @@ export function getIncompleteGeneralExcelDetails(products) {
     'แบรนด์',
     'หมวดหมู่',
     'ราคาขายปลีก (บาท)',
-    'สต็อกสินค้า',
     'น้ำหนัก',
     'หมายเลข อย.',
     'รายละเอียดสินค้า'
@@ -447,7 +446,7 @@ export function getIncompleteGeneralExcelDetails(products) {
     if (!p.brand || !String(p.brand).trim()) missingFields.push('แบรนด์');
     if (!p.category || !String(p.category).trim()) missingFields.push('หมวดหมู่');
     if (isInvalidPrice(p.retailPrice)) missingFields.push('ราคาขายปลีก (บาท)');
-    if (isInvalidStock(p.stock)) missingFields.push('สต็อกสินค้า');
+    // หมายเหตุ: สต็อกสินค้าไม่จำเป็นต้องกรอกสำหรับการส่งออก Excel ทั่วไป
     if (!p.weight || !String(p.weight).trim()) missingFields.push('น้ำหนัก');
     if (!(p.fdaNumber || p.fda || p.fda_no || '').trim()) missingFields.push('หมายเลข อย.');
     if (!p.description || !String(p.description).trim()) missingFields.push('รายละเอียดสินค้า');

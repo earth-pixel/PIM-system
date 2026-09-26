@@ -883,7 +883,7 @@ export default function ProductManage({
 
     const doExport = (customStocks = exportStockMap) => {
       let productsToExport = filteredProducts;
-      if (customStocks && Object.keys(customStocks).length > 0) {
+      if (platformKey !== 'excel' && customStocks && Object.keys(customStocks).length > 0) {
         productsToExport = filteredProducts.map(p => {
           const userVal = customStocks[p.id] !== undefined ? customStocks[p.id] : (p.code ? customStocks[p.code] : undefined);
           if (userVal !== undefined && userVal !== '') {
@@ -918,7 +918,7 @@ export default function ProductManage({
           onBulkUpdateProducts(updatedAll);
         }
       }
-      exportFn(productsToExport, { stockMap: customStocks });
+      exportFn(productsToExport, platformKey === 'excel' ? {} : { stockMap: customStocks });
       if (addActivityLog && logMsg) {
         addActivityLog(logMsg);
       }
@@ -1906,214 +1906,227 @@ export default function ProductManage({
       )}
 
       {/* Incomplete Export Warning Modal */}
-      {incompleteExportModal.isOpen && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in no-print">
-          <div
-            onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
-            className="absolute inset-0"
-          />
-          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/80 shadow-2xl max-w-4xl w-full max-h-[90vh] p-6 flex flex-col gap-4 animate-scale-in text-[#1d1d1f] overflow-hidden">
-            {/* Header */}
-            <div className="flex items-start gap-3.5 shrink-0">
-              <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center flex-shrink-0 text-amber-600 shadow-xs">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h3 className="text-base font-bold text-zinc-900 leading-snug">
-                  ตรวจพบคอลัมน์ที่ข้อมูลไม่ครบถ้วน
-                </h3>
-                <p className="text-xs text-zinc-500 mt-0.5">
-                  คุณสามารถระบุจำนวนสต็อกสำหรับนำออก {incompleteExportModal.platformName} ได้ที่ช่องด้านขวาของแต่ละรายการ
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
-                className="text-zinc-400 hover:text-zinc-700 p-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer shrink-0"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {incompleteExportModal.isOpen && (() => {
+        const hasStockMissing = incompleteExportModal.missingHeaders?.some(h =>
+          ['คลังสินค้า', 'จำนวน', 'สต็อกสินค้า', 'สต๊อกสินค้า'].includes(h)
+        );
+        const showStockInputs = incompleteExportModal.platformKey !== 'excel' && hasStockMissing;
 
-            {/* Scrollable Body */}
-            <div className="flex-1 overflow-y-auto space-y-3.5 pr-0.5 min-h-0">
-              {/* Incomplete Table Headers Box */}
-              <div className="bg-zinc-50 border border-zinc-200/70 rounded-2xl p-3.5">
-                <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center justify-between">
-                  <span>คอลัมน์ที่ข้อมูลไม่ครบ:</span>
-                  <span className="text-rose-600 font-semibold">{incompleteExportModal.missingHeaders.length} คอลัมน์</span>
+        return createPortal(
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in no-print">
+            <div
+              onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
+              className="absolute inset-0"
+            />
+            <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/80 shadow-2xl max-w-4xl w-full max-h-[90vh] p-6 flex flex-col gap-4 animate-scale-in text-[#1d1d1f] overflow-hidden">
+              {/* Header */}
+              <div className="flex items-start gap-3.5 shrink-0">
+                <div className="w-11 h-11 rounded-2xl bg-amber-50 border border-amber-200/80 flex items-center justify-center flex-shrink-0 text-amber-600 shadow-xs">
+                  <AlertTriangle className="w-5 h-5" />
                 </div>
-                <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
-                  {incompleteExportModal.missingHeaders.map((headerName, idx) => (
-                    <span
-                      key={idx}
-                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/70 shadow-2xs"
-                    >
-                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                      {headerName}
-                    </span>
-                  ))}
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-base font-bold text-zinc-900 leading-snug">
+                    ตรวจพบคอลัมน์ที่ข้อมูลไม่ครบถ้วน
+                  </h3>
+                  <p className="text-xs text-zinc-500 mt-0.5">
+                    {showStockInputs
+                      ? `คุณสามารถระบุจำนวนสต็อกสำหรับนำออก ${incompleteExportModal.platformName} ได้ที่ช่องด้านขวาของแต่ละรายการ`
+                      : `ตรวจพบข้อมูลบางคอลัมน์ยังไม่ครบถ้วน คุณสามารถกด "ยืนยันนำออกต่อไป" เพื่อส่งออกไฟล์ตามข้อมูลที่มีอยู่ หรือยกเลิกเพื่อไปแก้ไข`}
+                  </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
+                  className="text-zinc-400 hover:text-zinc-700 p-1 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               </div>
 
-              {/* Incomplete Products List Box (พร้อมช่องกรอกสต็อกด้านหลัง) */}
-              {incompleteExportModal.incompleteProducts && incompleteExportModal.incompleteProducts.length > 0 && (
-                <div className="bg-zinc-50 border border-zinc-200/70 rounded-2xl p-3.5 flex flex-col min-h-0">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5 pb-2 border-b border-zinc-200/70">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider">
-                        รายการสินค้าที่ข้อมูลไม่ครบ:
-                      </span>
-                      <span className="text-amber-700 font-bold text-xs bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-300">
-                        {incompleteExportModal.incompleteProducts.length} รายการ
-                      </span>
-                    </div>
-
-                    {/* Quick batch stock */}
-                    <div className="flex items-center gap-1.5 self-end sm:self-auto bg-white px-2.5 py-1 rounded-xl border border-zinc-200 shadow-2xs">
-                      <span className="text-[10px] font-bold text-zinc-600">ใส่สต็อกเท่ากันทั้งหมด:</span>
-                      <input
-                        type="number"
-                        min="0"
-                        value={batchStockVal}
-                        onChange={(e) => setBatchStockVal(e.target.value)}
-                        placeholder="0"
-                        className="w-16 px-2 py-0.5 text-xs font-bold text-zinc-800 bg-zinc-50 border border-zinc-300 rounded-md text-center focus:outline-none focus:border-[#0071e3]"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (batchStockVal === '') return;
-                          const newMap = { ...exportStockMap };
-                          incompleteExportModal.incompleteProducts.forEach(prod => {
-                            newMap[prod.id] = batchStockVal;
-                            if (prod.code) newMap[prod.code] = batchStockVal;
-                          });
-                          setExportStockMap(newMap);
-                        }}
-                        className="px-2.5 py-1 bg-[#1d1d1f] hover:bg-black text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
-                      >
-                        ใช้กับทั้งหมด
-                      </button>
-                    </div>
+              {/* Scrollable Body */}
+              <div className="flex-1 overflow-y-auto space-y-3.5 pr-0.5 min-h-0">
+                {/* Incomplete Table Headers Box */}
+                <div className="bg-zinc-50 border border-zinc-200/70 rounded-2xl p-3.5">
+                  <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>คอลัมน์ที่ข้อมูลไม่ครบ:</span>
+                    <span className="text-rose-600 font-semibold">{incompleteExportModal.missingHeaders.length} คอลัมน์</span>
                   </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                    {incompleteExportModal.missingHeaders.map((headerName, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-semibold bg-rose-50 text-rose-700 border border-rose-200/70 shadow-2xs"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                        {headerName}
+                      </span>
+                    ))}
+                  </div>
+                </div>
 
-                  <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
-                    {incompleteExportModal.incompleteProducts.map((p, idx) => {
-                      const userTypedStock = exportStockMap[p.id] !== undefined ? exportStockMap[p.id] : (p.code && exportStockMap[p.code] !== undefined ? exportStockMap[p.code] : '');
-                      const isStockFilled = userTypedStock !== undefined && userTypedStock !== '' && !isNaN(userTypedStock) && Number(userTypedStock) >= 0;
+                {/* Incomplete Products List Box (พร้อมช่องกรอกสต็อกด้านหลัง) */}
+                {incompleteExportModal.incompleteProducts && incompleteExportModal.incompleteProducts.length > 0 && (
+                  <div className="bg-zinc-50 border border-zinc-200/70 rounded-2xl p-3.5 flex flex-col min-h-0">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2.5 pb-2 border-b border-zinc-200/70">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-zinc-600 uppercase tracking-wider">
+                          รายการสินค้าที่ข้อมูลไม่ครบ:
+                        </span>
+                        <span className="text-amber-700 font-bold text-xs bg-amber-100/80 px-2.5 py-0.5 rounded-full border border-amber-300">
+                          {incompleteExportModal.incompleteProducts.length} รายการ
+                        </span>
+                      </div>
 
-                      return (
-                        <div
-                          key={p.id || idx}
-                          className="bg-white border border-zinc-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-zinc-300 transition-all"
-                        >
-                          {/* Left: Thumbnail & Details */}
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div className="w-11 h-11 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center overflow-hidden shrink-0">
-                              {p.image ? (
-                                <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
-                              ) : (
-                                <Package className="w-5 h-5 text-zinc-400" />
-                              )}
-                            </div>
+                      {/* Quick batch stock */}
+                      {showStockInputs && (
+                        <div className="flex items-center gap-1.5 self-end sm:self-auto bg-white px-2.5 py-1 rounded-xl border border-zinc-200 shadow-2xs">
+                          <span className="text-[10px] font-bold text-zinc-600">ใส่สต็อกเท่ากันทั้งหมด:</span>
+                          <input
+                            type="number"
+                            min="0"
+                            value={batchStockVal}
+                            onChange={(e) => setBatchStockVal(e.target.value)}
+                            placeholder="0"
+                            className="w-16 px-2 py-0.5 text-xs font-bold text-zinc-800 bg-zinc-50 border border-zinc-300 rounded-md text-center focus:outline-none focus:border-[#0071e3]"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (batchStockVal === '') return;
+                              const newMap = { ...exportStockMap };
+                              incompleteExportModal.incompleteProducts.forEach(prod => {
+                                newMap[prod.id] = batchStockVal;
+                                if (prod.code) newMap[prod.code] = batchStockVal;
+                              });
+                              setExportStockMap(newMap);
+                            }}
+                            className="px-2.5 py-1 bg-[#1d1d1f] hover:bg-black text-white text-[10px] font-bold rounded-lg transition-colors cursor-pointer"
+                          >
+                            ใช้กับทั้งหมด
+                          </button>
+                        </div>
+                      )}
+                    </div>
 
-                            <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200 shrink-0">
-                                  {p.code}
-                                </span>
-                                <p className="text-xs font-bold text-zinc-900 truncate" title={p.name}>
-                                  {p.name}
-                                </p>
+                    <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                      {incompleteExportModal.incompleteProducts.map((p, idx) => {
+                        const userTypedStock = exportStockMap[p.id] !== undefined ? exportStockMap[p.id] : (p.code && exportStockMap[p.code] !== undefined ? exportStockMap[p.code] : '');
+                        const isStockFilled = userTypedStock !== undefined && userTypedStock !== '' && !isNaN(userTypedStock) && Number(userTypedStock) >= 0;
+
+                        return (
+                          <div
+                            key={p.id || idx}
+                            className="bg-white border border-zinc-200/80 rounded-2xl p-3 flex items-center justify-between gap-3 shadow-2xs hover:border-zinc-300 transition-all"
+                          >
+                            {/* Left: Thumbnail & Details */}
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="w-11 h-11 rounded-xl bg-zinc-100 border border-zinc-200/60 flex items-center justify-center overflow-hidden shrink-0">
+                                {p.image ? (
+                                  <img src={p.image} alt={p.name} className="w-full h-full object-cover" />
+                                ) : (
+                                  <Package className="w-5 h-5 text-zinc-400" />
+                                )}
                               </div>
 
-                              {/* Missing fields tag */}
-                              <div className="flex flex-wrap items-center gap-1 mt-1.5">
-                                <span className="text-[10px] text-zinc-400 font-medium">ขาด:</span>
-                                {p.missingFields.map((field, fIdx) => {
-                                  const isStockField = ['คลังสินค้า', 'จำนวน', 'สต็อกสินค้า', 'สต๊อกสินค้า'].includes(field);
-                                  if (isStockField && isStockFilled) {
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200 shrink-0">
+                                    {p.code}
+                                  </span>
+                                  <p className="text-xs font-bold text-zinc-900 truncate" title={p.name}>
+                                    {p.name}
+                                  </p>
+                                </div>
+
+                                {/* Missing fields tag */}
+                                <div className="flex flex-wrap items-center gap-1 mt-1.5">
+                                  <span className="text-[10px] text-zinc-400 font-medium">ขาด:</span>
+                                  {p.missingFields.map((field, fIdx) => {
+                                    const isStockField = ['คลังสินค้า', 'จำนวน', 'สต็อกสินค้า', 'สต๊อกสินค้า'].includes(field);
+                                    if (isStockField && isStockFilled && showStockInputs) {
+                                      return (
+                                        <span
+                                          key={fIdx}
+                                          className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded-md flex items-center gap-1"
+                                        >
+                                          <Check className="w-2.5 h-2.5" />
+                                          {field} ({userTypedStock})
+                                        </span>
+                                      );
+                                    }
                                     return (
                                       <span
                                         key={fIdx}
-                                        className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 px-1.5 py-0.5 rounded-md flex items-center gap-1"
+                                        className="text-[10px] font-medium text-rose-600 bg-rose-50 border border-rose-200/60 px-1.5 py-0.5 rounded-md"
                                       >
-                                        <Check className="w-2.5 h-2.5" />
-                                        {field} ({userTypedStock})
+                                        {field}
                                       </span>
                                     );
-                                  }
-                                  return (
-                                    <span
-                                      key={fIdx}
-                                      className="text-[10px] font-medium text-rose-600 bg-rose-50 border border-rose-200/60 px-1.5 py-0.5 rounded-md"
-                                    >
-                                      {field}
-                                    </span>
-                                  );
-                                })}
+                                  })}
+                                </div>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Right: Stock Input Field */}
-                          <div className="shrink-0 flex items-center gap-3 pl-4 border-l border-zinc-200">
-                            <span className="text-xs font-bold text-zinc-700 whitespace-nowrap">กรอกจำนวนสต็อก :</span>
-                            <input
-                              type="number"
-                              min="0"
-                              value={userTypedStock}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setExportStockMap(prev => ({
-                                  ...prev,
-                                  [p.id]: val,
-                                  ...(p.code ? { [p.code]: val } : {})
-                                }));
-                              }}
-                              placeholder="0"
-                              className={`w-28 px-3 py-2 text-sm font-bold text-zinc-900 rounded-xl border text-center transition-all focus:outline-none focus:ring-2 ${
-                                isStockFilled
-                                  ? 'bg-emerald-50/50 border-emerald-300 text-emerald-900 focus:border-emerald-500 focus:ring-emerald-200'
-                                  : 'bg-[#f5f5f7] border-[#d2d2d7] focus:bg-white focus:border-[#0071e3] focus:ring-[#0071e3]/20'
-                              }`}
-                            />
+                            {/* Right: Stock Input Field */}
+                            {showStockInputs && (
+                              <div className="shrink-0 flex items-center gap-3 pl-4 border-l border-zinc-200">
+                                <span className="text-xs font-bold text-zinc-700 whitespace-nowrap">กรอกจำนวนสต็อก :</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  value={userTypedStock}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setExportStockMap(prev => ({
+                                      ...prev,
+                                      [p.id]: val,
+                                      ...(p.code ? { [p.code]: val } : {})
+                                    }));
+                                  }}
+                                  placeholder="0"
+                                  className={`w-28 px-3 py-2 text-sm font-bold text-zinc-900 rounded-xl border text-center transition-all focus:outline-none focus:ring-2 ${
+                                    isStockFilled
+                                      ? 'bg-emerald-50/50 border-emerald-300 text-emerald-900 focus:border-emerald-500 focus:ring-emerald-200'
+                                      : 'bg-[#f5f5f7] border-[#d2d2d7] focus:bg-white focus:border-[#0071e3] focus:ring-[#0071e3]/20'
+                                  }`}
+                                />
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
 
-            {/* Actions */}
-            <div className="flex items-center gap-3 pt-1 shrink-0">
-              <button
-                type="button"
-                onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
-                className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7] text-xs font-bold rounded-xl transition-all cursor-pointer"
-              >
-                ยกเลิกเพื่อไปแก้ไข
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const onConfirm = incompleteExportModal.onConfirm;
-                  setIncompleteExportModal(prev => ({ ...prev, isOpen: false }));
-                  if (onConfirm) onConfirm(exportStockMap);
-                }}
-                className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-              >
-                <Download className="w-4 h-4" />
-                ยืนยันนำออกต่อไป
-              </button>
+              {/* Actions */}
+              <div className="flex items-center gap-3 pt-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIncompleteExportModal(prev => ({ ...prev, isOpen: false }))}
+                  className="flex-1 py-2.5 border border-[#d2d2d7] text-[#1d1d1f] hover:bg-[#f5f5f7] text-xs font-bold rounded-xl transition-all cursor-pointer"
+                >
+                  ยกเลิกเพื่อไปแก้ไข
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const onConfirm = incompleteExportModal.onConfirm;
+                    setIncompleteExportModal(prev => ({ ...prev, isOpen: false }));
+                    if (onConfirm) onConfirm(exportStockMap);
+                  }}
+                  className="flex-1 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold rounded-xl shadow-lg shadow-amber-500/20 transition-all cursor-pointer flex items-center justify-center gap-1.5"
+                >
+                  <Download className="w-4 h-4" />
+                  ยืนยันนำออกต่อไป
+                </button>
+              </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        );
+      })()}
 
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 no-print relative z-30">
