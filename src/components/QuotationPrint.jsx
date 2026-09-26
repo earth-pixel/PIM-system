@@ -1102,11 +1102,6 @@ export default function QuotationPrint({
             <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK, marginTop: 4 }}>
               {companyInfo.signerTitle || 'ผู้อนุมัติ'}
             </div>
-            {companyInfo.signerName && (
-              <div style={{ fontSize: '9.5px', color: GRAY, marginTop: 2 }}>
-                ({companyInfo.signerName})
-              </div>
-            )}
             <div style={{ fontSize: '10px', color: DARK, marginTop: 12, textAlign: 'center', width: '100%' }}>
               วันที่ {quotation.issuedDate ? fmtDate(quotation.issuedDate) : '.....................................................................'}
             </div>
@@ -1127,11 +1122,6 @@ export default function QuotationPrint({
             <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK }}>
               {companyInfo.signerTitle || 'ผู้อนุมัติ'}
             </div>
-            {companyInfo.signerName && (
-              <div style={{ fontSize: '9.5px', color: GRAY, marginTop: 2 }}>
-                ({companyInfo.signerName})
-              </div>
-            )}
 
             {/* Date Box */}
             <div style={{ fontSize: '10px', color: DARK, width: '100%', textAlign: 'center', marginTop: 12 }}>

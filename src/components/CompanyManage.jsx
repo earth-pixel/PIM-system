@@ -438,13 +438,10 @@ export default function CompanyManage({
               {/* ข้อมูลผู้มีอำนาจลงนาม */}
               <div className="space-y-3">
                 <label className="text-xs text-[#555557] font-semibold block">
-                  ข้อมูลผู้ลงนาม
+                  ตำแหน่งผู้ลงนาม
                 </label>
 
                 <div>
-                  <label className="text-[11px] text-zinc-500 mb-1 block">
-                    ตำแหน่งผู้ลงนาม (เช่น ผู้อนุมัติ / กรรมการผู้จัดการ)
-                  </label>
                   <input
                     type="text"
                     value={form.signerTitle}
@@ -452,19 +449,7 @@ export default function CompanyManage({
                     placeholder="เช่น ผู้อนุมัติ"
                     className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
                   />
-                </div>
-
-                <div>
-                  <label className="text-[11px] text-zinc-500 mb-1 block">
-                    ชื่อ-นามสกุลผู้ลงนาม (ถ้าต้องการระบุ)
-                  </label>
-                  <input
-                    type="text"
-                    value={form.signerName}
-                    onChange={e => handleChange('signerName', e.target.value)}
-                    placeholder="เช่น นายสมศักดิ์ รักดี"
-                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
-                  />
+                  <p className="text-[10px] text-zinc-400 mt-1.5">ข้อความจะแสดงใต้ลายเซ็น เช่น ผู้อนุมัติ หรือ กรรมการผู้จัดการ</p>
                 </div>
               </div>
             </div>
@@ -546,12 +531,6 @@ export default function CompanyManage({
                   <div className="font-bold text-[10.5px] text-zinc-800">
                     {form.signerTitle || 'ผู้อนุมัติ'}
                   </div>
-
-                  {form.signerName && (
-                    <div className="text-[9px] text-zinc-500">
-                      ({form.signerName})
-                    </div>
-                  )}
 
                   <div className="text-[9.5px] text-zinc-400 mt-2">
                     วันที่ {new Date().toLocaleDateString('th-TH')}
