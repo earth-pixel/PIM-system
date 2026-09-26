@@ -92,6 +92,86 @@ function logCollectionChange(db, user, key, before) {
     return;
   }
 
+  if (key === 'companyInfo') {
+    const prev = before && typeof before === 'object' ? before : {};
+    const curr = after && typeof after === 'object' ? after : {};
+    const changes = [];
+    const FIELD_MAP = {
+      name: 'ชื่อบริษัท',
+      taxId: 'เลขประจำตัวผู้เสียภาษี',
+      address: 'ที่อยู่สำนักงาน',
+      phone: 'เบอร์โทรศัพท์',
+      email: 'อีเมล',
+      website: 'เว็บไซต์',
+      signerTitle: 'ตำแหน่ง/ชื่อผู้ลงนาม',
+      logo: 'โลโก้บริษัท',
+      signatureImage: 'รูปลายเซ็นผู้ลงนาม',
+      stampImage: 'รูปตราประทับ'
+    };
+
+    for (const [fKey, fLabel] of Object.entries(FIELD_MAP)) {
+      const oldVal = prev[fKey];
+      const newVal = curr[fKey];
+      if (['logo', 'signatureImage', 'stampImage'].includes(fKey)) {
+        const hasOld = Boolean(oldVal && String(oldVal).trim());
+        const hasNew = Boolean(newVal && String(newVal).trim());
+        if (!hasOld && hasNew) {
+          changes.push({ field: fLabel, before: '-', after: 'อัปโหลดรูปภาพใหม่' });
+        } else if (hasOld && !hasNew) {
+          changes.push({ field: fLabel, before: 'มีรูปภาพเดิม', after: 'ลบแล้ว' });
+        } else if (hasOld && hasNew && oldVal !== newVal) {
+          changes.push({ field: fLabel, before: 'รูปภาพเดิม', after: 'อัปเดตรูปภาพใหม่' });
+        }
+      } else {
+        const strOld = oldVal !== undefined && oldVal !== null ? String(oldVal).trim() : '';
+        const strNew = newVal !== undefined && newVal !== null ? String(newVal).trim() : '';
+        if (strOld !== strNew) {
+          changes.push({
+            field: fLabel,
+            before: strOld || '-',
+            after: strNew || '-'
+          });
+        }
+      }
+    }
+
+    if (changes.length > 0) {
+      appendLog(db, user, 'แก้ไขข้อมูลบริษัท', {
+        type: 'companyInfo',
+        changes
+      });
+    } else {
+      appendLog(db, user, 'บันทึกข้อมูลบริษัท', {
+        type: 'companyInfo',
+        changes: [{ field: 'ข้อมูลบริษัท', before: 'ข้อมูลเดิม', after: 'บันทึกยืนยันข้อมูลบริษัท' }]
+      });
+    }
+    return;
+  }
+
+  if (key === 'subcategories') {
+    const prev = before && typeof before === 'object' ? before : {};
+    const curr = after && typeof after === 'object' ? after : {};
+    const changes = [];
+    const allCats = [...new Set([...Object.keys(prev), ...Object.keys(curr)])];
+    for (const cat of allCats) {
+      const oldList = Array.isArray(prev[cat]) ? prev[cat] : [];
+      const newList = Array.isArray(curr[cat]) ? curr[cat] : [];
+      if (!same(oldList, newList)) {
+        changes.push({
+          field: `หมวดหมู่ย่อย (${cat})`,
+          before: oldList.length ? oldList.join(', ') : '-',
+          after: newList.length ? newList.join(', ') : 'ไม่มีหมวดหมู่ย่อย'
+        });
+      }
+    }
+    appendLog(db, user, changes.length ? 'แก้ไขหมวดหมู่ย่อย' : 'บันทึกหมวดหมู่ย่อย', {
+      type: 'subcategories',
+      changes: changes.length ? changes : [{ field: 'หมวดหมู่ย่อย', before: '-', after: 'บันทึกหมวดหมู่ย่อย' }]
+    });
+    return;
+  }
+
   if (!Array.isArray(after)) {
     appendLog(db, user, `บันทึก${labels[key] || key}`, { type: key });
     return;
@@ -523,7 +603,7 @@ export function createApi(dbPath) {
     if (!keys.includes(key) || (key !== 'subcategories' && key !== 'companyInfo' && !Array.isArray(data))) fail(400, 'รูปแบบข้อมูลไม่ถูกต้อง');
     const result = store.transact(db => {
       checkVersion(db, key, expectedRevision);
-      const before = db[key] || (['subcategories', 'companyInfo'].includes(key) ? {} : []);
+      const before = JSON.parse(JSON.stringify(db[key] || (['subcategories', 'companyInfo'].includes(key) ? {} : [])));
       if (['brands', 'categories', 'subcategories', 'activityLog'].includes(key) && req.user.role !== 'admin') fail(403, 'เฉพาะ Admin เท่านั้น');
       if (key === 'companyInfo' && req.user.role !== 'admin' && !req.user.permissions?.pages?.company) fail(403, 'ไม่มีสิทธิ์แก้ไขข้อมูลบริษัท');
       if (key === 'products') {

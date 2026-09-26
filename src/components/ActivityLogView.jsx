@@ -618,7 +618,7 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
               </div>
 
               {/* Edit Details before/after Section */}
-              {selectedLog.details && selectedLog.details.changes && selectedLog.details.changes.length > 0 && (
+              {selectedLog.details && selectedLog.details.changes && selectedLog.details.changes.length > 0 ? (
                 <div className="space-y-2.5 pt-1">
                   <span className="text-[10px] text-[#555557] font-bold uppercase block tracking-wider">รายละเอียดการเปลี่ยนแปลง</span>
                   <div className="space-y-2">
@@ -659,6 +659,14 @@ export default function ActivityLogView({ activityLog, onClearLogs, currentUser 
                       );
                     })}
                   </div>
+                </div>
+              ) : (
+                <div className="p-3.5 bg-zinc-50 border border-zinc-200/70 rounded-2xl text-center text-zinc-500 text-xs space-y-1">
+                  <p className="font-semibold text-zinc-700">
+                    {selectedLog.action?.includes('บริษัท')
+                      ? 'บันทึกการตั้งค่าข้อมูลบริษัทและหัวเอกสารเรียบร้อยแล้ว'
+                      : 'บันทึกข้อมูลเรียบร้อยแล้ว'}
+                  </p>
                 </div>
               )}
 

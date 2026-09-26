@@ -22,8 +22,6 @@ export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-let quotationHasCustomerAcceptedAt = null;
-
 // Helper to remove an image file from Supabase Storage given its public URL
 export async function deleteStorageImage(url) {
   if (!url || typeof url !== 'string' || !isSupabaseConfigured || !supabase) return;
@@ -215,7 +213,6 @@ export function toSupabaseQuotation(q) {
     project_name: projName || null,
     approved_by: approvedBy,
     approved_at: approvedAt,
-    customer_accepted_at: q.customerAcceptedAt || q.customer_accepted_at || null,
     customer_id: custId,
     customer_snapshot: customerSnapshot,
     items: q.items || [],
@@ -270,7 +267,6 @@ export function fromSupabaseQuotation(row) {
     projectName: projName,
     approvedBy,
     approvedDate,
-    customerAcceptedAt: row.customer_accepted_at || row.customerAcceptedAt || '',
     items: (row.items || []).map(item => ({ ...item, discountType: item.discountType || 'percent' })),
     subtotal,
     discount,
@@ -282,7 +278,6 @@ export function fromSupabaseQuotation(row) {
     notes: row.notes || '',
     note: row.notes || '',
     createdBy: row.created_by || '',
-    pdfUrl: row.pdf_url || '',
     createdAt: row.created_at || new Date().toISOString(),
     updatedAt: row.updated_at || row.created_at || new Date().toISOString()
   };
@@ -525,19 +520,8 @@ export async function saveCollectionToSupabase(key, data) {
 
       const rows = incomingList.map(toSupabaseQuotation);
       for (let i = 0; i < rows.length; i += 50) {
-        let batch = rows.slice(i, i + 50);
-        if (quotationHasCustomerAcceptedAt === false) {
-          batch = batch.map(({ customer_accepted_at, ...rest }) => rest);
-        }
-        let { error } = await supabase.from('quotations').upsert(batch, { onConflict: 'id' });
-        if (error && error.message && error.message.includes('customer_accepted_at')) {
-          quotationHasCustomerAcceptedAt = false;
-          const sanitizedBatch = batch.map(({ customer_accepted_at, ...rest }) => rest);
-          const retry = await supabase.from('quotations').upsert(sanitizedBatch, { onConflict: 'id' });
-          error = retry.error;
-        } else if (!error && quotationHasCustomerAcceptedAt === null) {
-          quotationHasCustomerAcceptedAt = true;
-        }
+        const batch = rows.slice(i, i + 50);
+        const { error } = await supabase.from('quotations').upsert(batch, { onConflict: 'id' });
         if (error) {
           console.error('Supabase quotation upsert error:', error);
           throw error;

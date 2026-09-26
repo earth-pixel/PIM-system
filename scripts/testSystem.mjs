@@ -32,13 +32,14 @@ test('Supabase customer and quotation mappings have one clear source per field',
     ...quotation(),
     customerRegion: 'Central',
     approvedBy: 'Admin',
-    approvedDate: '2026-09-18T03:00:00.000Z',
-    customerAcceptedAt: '2026-09-18T04:00:00.000Z'
+    approvedDate: '2026-09-18T03:00:00.000Z'
   });
   assert.equal(quotationRow.document_type, 'quotation');
   assert.equal(quotationRow.issued_date, today);
   assert.equal(quotationRow.customer_snapshot.region, 'Central');
   assert.equal('customer_region' in quotationRow, false);
+  assert.equal('customer_accepted_at' in quotationRow, false);
+  assert.equal('pdf_url' in quotationRow, false);
   assert.equal('salespersonName' in quotationRow.customer_snapshot, false);
   assert.equal('projectName' in quotationRow.customer_snapshot, false);
   assert.equal('approvedBy' in quotationRow.customer_snapshot, false);
@@ -48,7 +49,6 @@ test('Supabase customer and quotation mappings have one clear source per field',
   assert.equal(restored.salespersonName, 'ann');
   assert.equal(restored.projectName, 'Project');
   assert.equal(restored.approvedBy, 'Admin');
-  assert.equal(restored.customerAcceptedAt, '2026-09-18T04:00:00.000Z');
 });
 async function setup(t) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pim-system-test-'));
@@ -324,4 +324,21 @@ test('HTTPS proxy origin is explicit and sets Secure session cookies', async t =
     assert.match(response.cookieHeader, /; HttpOnly/);
     assert.match(response.cookieHeader, /; SameSite=Strict/i);
   } finally { if (original === undefined) delete process.env.PIM_PUBLIC_ORIGIN; else process.env.PIM_PUBLIC_ORIGIN = original; }
+});
+
+test('companyInfo change tracking logs detailed before and after changes in activityLog', async t => {
+  const { login, save, call } = await setup(t);
+  const cookie = await login();
+  const res = await save(cookie, 'companyInfo', {
+    name: 'บริษัท ทดสอบใหม่ จำกัด',
+    phone: '02-9999999',
+    taxId: '0105546026064'
+  });
+  assert.equal(res.status, 200);
+  const db = (await call('/db', undefined, cookie)).data;
+  const latestLog = db.activityLog[0];
+  assert.ok(latestLog);
+  assert.equal(latestLog.action, 'แก้ไขข้อมูลบริษัท');
+  assert.ok(latestLog.details?.changes?.length > 0);
+  assert.ok(latestLog.details.changes.some(c => c.field === 'ชื่อบริษัท' && c.after === 'บริษัท ทดสอบใหม่ จำกัด'));
 });

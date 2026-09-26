@@ -64,6 +64,17 @@ const uploadLimiter = rateLimiter(60000, 10);
 const generalLimiter = rateLimiter(60000, 30);
 
 export default defineConfig({
+  optimizeDeps: {
+    include: [
+      'react',
+      'react-dom',
+      'react-dom/client',
+      'lucide-react',
+      'jsbarcode',
+      'exceljs',
+      '@supabase/supabase-js'
+    ]
+  },
   plugins: [
     react(),
     tailwindcss(),

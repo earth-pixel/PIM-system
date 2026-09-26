@@ -282,14 +282,6 @@ export default function CompanyManage({
       setSavedSuccess(true);
       showToast('บันทึกข้อมูลบริษัทสำเร็จ เรียบร้อยแล้ว', 'success');
 
-      if (addActivityLog) {
-        addActivityLog({
-          action: 'แก้ไขข้อมูลบริษัท',
-          details: `อัปเดตข้อมูลหัวเอกสารและลายเซ็นบริษัท ${form.name.trim()}`,
-          target: form.name.trim(),
-          category: 'company',
-        });
-      }
 
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
