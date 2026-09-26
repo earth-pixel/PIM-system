@@ -104,13 +104,17 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
           {/* SECTION 1: HEADER */}
           <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-[#f5f5f7] pb-6 mb-8">
             <div className="flex gap-4 items-start">
-              <svg viewBox="0 0 160 160" className="w-14 h-14 fill-current text-zinc-900 shrink-0" xmlns="http://www.w3.org/2000/svg">
-                <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
-                <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
-                <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
-                <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
-                <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
-              </svg>
+              {co.logo ? (
+                <img src={co.logo} alt="Logo" className="w-14 h-14 object-contain shrink-0" />
+              ) : (
+                <svg viewBox="0 0 160 160" className="w-14 h-14 fill-current text-zinc-900 shrink-0" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
+                  <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
+                  <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
+                  <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
+                  <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
+                </svg>
+              )}
               <div className="text-xs text-[#1d1d1f] leading-relaxed">
                 <div className="font-extrabold text-sm mb-1 text-black">{co.name}</div>
                 <div className="text-[#555557] max-w-sm">{co.address}</div>

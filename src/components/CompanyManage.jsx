@@ -225,14 +225,16 @@ export default function CompanyManage({
                   โลโก้บริษัท (Logo)
                 </label>
                 <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 rounded-2xl bg-[#f5f5f7] border border-zinc-200 p-2 flex items-center justify-center shrink-0 overflow-hidden">
+                  <div className="w-20 h-20 rounded-2xl bg-[#f5f5f7] border border-zinc-200 p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
                     {form.logo ? (
                       <img src={form.logo} alt="Logo" className="w-full h-full object-contain" />
                     ) : (
-                      <svg viewBox="0 0 80 90" className="w-full h-full fill-black" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M 20 38 L 20 26 L 60 11 L 60 23 Z" />
-                        <path d="M 20 60 L 20 48 L 60 33 L 60 45 Z" />
-                        <path d="M 20 82 L 20 70 L 60 55 L 60 67 Z" />
+                      <svg viewBox="0 0 160 160" className="w-full h-full fill-[#1d1d1f]" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
+                        <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
+                        <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
+                        <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
+                        <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
                       </svg>
                     )}
                   </div>
