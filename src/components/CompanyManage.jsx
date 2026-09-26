@@ -76,15 +76,15 @@ export default function CompanyManage({
     }
     const reader = new FileReader();
     reader.onload = (e) => {
-      handleChange(field, e.target.result);
+      const dataUrl = e.target.result;
+      if (field === 'signatureImage' || field === 'stampImage') {
+        setForm(prev => ({ ...prev, signatureImage: dataUrl, stampImage: dataUrl }));
+      } else {
+        handleChange(field, dataUrl);
+      }
       showToast('อัปโหลดรูปภาพเรียบร้อย', 'info');
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleReset = () => {
-    setForm(initialData);
-    showToast('คืนค่าข้อมูลเดิมเรียบร้อย', 'info');
   };
 
   const handleSave = async (e) => {
@@ -115,7 +115,7 @@ export default function CompanyManage({
       if (addActivityLog) {
         addActivityLog({
           action: 'แก้ไขข้อมูลบริษัท',
-          details: `อัปเดตข้อมูลหัวเอกสารและตราประทับบริษัท ${form.name.trim()}`,
+          details: `อัปเดตข้อมูลหัวเอกสารและลายเซ็นบริษัท ${form.name.trim()}`,
           target: form.name.trim(),
           category: 'company',
         });
@@ -128,6 +128,8 @@ export default function CompanyManage({
       setIsSaving(false);
     }
   };
+
+  const activeSignature = form.signatureImage || form.stampImage || '';
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12 animate-fade-in text-[#1d1d1f]">
@@ -142,31 +144,12 @@ export default function CompanyManage({
               <h1 className="text-xl sm:text-2xl font-black text-[#1d1d1f] tracking-tight leading-none">
                 จัดการข้อมูลบริษัท
               </h1>
-              <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span>เชื่อมต่อกับใบเสนอราคา</span>
-              </span>
             </div>
-            <p className="text-xs text-[#86868b] mt-1 font-medium">
-              ตั้งค่าข้อมูลหัวเอกสาร โลโก้ และตราประทับบริษัท สำหรับพิมพ์ในใบเสนอราคาและใบเสนอสินค้า
-            </p>
+            
           </div>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={!hasChanges || isSaving}
-            className={`px-4 py-2.5 text-xs font-bold rounded-full border transition-all flex items-center gap-1.5 cursor-pointer ${
-              hasChanges && !isSaving
-                ? 'bg-white border-[#d2d2d7] text-[#1d1d1f] hover:bg-zinc-50 shadow-xs'
-                : 'bg-zinc-100 border-zinc-200 text-zinc-400 cursor-not-allowed opacity-60'
-            }`}
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-            <span>รีเซ็ต</span>
-          </button>
 
           <button
             type="button"
@@ -384,13 +367,13 @@ export default function CompanyManage({
             </div>
           </div>
 
-          {/* Card 2: ตราประทับบริษัท & ผู้มีอำนาจลงนาม (ตรงตามรูปที่ 2) */}
+          {/* Card 2: ข้อมูลผู้ลงนามและลายเซ็น */}
           <div className="bg-white rounded-3xl border border-[#d2d2d7]/50 p-6 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-[#e8e8ed] pb-3">
               <div className="flex items-center gap-2">
-                <Stamp className="w-4 h-4 text-[#0071e3]" />
+                <PenTool className="w-4 h-4 text-[#0071e3]" />
                 <h2 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wider">
-                  2. ตราประทับบริษัทและลายเซ็น (Seal & Signer)
+                  2. ข้อมูลผู้มีอำนาจลงนามและลายเซ็น (Signer & Signature)
                 </h2>
               </div>
               <span className="text-[10px] font-bold text-violet-600 bg-violet-50 px-2 py-0.5 rounded-full border border-violet-200">
@@ -399,59 +382,63 @@ export default function CompanyManage({
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
-              {/* ตราประทับบริษัท */}
+              {/* รูปลายเซ็น */}
               <div className="space-y-3">
                 <label className="text-xs text-[#555557] font-semibold block">
-                  ตราประทับบริษัท (Company Seal)
+                  รูปลายเซ็นผู้ลงนาม / ผู้อนุมัติ (Signature Image)
                 </label>
 
                 <div className="flex flex-col items-center justify-center p-4 bg-[#f9f9fb] border border-zinc-200 rounded-2xl gap-3 text-center">
-                  {/* Seal Preview */}
-                  <div className="w-20 h-20 rounded-full border-1.5 border-dashed border-[#cbd5e1] flex items-center justify-center text-center overflow-hidden bg-white shadow-2xs">
-                    {form.stampImage ? (
-                      <img src={form.stampImage} alt="Stamp" className="w-full h-full object-contain p-1" />
+                  {/* Signature Preview Frame (Rectangular - No Circle) */}
+                  <div className="w-full max-w-[240px] h-24 rounded-2xl bg-white border border-zinc-200 flex items-center justify-center p-2 text-center overflow-hidden shadow-2xs">
+                    {activeSignature ? (
+                      <img src={activeSignature} alt="Signature" className="max-h-full max-w-full object-contain" />
                     ) : (
-                      <span className="text-[10px] text-[#94a3b8] font-bold leading-tight select-none">
-                        ตราประทับ<br />บริษัท
-                      </span>
+                      <div className="flex flex-col items-center gap-1 text-zinc-400 select-none">
+                        <PenTool className="w-5 h-5 text-zinc-300 stroke-[1.5]" />
+                        <span className="text-[10px] font-medium text-zinc-400">ยังไม่มีรูปลายเซ็น (ใช้เซ็นสดด้วยมือ)</span>
+                      </div>
                     )}
                   </div>
 
                   <div className="flex items-center gap-2">
                     <input
                       type="file"
-                      ref={stampInputRef}
+                      ref={signatureInputRef}
                       accept="image/*"
                       className="hidden"
-                      onChange={e => handleFileUpload('stampImage', e.target.files?.[0])}
+                      onChange={e => handleFileUpload('signatureImage', e.target.files?.[0])}
                     />
                     <button
                       type="button"
-                      onClick={() => stampInputRef.current?.click()}
-                      className="px-3 py-1.5 bg-white border border-[#d2d2d7] hover:bg-zinc-50 rounded-xl text-xs font-bold text-zinc-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                      onClick={() => signatureInputRef.current?.click()}
+                      className="px-3.5 py-1.5 bg-white border border-[#d2d2d7] hover:bg-zinc-50 rounded-xl text-xs font-bold text-zinc-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
                     >
                       <Upload className="w-3.5 h-3.5" />
-                      <span>{form.stampImage ? 'เปลี่ยนรูปตราประทับ' : 'อัปโหลดรูปตราประทับ'}</span>
+                      <span>{activeSignature ? 'เปลี่ยนรูปลายเซ็น' : 'อัปโหลดรูปลายเซ็น'}</span>
                     </button>
-                    {form.stampImage && (
+                    {activeSignature && (
                       <button
                         type="button"
-                        onClick={() => handleChange('stampImage', '')}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                        title="ลบตราประทับ (ใช้วงกลมประจุดมาตรฐาน)"
+                        onClick={() => {
+                          handleChange('signatureImage', '');
+                          handleChange('stampImage', '');
+                        }}
+                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border border-red-200"
+                        title="ลบรูปลายเซ็น (ใช้เส้นประจุด)"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
-                  <p className="text-[10px] text-zinc-400">รูปภาพ PNG แบบโปร่งแสง (Transparent) จะสวยงามที่สุด</p>
+                  <p className="text-[10px] text-zinc-400">แนะนำรูปภาพ PNG โปร่งแสง (Transparent) หรือ JPG แนวนอน</p>
                 </div>
               </div>
 
-              {/* ลายเซ็นและชื่อผู้มีอำนาจลงนาม */}
+              {/* ข้อมูลผู้มีอำนาจลงนาม */}
               <div className="space-y-3">
                 <label className="text-xs text-[#555557] font-semibold block">
-                  ลายเซ็นและชื่อผู้ลงนาม
+                  ข้อมูลผู้ลงนาม
                 </label>
 
                 <div>
@@ -463,7 +450,7 @@ export default function CompanyManage({
                     value={form.signerTitle}
                     onChange={e => handleChange('signerTitle', e.target.value)}
                     placeholder="เช่น ผู้อนุมัติ"
-                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
+                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
                   />
                 </div>
 
@@ -476,39 +463,8 @@ export default function CompanyManage({
                     value={form.signerName}
                     onChange={e => handleChange('signerName', e.target.value)}
                     placeholder="เช่น นายสมศักดิ์ รักดี"
-                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
+                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium"
                   />
-                </div>
-
-                {/* Optional Signature Image */}
-                <div className="pt-1">
-                  <input
-                    type="file"
-                    ref={signatureInputRef}
-                    accept="image/*"
-                    className="hidden"
-                    onChange={e => handleFileUpload('signatureImage', e.target.files?.[0])}
-                  />
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => signatureInputRef.current?.click()}
-                      className="px-3 py-1.5 bg-white border border-[#d2d2d7] hover:bg-zinc-50 rounded-xl text-xs font-bold text-zinc-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    >
-                      <PenTool className="w-3.5 h-3.5" />
-                      <span>{form.signatureImage ? 'เปลี่ยนรูปลายเซ็น' : 'อัปโหลดรูปลายเซ็น (ถ้ามี)'}</span>
-                    </button>
-                    {form.signatureImage && (
-                      <button
-                        type="button"
-                        onClick={() => handleChange('signatureImage', '')}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                        title="ลบรูปลายเซ็น (ใช้เส้นประจุด)"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
                 </div>
               </div>
             </div>
@@ -575,28 +531,17 @@ export default function CompanyManage({
                 - รายการสินค้าในใบเสนอราคา -
               </div>
 
-              {/* Preview 2: Seal & Signer Block (Exact match with Image 2) */}
+              {/* Preview 2: Signer Block (NO CIRCLE) */}
               <div className="flex justify-end pt-1">
-                <div className="flex flex-col items-center gap-1.5 w-44 text-center">
-                  {/* Seal */}
-                  <div className="w-16 h-16 rounded-full border-1.5 border-dashed border-[#cbd5e1] flex items-center justify-center text-center overflow-hidden bg-white mb-1 shadow-2xs">
-                    {form.stampImage ? (
-                      <img src={form.stampImage} alt="Stamp" className="w-full h-full object-contain p-1" />
-                    ) : (
-                      <span className="text-[9px] text-[#94a3b8] font-bold leading-tight select-none">
-                        ตราประทับ<br />บริษัท
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Signature */}
-                  {form.signatureImage ? (
-                    <div className="h-8 flex items-end justify-center w-full mb-1">
-                      <img src={form.signatureImage} alt="Signature" className="max-h-8 max-w-full object-contain" />
+                <div className="flex flex-col items-center gap-1.5 w-48 text-center">
+                  {/* Signature Image or line */}
+                  {activeSignature ? (
+                    <div className="h-10 flex items-end justify-center w-full mb-1">
+                      <img src={activeSignature} alt="Signature" className="max-h-10 max-w-full object-contain" />
                     </div>
-                  ) : (
-                    <div className="border-b border-dotted border-zinc-700 w-full mb-1 h-5" />
-                  )}
+                  ) : null}
+
+                  <div className="border-b border-dotted border-zinc-700 w-full mb-1" style={{ height: activeSignature ? '0px' : '24px' }} />
 
                   <div className="font-bold text-[10.5px] text-zinc-800">
                     {form.signerTitle || 'ผู้อนุมัติ'}

@@ -1093,37 +1093,12 @@ export default function QuotationPrint({
 
           {/* Authorized Signature Box */}
           <div style={{ width: '230px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            {/* Company Seal/Stamp */}
-            {companyInfo.stampImage ? (
-              <img src={companyInfo.stampImage} alt="Stamp" style={{ width: 65, height: 65, objectFit: 'contain', marginBottom: 4 }} />
-            ) : (
-              <div style={{
-                width: '65px',
-                height: '65px',
-                borderRadius: '50%',
-                border: '1.5px dashed #cbd5e1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                fontSize: '9px',
-                color: '#94a3b8',
-                fontWeight: 'bold',
-                lineHeight: 1.2,
-                userSelect: 'none',
-                marginBottom: 4
-              }}>
-                ตราประทับ<br />บริษัท
+            {(companyInfo.signatureImage || companyInfo.stampImage) ? (
+              <div style={{ height: '42px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', marginBottom: 2 }}>
+                <img src={companyInfo.signatureImage || companyInfo.stampImage} alt="Signature" style={{ maxHeight: '42px', maxWidth: '150px', objectFit: 'contain' }} />
               </div>
-            )}
-
-            {companyInfo.signatureImage ? (
-              <div style={{ height: '30px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', marginBottom: 2 }}>
-                <img src={companyInfo.signatureImage} alt="Signature" style={{ maxHeight: '30px', maxWidth: '140px', objectFit: 'contain' }} />
-              </div>
-            ) : (
-              <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '24px' }} />
-            )}
+            ) : null}
+            <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: (companyInfo.signatureImage || companyInfo.stampImage) ? '0px' : '36px' }} />
             <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK, marginTop: 4 }}>
               {companyInfo.signerTitle || 'ผู้อนุมัติ'}
             </div>
@@ -1139,42 +1114,16 @@ export default function QuotationPrint({
         </div>
       )}
 
-      {/* ── SECTION 6 FOR PRODUCT PROPOSAL: AUTHORIZED SIGNATURE & STAMP ── */}
+      {/* ── SECTION 6 FOR PRODUCT PROPOSAL: AUTHORIZED SIGNATURE ── */}
       {docFormat === 'product_proposal' && (
         <div style={{ display: 'flex', justifyContent: 'flex-end', paddingTop: 12, fontSize: '10px', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, width: '230px', textAlign: 'center' }}>
-            {/* Company Seal/Stamp */}
-            {companyInfo.stampImage ? (
-              <img src={companyInfo.stampImage} alt="Stamp" style={{ width: 65, height: 65, objectFit: 'contain', marginBottom: 4 }} />
-            ) : (
-              <div style={{
-                width: '65px',
-                height: '65px',
-                borderRadius: '50%',
-                border: '1.5px dashed #cbd5e1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                textAlign: 'center',
-                fontSize: '9px',
-                color: '#94a3b8',
-                fontWeight: 'bold',
-                lineHeight: 1.2,
-                userSelect: 'none',
-                marginBottom: 4
-              }}>
-                ตราประทับ<br />บริษัท
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: '230px', textAlign: 'center' }}>
+            {(companyInfo.signatureImage || companyInfo.stampImage) ? (
+              <div style={{ height: '42px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', marginBottom: 2 }}>
+                <img src={companyInfo.signatureImage || companyInfo.stampImage} alt="Signature" style={{ maxHeight: '42px', maxWidth: '150px', objectFit: 'contain' }} />
               </div>
-            )}
-
-            {/* Signature Line */}
-            {companyInfo.signatureImage ? (
-              <div style={{ height: '30px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', width: '100%', marginBottom: 2 }}>
-                <img src={companyInfo.signatureImage} alt="Signature" style={{ maxHeight: '30px', maxWidth: '140px', objectFit: 'contain' }} />
-              </div>
-            ) : (
-              <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: '20px' }} />
-            )}
+            ) : null}
+            <div style={{ borderBottom: '1px dotted #111', width: '100%', marginBottom: 6, height: (companyInfo.signatureImage || companyInfo.stampImage) ? '0px' : '36px' }} />
             <div style={{ fontWeight: 'bold', fontSize: '10.5px', color: DARK }}>
               {companyInfo.signerTitle || 'ผู้อนุมัติ'}
             </div>
