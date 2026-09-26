@@ -156,36 +156,32 @@ export default function CompanyManage({
 
   return (
     <div className="max-w-6xl mx-auto space-y-6 pb-12 animate-fade-in text-[#1d1d1f]">
-      {/* ── Top Header Banner ────────────────────────────────── */}
-      <div className="bg-white/80 backdrop-blur-md p-5 sm:p-6 rounded-3xl border border-[#d2d2d7]/50 shadow-[0_4px_20px_rgba(0,0,0,0.03)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-[#0071e3] to-[#409cff] flex items-center justify-center text-white shadow-[0_4px_16px_rgba(0,113,227,0.3)] shrink-0">
-            <Building2 className="w-6 h-6 stroke-[2.2]" />
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1 h-5 rounded-full bg-gradient-to-b from-[#0071e3] to-[#00c2ff]" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[#0071e3]">COMPANY MANAGEMENT</span>
           </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl sm:text-2xl font-black text-[#1d1d1f] tracking-tight leading-none">
-                จัดการข้อมูลบริษัท
-              </h1>
-            </div>
-            
-          </div>
+          <h1 className="text-3xl font-black tracking-tight text-[#1d1d1f] leading-none">จัดการข้อมูลบริษัท</h1>
         </div>
 
-        <div className="flex items-center gap-2.5 shrink-0">
-
+        <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
           <button
             type="button"
             onClick={handleSave}
             disabled={!hasChanges || isSaving}
-            className={`px-5 py-2.5 text-xs font-bold rounded-full text-white transition-all flex items-center gap-2 shadow-md cursor-pointer ${
+            className={`group relative overflow-hidden px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-lg ${
               hasChanges && !isSaving
-                ? 'bg-gradient-to-r from-[#0071e3] to-[#0077ed] hover:from-[#0077ed] hover:to-[#0085ff] shadow-[0_4px_16px_rgba(0,113,227,0.3)]'
+                ? 'bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
                 : savedSuccess
-                ? 'bg-emerald-600 shadow-[0_4px_16px_rgba(16,185,129,0.3)]'
-                : 'bg-zinc-300 text-zinc-500 cursor-not-allowed shadow-none'
+                ? 'bg-emerald-600 text-white shadow-emerald-500/30'
+                : 'bg-zinc-200 text-zinc-400 cursor-not-allowed shadow-none border border-zinc-300/60'
             }`}
           >
+            {hasChanges && !isSaving && (
+              <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" />
+            )}
             {savedSuccess ? (
               <>
                 <Check className="w-4 h-4 stroke-[3]" />
