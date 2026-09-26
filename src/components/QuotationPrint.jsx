@@ -735,8 +735,9 @@ export default function QuotationPrint({
             </svg>
           )}
         </div>
-        <div style={{ fontSize: '10.5px', color: DARK, lineHeight: 1.6 }}>
-          <div style={{ fontWeight: 800, fontSize: '13px', marginBottom: 3, color: '#000' }}>{co.name}</div>
+        <div style={{ fontSize: '10.5px', color: DARK, lineHeight: 1.5 }}>
+          <div style={{ fontWeight: 800, fontSize: '13px', color: '#000', lineHeight: 1.25 }}>{co.name || co.nameEn}</div>
+          {co.name && co.nameEn && <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#333', marginBottom: 2 }}>{co.nameEn}</div>}
           <div style={{ color: GRAY }}>{co.address}</div>
           <div>โทร: {co.phone}{co.mobile ? ` / ${co.mobile}` : ''}</div>
           {co.email && <div>อีเมล: {co.email}</div>}

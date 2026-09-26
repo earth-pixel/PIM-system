@@ -254,17 +254,31 @@ export default function CompanyManage({
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                  ชื่อบริษัท (ภาษาไทย) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={e => handleChange('name', e.target.value)}
-                  placeholder="เช่น บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)"
-                  className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-bold"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                    ชื่อบริษัท (ภาษาไทย) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={e => handleChange('name', e.target.value)}
+                    placeholder="เช่น บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)"
+                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-bold"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                    ชื่อบริษัท (ภาษาอังกฤษ)
+                  </label>
+                  <input
+                    type="text"
+                    value={form.nameEn}
+                    onChange={e => handleChange('nameEn', e.target.value)}
+                    placeholder="เช่น Phanvadee Co., Ltd."
+                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-semibold"
+                  />
+                </div>
               </div>
 
               <div>
@@ -494,9 +508,14 @@ export default function CompanyManage({
                 </div>
 
                 <div className="min-w-0 flex-1 text-[10.5px] leading-relaxed text-[#1d1d1f]">
-                  <div className="font-extrabold text-[12.5px] text-black leading-tight mb-1">
-                    {form.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)'}
+                  <div className="font-extrabold text-[12.5px] text-black leading-tight mb-0.5">
+                    {form.name || form.nameEn || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)'}
                   </div>
+                  {form.nameEn && form.name && (
+                    <div className="text-[10px] font-semibold text-zinc-600 mb-1 leading-tight">
+                      {form.nameEn}
+                    </div>
+                  )}
                   <div className="text-zinc-600 leading-normal">
                     {form.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170'}
                   </div>

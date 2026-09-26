@@ -116,7 +116,8 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
                 </svg>
               )}
               <div className="text-xs text-[#1d1d1f] leading-relaxed">
-                <div className="font-extrabold text-sm mb-1 text-black">{co.name}</div>
+                <div className="font-extrabold text-sm text-black">{co.name || co.nameEn}</div>
+                {co.name && co.nameEn && <div className="text-xs font-semibold text-zinc-700 mb-1">{co.nameEn}</div>}
                 <div className="text-[#555557] max-w-sm">{co.address}</div>
                 <div className="mt-1 font-medium">
                   {co.phone && <span>โทร: {co.phone} </span>}
