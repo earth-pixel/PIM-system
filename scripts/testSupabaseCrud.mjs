@@ -15,7 +15,6 @@ async function testCrud() {
     wholesale_price: 150,
     retail_price: 250,
     cap_cost: 10,
-    stock: 99,
     status: 'Active',
     description: 'ทดสอบบันทึกลง Supabase',
     category: 'ทั่วไป',

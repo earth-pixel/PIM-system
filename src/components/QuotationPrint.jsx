@@ -721,20 +721,12 @@ export default function QuotationPrint({
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24 }}>
       {/* Left: Company Details */}
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-        {/* Logo (Custom uploaded image or Vector SVG) */}
-        <div style={{ flexShrink: 0, marginTop: '-4px' }}>
-          {companyInfo.logo ? (
+        {/* Logo (Custom uploaded image) */}
+        {companyInfo.logo ? (
+          <div style={{ flexShrink: 0, marginTop: '-4px' }}>
             <img src={companyInfo.logo} alt="Logo" style={{ width: 62, height: 62, objectFit: 'contain' }} />
-          ) : (
-            <svg viewBox="0 0 160 160" style={{ width: 62, height: 62, fill: '#1d1d1f' }} xmlns="http://www.w3.org/2000/svg">
-              <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
-              <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
-              <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
-              <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
-              <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
-            </svg>
-          )}
-        </div>
+          </div>
+        ) : null}
         <div style={{ fontSize: '10.5px', color: DARK, lineHeight: 1.5 }}>
           <div style={{ fontWeight: 800, fontSize: '13px', color: '#000', lineHeight: 1.25 }}>{co.name || co.nameEn}</div>
           {co.name && co.nameEn && <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#333', marginBottom: 2 }}>{co.nameEn}</div>}

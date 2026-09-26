@@ -1,11 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Building2, Phone, Mail, Globe, MapPin, Check,
   Save, RotateCcw, Eye, ShieldCheck, Hash, Smartphone,
   Stamp, PenTool, Upload, Trash2, Image as ImageIcon,
-  AlertCircle
+  AlertCircle, X
 } from 'lucide-react';
 import { useToast } from '../contexts/ToastContext';
+import { uploadCompanyAsset, deleteCompanyAsset } from '../utils/imageUpload';
 
 export default function CompanyManage({
   companyInfo = {},
@@ -17,6 +19,8 @@ export default function CompanyManage({
   const stampInputRef = useRef(null);
   const signatureInputRef = useRef(null);
   const logoInputRef = useRef(null);
+  const logoSectionRef = useRef(null);
+  const signatureSectionRef = useRef(null);
 
   // Field refs for error scrolling and focusing
   const nameInputRef = useRef(null);
@@ -28,51 +32,71 @@ export default function CompanyManage({
   const signerTitleInputRef = useRef(null);
 
   const [errorFields, setErrorFields] = useState({});
+  const [deleteConfirmTarget, setDeleteConfirmTarget] = useState(null);
+  const saveButtonRef = useRef(null);
+  const [highlightSave, setHighlightSave] = useState(false);
+
+  const scrollToSaveButton = (delay = 400) => {
+    setTimeout(() => {
+      if (saveButtonRef.current) {
+        saveButtonRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setHighlightSave(true);
+        setTimeout(() => setHighlightSave(false), 3000);
+      }
+    }, delay);
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && deleteConfirmTarget) {
+        setDeleteConfirmTarget(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [deleteConfirmTarget]);
 
   // Form state focusing strictly on Header (Image 1) & Stamp/Signature (Image 2)
+  const safeCompany = companyInfo || {};
+
   const getInitialPhone = (info) => {
-    if (info.phone && info.mobile && info.phone !== info.mobile) {
-      return `${info.phone} / ${info.mobile}`;
+    const safe = info || {};
+    if (safe.phone && safe.mobile && safe.phone !== safe.mobile) {
+      return `${safe.phone} / ${safe.mobile}`;
     }
-    return info.phone || info.mobile || '02-4315111 / 02-0055666';
+    return safe.phone || safe.mobile || '02-4315111 / 02-0055666';
   };
 
   const [form, setForm] = useState({
-    name: companyInfo.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
-    nameEn: companyInfo.nameEn || 'Phanvadee Co., Ltd.',
-    address: companyInfo.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
-    taxId: companyInfo.taxId || '0105546026064',
-    phone: getInitialPhone(companyInfo),
-    mobile: '',
-    email: companyInfo.email || 'info@phanvadee.co.th',
-    website: companyInfo.website || 'https://www.phanvadee.com',
-    logo: companyInfo.logo || '',
-    stampImage: companyInfo.stampImage || '',
-    signatureImage: companyInfo.signatureImage || '',
-    signerTitle: companyInfo.signerTitle || 'ผู้อนุมัติ',
-    signerName: companyInfo.signerName || '',
+    name: safeCompany.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
+    address: safeCompany.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
+    taxId: safeCompany.taxId || '0105546026064',
+    phone: getInitialPhone(safeCompany),
+    email: safeCompany.email || 'info@phanvadee.co.th',
+    website: safeCompany.website || 'https://www.phanvadee.com',
+    logo: safeCompany.logo || '',
+    signatureImage: safeCompany.signatureImage || '',
+    signerTitle: safeCompany.signerTitle || 'ผู้อนุมัติ',
   });
 
   const [initialData, setInitialData] = useState(form);
   const [hasChanges, setHasChanges] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [uploadingField, setUploadingField] = useState(null);
 
   useEffect(() => {
+    const safe = companyInfo || {};
     const updated = {
-      name: companyInfo.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
-      nameEn: companyInfo.nameEn || 'Phanvadee Co., Ltd.',
-      address: companyInfo.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
-      taxId: companyInfo.taxId || '0105546026064',
-      phone: getInitialPhone(companyInfo),
-      mobile: '',
-      email: companyInfo.email || 'info@phanvadee.co.th',
-      website: companyInfo.website || 'https://www.phanvadee.com',
-      logo: companyInfo.logo || '',
-      stampImage: companyInfo.stampImage || '',
-      signatureImage: companyInfo.signatureImage || '',
-      signerTitle: companyInfo.signerTitle || 'ผู้อนุมัติ',
-      signerName: companyInfo.signerName || '',
+      name: safe.name || 'บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)',
+      address: safe.address || '19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170',
+      taxId: safe.taxId || '0105546026064',
+      phone: getInitialPhone(safe),
+      email: safe.email || 'info@phanvadee.co.th',
+      website: safe.website || 'https://www.phanvadee.com',
+      logo: safe.logo || '',
+      signatureImage: safe.signatureImage || '',
+      signerTitle: safe.signerTitle || 'ผู้อนุมัติ',
     };
     setForm(updated);
     setInitialData(updated);
@@ -82,6 +106,18 @@ export default function CompanyManage({
     const changed = Object.keys(form).some(key => form[key] !== initialData[key]);
     setHasChanges(changed);
   }, [form, initialData]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (hasChanges) {
+        e.preventDefault();
+        e.returnValue = 'มีข้อมูลที่ยังไม่ได้บันทึก อย่าลืมกดบันทึกข้อมูลก่อนออกจากหน้านี้';
+        return e.returnValue;
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasChanges]);
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -103,23 +139,52 @@ export default function CompanyManage({
     } ${extra}`;
   };
 
-  const handleFileUpload = (field, file) => {
+  const handleFileUpload = async (field, file) => {
     if (!file) return;
     if (file.size > 2 * 1024 * 1024) {
       showToast('ไฟล์รูปภาพต้องมีขนาดไม่เกิน 2MB', 'error');
       return;
     }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataUrl = e.target.result;
-      if (field === 'signatureImage' || field === 'stampImage') {
-        setForm(prev => ({ ...prev, signatureImage: dataUrl, stampImage: dataUrl }));
+
+    const assetType = field === 'logo' ? 'logo' : 'signature';
+    setUploadingField(field);
+
+    try {
+      const res = await uploadCompanyAsset(file, assetType);
+      if (res.success && res.url) {
+        if (field === 'signatureImage' || field === 'stampImage') {
+          setForm(prev => ({ ...prev, signatureImage: res.url, stampImage: res.url }));
+          setErrorFields(prev => { const c = { ...prev }; delete c.signatureImage; return c; });
+        } else {
+          handleChange(field, res.url);
+          setErrorFields(prev => { const c = { ...prev }; delete c.logo; return c; });
+        }
+        setHasChanges(true);
+        showToast('อัปโหลดรูปภาพสำเร็จแล้ว\nอย่าลืมกด "บันทึกข้อมูล" ', 'success');
+        scrollToSaveButton(500);
       } else {
-        handleChange(field, dataUrl);
+        showToast(res.error || 'ไม่สามารถอัปโหลดรูปภาพได้', 'error');
       }
-      showToast('อัปโหลดรูปภาพเรียบร้อย', 'info');
-    };
-    reader.readAsDataURL(file);
+    } catch (err) {
+      showToast('เกิดข้อผิดพลาดในการอัปโหลด: ' + err.message, 'error');
+    } finally {
+      setUploadingField(null);
+    }
+  };
+
+  const handleRemoveImage = async (field) => {
+    const assetType = field === 'logo' ? 'logo' : 'signature';
+    deleteCompanyAsset(assetType).catch(() => {});
+    if (field === 'logo') {
+      handleChange('logo', '');
+      showToast('ลบโลโก้สำเร็จแล้ว\nอย่าลืมกด "บันทึกข้อมูล" ', 'success');
+    } else {
+      handleChange('signatureImage', '');
+      handleChange('stampImage', '');
+      showToast('ลบรูปลายเซ็นสำเร็จแล้ว\nอย่าลืมกด "บันทึกข้อมูล" ', 'success');
+    }
+    setHasChanges(true);
+    scrollToSaveButton(500);
   };
 
   const handleSave = async (e) => {
@@ -129,6 +194,13 @@ export default function CompanyManage({
     let firstErrorRef = null;
     let firstErrorMessage = '';
 
+    if (!form.logo?.trim()) {
+      newErrors.logo = true;
+      if (!firstErrorRef) {
+        firstErrorRef = logoSectionRef;
+        firstErrorMessage = 'กรุณาอัปโหลดโลโก้บริษัท';
+      }
+    }
     if (!form.name?.trim()) {
       newErrors.name = true;
       if (!firstErrorRef) {
@@ -171,6 +243,13 @@ export default function CompanyManage({
         firstErrorMessage = 'กรุณากรอกเลขประจำตัวผู้เสียภาษี';
       }
     }
+    if (!form.signatureImage?.trim() && !form.stampImage?.trim()) {
+      newErrors.signatureImage = true;
+      if (!firstErrorRef) {
+        firstErrorRef = signatureSectionRef;
+        firstErrorMessage = 'กรุณาอัปโหลดรูปลายเซ็นผู้ลงนาม';
+      }
+    }
     if (!form.signerTitle?.trim()) {
       newErrors.signerTitle = true;
       if (!firstErrorRef) {
@@ -201,7 +280,7 @@ export default function CompanyManage({
       setInitialData(form);
       setHasChanges(false);
       setSavedSuccess(true);
-      showToast('บันทึกข้อมูลบริษัทเรียบร้อย ข้อมูลจะแสดงในใบเสนอราคาทันที', 'success');
+      showToast('บันทึกข้อมูลบริษัทสำเร็จ เรียบร้อยแล้ว', 'success');
 
       if (addActivityLog) {
         addActivityLog({
@@ -235,11 +314,23 @@ export default function CompanyManage({
         </div>
 
         <div className="flex items-center gap-2.5 self-start sm:self-auto shrink-0">
+          {hasChanges && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 border border-amber-200 text-amber-700 rounded-xl text-xs font-bold animate-pulse shadow-2xs">
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+              <span>อย่าลืมกดบันทึกข้อมูล!</span>
+            </div>
+          )}
+
           <button
+            ref={saveButtonRef}
             type="button"
             onClick={handleSave}
             disabled={isSaving}
-            className={`group relative overflow-hidden px-4 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-lg ${
+            className={`group relative overflow-hidden px-5 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 cursor-pointer shadow-lg scroll-mt-28 ${
+              highlightSave
+                ? 'ring-4 ring-blue-500/60 scale-105 shadow-blue-500/40 animate-pulse'
+                : ''
+            } ${
               savedSuccess
                 ? 'bg-emerald-600 text-white shadow-emerald-500/30'
                 : 'bg-gradient-to-r from-[#0071e3] to-[#0096ff] hover:from-[#0080ff] hover:to-[#00a8ff] text-white hover:shadow-blue-500/30 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'
@@ -288,22 +379,23 @@ export default function CompanyManage({
 
             <div className="space-y-4">
               {/* Logo Upload */}
-              <div>
-                <label className="text-xs text-[#555557] font-semibold mb-1.5 block">
-                  โลโก้บริษัท (Logo)
+              <div ref={logoSectionRef} className="scroll-mt-24">
+                <label className={`text-xs font-semibold mb-1.5 block transition-colors ${errorFields.logo ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
+                  โลโก้บริษัท (Logo) <span className="text-red-500">*</span>
                 </label>
                 <div className="flex items-center gap-4">
-                  <div className="w-20 h-20 rounded-2xl bg-[#f5f5f7] border border-zinc-200 p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                  <div className={`w-20 h-20 rounded-2xl bg-[#f5f5f7] p-1.5 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs transition-all ${
+                    errorFields.logo
+                      ? 'border-2 border-red-500 bg-red-50/40 ring-4 ring-red-500/15 animate-shake'
+                      : 'border border-zinc-200'
+                  }`}>
                     {form.logo ? (
                       <img src={form.logo} alt="Logo" className="w-full h-full object-contain" />
                     ) : (
-                      <svg viewBox="0 0 160 160" className="w-full h-full fill-[#1d1d1f]" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
-                        <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
-                        <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
-                        <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
-                        <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
-                      </svg>
+                      <div className="flex flex-col items-center justify-center gap-1 text-zinc-400 select-none p-1 text-center">
+                        <ImageIcon className={`w-6 h-6 stroke-[1.5] ${errorFields.logo ? 'text-red-400' : 'text-zinc-300'}`} />
+                        <span className={`text-[9px] font-medium leading-tight ${errorFields.logo ? 'text-red-500 font-bold' : 'text-zinc-400'}`}>ยังไม่มีโลโก้</span>
+                      </div>
                     )}
                   </div>
                   <div className="flex-1 space-y-1.5">
@@ -313,28 +405,54 @@ export default function CompanyManage({
                         ref={logoInputRef}
                         accept="image/*"
                         className="hidden"
-                        onChange={e => handleFileUpload('logo', e.target.files?.[0])}
+                        onChange={e => {
+                          const file = e.target.files?.[0];
+                          if (file) handleFileUpload('logo', file);
+                          e.target.value = '';
+                        }}
                       />
-                      <button
-                        type="button"
-                        onClick={() => logoInputRef.current?.click()}
-                        className="px-3 py-1.5 bg-white border border-[#d2d2d7] hover:bg-zinc-50 rounded-xl text-xs font-bold text-zinc-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                      >
-                        <Upload className="w-3.5 h-3.5" />
-                        <span>เปลี่ยนโลโก้</span>
-                      </button>
-                      {form.logo && (
+                      {form.logo ? (
                         <button
                           type="button"
-                          onClick={() => handleChange('logo', '')}
-                          className="p-1.5 text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
-                          title="ใช้โลโก้เริ่มต้น"
+                          onClick={() => setDeleteConfirmTarget('logo')}
+                          className="px-3.5 py-1.5 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+                          title="ลบโลโก้ออกจากระบบ"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
+                          <span>ลบโลโก้</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => logoInputRef.current?.click()}
+                          disabled={uploadingField === 'logo'}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-60 ${
+                            errorFields.logo
+                              ? 'bg-red-50 text-red-600 border-2 border-red-500 hover:bg-red-100'
+                              : 'bg-white border border-[#d2d2d7] hover:bg-zinc-50 text-zinc-700'
+                          }`}
+                        >
+                          {uploadingField === 'logo' ? (
+                            <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                          ) : (
+                            <Upload className="w-3.5 h-3.5" />
+                          )}
+                          <span>{uploadingField === 'logo' ? 'กำลังอัปโหลด...' : 'อัปโหลดโลโก้'}</span>
                         </button>
                       )}
                     </div>
-                    <p className="text-[10px] text-zinc-400">รองรับไฟล์ PNG, JPG ขนาดไม่เกิน 2MB (หากไม่ใส่จะใช้โลโก้เริ่มต้น)</p>
+                    {errorFields.logo ? (
+                      <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                        <span>กรุณาอัปโหลดโลโก้บริษัท</span>
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-zinc-400">
+                        {form.logo
+                          ? 'หากต้องการเปลี่ยนรูปโลโก้ กรุณากด "ลบโลโก้" ก่อนเพื่อลบออกจากฐานข้อมูล'
+                          : 'รองรับไฟล์ PNG, JPG ขนาดไม่เกิน 2MB (แนะนำภาพพื้นหลังโปร่งใส Transparent)'}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -494,20 +612,28 @@ export default function CompanyManage({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 items-start">
               {/* รูปลายเซ็น */}
-              <div className="space-y-3">
-                <label className="text-xs text-[#555557] font-semibold block">
-                  รูปลายเซ็นผู้ลงนาม / ผู้อนุมัติ (Signature Image)
+              <div ref={signatureSectionRef} className="space-y-3 scroll-mt-24">
+                <label className={`text-xs font-semibold block transition-colors ${errorFields.signatureImage ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
+                  รูปลายเซ็นผู้ลงนาม / ผู้อนุมัติ (Signature Image) <span className="text-red-500">*</span>
                 </label>
 
-                <div className="flex flex-col items-center justify-center p-4 bg-[#f9f9fb] border border-zinc-200 rounded-2xl gap-3 text-center">
+                <div className={`flex flex-col items-center justify-center p-4 bg-[#f9f9fb] border rounded-2xl gap-3 text-center transition-all ${
+                  errorFields.signatureImage ? 'border-red-300 bg-red-50/20' : 'border-zinc-200'
+                }`}>
                   {/* Signature Preview Frame (Rectangular - No Circle) */}
-                  <div className="w-full max-w-[240px] h-24 rounded-2xl bg-white border border-zinc-200 flex items-center justify-center p-2 text-center overflow-hidden shadow-2xs">
+                  <div className={`w-full max-w-[240px] h-24 rounded-2xl bg-white flex items-center justify-center p-2 text-center overflow-hidden shadow-2xs transition-all ${
+                    errorFields.signatureImage
+                      ? 'border-2 border-red-500 bg-red-50/40 ring-4 ring-red-500/15 animate-shake'
+                      : 'border border-zinc-200'
+                  }`}>
                     {activeSignature ? (
                       <img src={activeSignature} alt="Signature" className="max-h-full max-w-full object-contain" />
                     ) : (
-                      <div className="flex flex-col items-center gap-1 text-zinc-400 select-none">
-                        <PenTool className="w-5 h-5 text-zinc-300 stroke-[1.5]" />
-                        <span className="text-[10px] font-medium text-zinc-400">ยังไม่มีรูปลายเซ็น (ใช้เซ็นสดด้วยมือ)</span>
+                      <div className="flex flex-col items-center gap-1 select-none">
+                        <PenTool className={`w-5 h-5 stroke-[1.5] ${errorFields.signatureImage ? 'text-red-400' : 'text-zinc-300'}`} />
+                        <span className={`text-[10px] font-medium ${errorFields.signatureImage ? 'text-red-500 font-bold' : 'text-zinc-400'}`}>
+                          ยังไม่มีรูปลายเซ็น
+                        </span>
                       </div>
                     )}
                   </div>
@@ -518,31 +644,55 @@ export default function CompanyManage({
                       ref={signatureInputRef}
                       accept="image/*"
                       className="hidden"
-                      onChange={e => handleFileUpload('signatureImage', e.target.files?.[0])}
+                      onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (file) handleFileUpload('signatureImage', file);
+                        e.target.value = '';
+                      }}
                     />
-                    <button
-                      type="button"
-                      onClick={() => signatureInputRef.current?.click()}
-                      className="px-3.5 py-1.5 bg-white border border-[#d2d2d7] hover:bg-zinc-50 rounded-xl text-xs font-bold text-zinc-700 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    >
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>{activeSignature ? 'เปลี่ยนรูปลายเซ็น' : 'อัปโหลดรูปลายเซ็น'}</span>
-                    </button>
-                    {activeSignature && (
+                    {activeSignature ? (
                       <button
                         type="button"
-                        onClick={() => {
-                          handleChange('signatureImage', '');
-                          handleChange('stampImage', '');
-                        }}
-                        className="p-1.5 text-red-500 hover:bg-red-50 rounded-xl transition-colors cursor-pointer border border-red-200"
-                        title="ลบรูปลายเซ็น (ใช้เส้นประจุด)"
+                        onClick={() => setDeleteConfirmTarget('signatureImage')}
+                        className="px-4 py-2 bg-red-50 hover:bg-red-100 border border-red-200 text-red-600 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer shadow-2xs"
+                        title="ลบรูปลายเซ็นออกจากระบบและฐานข้อมูล"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                        <span>ลบรูปลายเซ็น</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => signatureInputRef.current?.click()}
+                        disabled={uploadingField === 'signatureImage'}
+                        className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs disabled:opacity-60 ${
+                          errorFields.signatureImage
+                            ? 'bg-red-50 text-red-600 border-2 border-red-500 hover:bg-red-100'
+                            : 'bg-white border border-[#d2d2d7] hover:bg-zinc-50 text-zinc-700'
+                        }`}
+                      >
+                        {uploadingField === 'signatureImage' ? (
+                          <div className="w-3.5 h-3.5 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <Upload className="w-3.5 h-3.5" />
+                        )}
+                        <span>{uploadingField === 'signatureImage' ? 'กำลังอัปโหลด...' : 'อัปโหลดรูปลายเซ็น'}</span>
                       </button>
                     )}
                   </div>
-                  <p className="text-[10px] text-zinc-400">แนะนำรูปภาพ PNG โปร่งแสง (Transparent) หรือ JPG แนวนอน</p>
+
+                  {errorFields.signatureImage ? (
+                    <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center justify-center gap-1">
+                      <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />
+                      <span>กรุณาอัปโหลดรูปลายเซ็นผู้ลงนาม</span>
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-zinc-400">
+                      {activeSignature
+                        ? 'หากต้องการเปลี่ยนลายเซ็นใหม่ กรุณากด "ลบรูปลายเซ็น" ก่อนเพื่อลบออกจากฐานข้อมูล'
+                        : 'แนะนำรูปภาพ PNG โปร่งแสง (Transparent) หรือ JPG แนวนอน'}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -558,6 +708,15 @@ export default function CompanyManage({
                     type="text"
                     value={form.signerTitle}
                     onChange={e => handleChange('signerTitle', e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        scrollToSaveButton(100);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (hasChanges) scrollToSaveButton(200);
+                    }}
                     placeholder="เช่น ผู้อนุมัติ"
                     className={getFieldClass('signerTitle', 'px-3.5 py-2.5 font-medium')}
                   />
@@ -571,6 +730,8 @@ export default function CompanyManage({
               </div>
             </div>
           </div>
+
+
         </div>
 
         {/* Right Column: Live Document Preview (ตรงตามรูปภาพเป๊ะๆ) (5 cols) */}
@@ -596,19 +757,11 @@ export default function CompanyManage({
             <div className="bg-white rounded-2xl border border-zinc-300 p-5 space-y-6 shadow-md font-sans">
               {/* Preview 1: Header Block (Exact match with Image 1) */}
               <div className="flex items-start gap-3.5 pb-4 border-b border-zinc-200">
-                <div className="w-14 h-14 shrink-0 flex items-center justify-center">
-                  {form.logo ? (
+                {form.logo ? (
+                  <div className="w-14 h-14 shrink-0 flex items-center justify-center">
                     <img src={form.logo} alt="Logo" className="w-full h-full object-contain" />
-                  ) : (
-                    <svg viewBox="0 0 160 160" className="w-full h-full fill-[#1d1d1f]" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
-                      <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
-                      <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
-                      <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
-                      <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
-                    </svg>
-                  )}
-                </div>
+                  </div>
+                ) : null}
 
                 <div className="min-w-0 flex-1 text-[10.5px] leading-relaxed text-[#1d1d1f]">
                   <div className="font-extrabold text-[12.5px] text-black leading-tight mb-1">
@@ -658,6 +811,69 @@ export default function CompanyManage({
           </div>
         </div>
       </div>
+
+      {/* Pop-up แจ้งเตือนยืนยันก่อนลบรูปภาพ */}
+      {deleteConfirmTarget && createPortal(
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fade-in no-print"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setDeleteConfirmTarget(null);
+          }}
+        >
+          <div className="relative bg-white rounded-3xl border border-[#d2d2d7]/50 max-w-xs sm:max-w-sm w-full p-6 shadow-2xl space-y-4 text-center text-[#1d1d1f] animate-scale-in">
+            {/* Close button */}
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmTarget(null)}
+              className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
+              aria-label="ปิด"
+            >
+              <X className="w-4 h-4" />
+            </button>
+
+            {/* Warning Icon */}
+            <div className="w-14 h-14 rounded-2xl bg-red-50 text-red-600 flex items-center justify-center mx-auto shadow-xs">
+              <Trash2 className="w-7 h-7" />
+            </div>
+
+            {/* Title & Message */}
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-red-600">
+                แจ้งเตือนการลบรูปภาพ
+              </h3>
+              <p className="text-xs text-[#555557] font-medium leading-relaxed px-2">
+                {deleteConfirmTarget === 'logo'
+                  ? 'คุณต้องการลบ "โลโก้บริษัท" ออกจากระบบใช่หรือไม่? หลังจากลบแล้วจะต้องอัปโหลดรูปภาพใหม่เพื่อบันทึกข้อมูล'
+                  : 'คุณต้องการลบ "รูปลายเซ็นผู้ลงนาม" ออกจากระบบใช่หรือไม่? หลังจากลบแล้วจะต้องอัปโหลดรูปภาพใหม่เพื่อบันทึกข้อมูล'}
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteConfirmTarget(null)}
+                className="py-2.5 px-4 rounded-xl border border-zinc-200 hover:bg-zinc-100 text-zinc-700 font-bold text-xs transition-all cursor-pointer shadow-2xs active:scale-95"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = deleteConfirmTarget;
+                  setDeleteConfirmTarget(null);
+                  handleRemoveImage(target);
+                }}
+                className="py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs transition-all cursor-pointer shadow-md shadow-red-600/20 active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>ยืนยันลบรูป</span>
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 }

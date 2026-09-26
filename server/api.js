@@ -9,7 +9,8 @@ import {
   isSupabaseConfigured,
   loadDatabaseFromSupabase,
   saveCollectionToSupabase,
-  migrateInitialData
+  migrateInitialData,
+  uploadBase64ToStorage
 } from './supabaseSync.js';
 
 const fail = (status, message) => { throw Object.assign(new Error(message), { status }); };
@@ -66,10 +67,11 @@ function logCollectionChange(db, user, key, before) {
     categories: 'หมวดหมู่',
     subcategories: 'หมวดหมู่ย่อย',
     activityLog: 'ประวัติการดำเนินงาน',
-    customers: 'ข้อมูลลูกค้า'
+    customers: 'ข้อมูลลูกค้า',
+    companyInfo: 'ข้อมูลบริษัท'
   };
 
-  const after = db[key] || (key === 'subcategories' ? {} : []);
+  const after = db[key] || (['subcategories', 'companyInfo'].includes(key) ? {} : []);
 
   // Special case: clearing activityLog
   if (key === 'activityLog') {
@@ -227,7 +229,15 @@ function normalizeUsers(incoming, db, caller) {
     const before = old.find(u => raw.id ? u.id === raw.id : u.username === raw.username);
     const username = normalizeCode(raw.username);
     if (typeof raw.username !== 'string' || !username || typeof raw.name !== 'string' || !raw.name.trim() || !['admin', 'manager', 'user'].includes(raw.role) || names.has(username)) fail(400, 'ชื่อผู้ใช้ซ้ำหรือข้อมูลไม่ครบถ้วน');
-    const candidate = { ...before, id: before?.id || randomUUID(), username, name: raw.name.trim(), role: raw.role, createdBy: before?.createdBy || raw.createdBy || caller?.name || caller?.username || null, createdAt: before ? before.createdAt : new Date().toISOString() };
+    const candidate = {
+      ...before,
+      id: before?.id || randomUUID(),
+      username,
+      name: raw.name.trim(),
+      role: raw.role,
+      ...(before && before.createdBy !== undefined ? { createdBy: before.createdBy } : (!before ? { createdBy: raw.createdBy || caller?.name || caller?.username || null } : {})),
+      ...(before && before.createdAt !== undefined ? { createdAt: before.createdAt } : (!before ? { createdAt: new Date().toISOString() } : {}))
+    };
     if (raw.permissions !== undefined) candidate.permissions = raw.permissions;
     if (ids.has(candidate.id)) fail(400, 'รหัสผู้ใช้ซ้ำ');
     ids.add(candidate.id);
@@ -426,6 +436,26 @@ export function createApi(dbPath) {
     return q;
   }
   api.get('/public/quotations/:token', (req, res) => res.json({ quotation: resolveShare(store.read(), req.params.token) }));
+  api.get('/public/company', (req, res) => res.json({ companyInfo: store.read().companyInfo || null }));
+  api.post('/company/upload-asset', async (req, res) => {
+    try {
+      const { assetType, base64 } = req.body || {};
+      const validTypes = ['logo', 'signature', 'stamp'];
+      const targetType = validTypes.includes(assetType) ? assetType : 'signature';
+
+      if (!base64 || typeof base64 !== 'string' || !base64.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'ไม่พบข้อมูลรูปภาพที่ถูกต้อง' });
+      }
+
+      const url = await uploadBase64ToStorage(base64, 'company-assets', `${targetType}.png`);
+      if (url && url.startsWith('http')) {
+        return res.json({ success: true, url });
+      }
+      return res.status(500).json({ error: 'ไม่สามารถอัปโหลดไปยัง Storage ได้' });
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  });
   api.post('/public/quotations/:token/accept', (req, res) => {
     const quotation = store.transact(db => {
       const q = resolveShare(db, req.params.token);
@@ -490,11 +520,12 @@ export function createApi(dbPath) {
   });
   api.post('/db/save', (req, res) => {
     const { key, data, expectedRevision } = req.body || {};
-    if (!keys.includes(key) || (key !== 'subcategories' && !Array.isArray(data))) fail(400, 'รูปแบบข้อมูลไม่ถูกต้อง');
+    if (!keys.includes(key) || (key !== 'subcategories' && key !== 'companyInfo' && !Array.isArray(data))) fail(400, 'รูปแบบข้อมูลไม่ถูกต้อง');
     const result = store.transact(db => {
       checkVersion(db, key, expectedRevision);
-      const before = db[key] || [];
+      const before = db[key] || (['subcategories', 'companyInfo'].includes(key) ? {} : []);
       if (['brands', 'categories', 'subcategories', 'activityLog'].includes(key) && req.user.role !== 'admin') fail(403, 'เฉพาะ Admin เท่านั้น');
+      if (key === 'companyInfo' && req.user.role !== 'admin' && !req.user.permissions?.pages?.company) fail(403, 'ไม่มีสิทธิ์แก้ไขข้อมูลบริษัท');
       if (key === 'products') {
         if (!['admin', 'manager', 'user'].includes(req.user.role)) fail(403, 'ไม่มีสิทธิ์แก้ไขสินค้า');
         if (data.some(product => !product || !validId(product.id))) fail(400, 'รหัสรายการสินค้าไม่ถูกต้อง');
@@ -535,6 +566,14 @@ export function createApi(dbPath) {
       else if (key === 'activityLog') {
         if (data.length > 1) fail(400, 'ประวัติแก้ไขย้อนหลังไม่ได้');
         db.activityLog = [];
+      } else if (key === 'companyInfo') {
+        if (!data || typeof data !== 'object') fail(400, 'ข้อมูลบริษัทไม่ถูกต้อง');
+        db.companyInfo = {
+          ...(db.companyInfo || {}),
+          ...data,
+          updatedAt: new Date().toISOString(),
+          updatedBy: req.user.username
+        };
       } else if (key === 'customers') {
         if (!Array.isArray(data)) fail(400, 'ข้อมูลลูกค้าไม่ถูกต้อง');
         const now = new Date().toISOString();

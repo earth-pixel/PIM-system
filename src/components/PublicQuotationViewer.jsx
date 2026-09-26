@@ -71,13 +71,13 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
       {/* Top Navbar / Action Panel */}
       <div className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-[#d2d2d7]/30 px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm print:hidden">
         <div className="flex items-center gap-3">
-          <svg viewBox="0 0 160 160" className="w-10 h-10 fill-current text-zinc-900 shrink-0" xmlns="http://www.w3.org/2000/svg">
-            <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
-            <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
-            <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
-            <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
-            <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
-          </svg>
+          {co.logo ? (
+            <img src={co.logo} alt="Logo" className="w-10 h-10 object-contain shrink-0" />
+          ) : (
+            <div className="w-9 h-9 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-500 font-bold text-xs shrink-0">
+              <Building2 className="w-5 h-5 text-zinc-600" />
+            </div>
+          )}
           <div>
             <h1 className="text-sm font-extrabold text-[#1d1d1f]">เอกสารใบเสนอราคาออนไลน์</h1>
             <p className="text-[11px] text-[#555557] font-medium font-mono">{quotation.quotationNumber}</p>
@@ -106,15 +106,7 @@ export default function PublicQuotationViewer({ shareData, companyInfo = {} }) {
             <div className="flex gap-4 items-start">
               {co.logo ? (
                 <img src={co.logo} alt="Logo" className="w-14 h-14 object-contain shrink-0" />
-              ) : (
-                <svg viewBox="0 0 160 160" className="w-14 h-14 fill-current text-zinc-900 shrink-0" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M 60 48 L 60 36 L 100 21 L 100 33 Z" />
-                  <path d="M 60 70 L 60 58 L 100 43 L 100 55 Z" />
-                  <path d="M 60 92 L 60 80 L 100 65 L 100 77 Z" />
-                  <text x="80" y="115" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="900" fontSize="19.5" textAnchor="middle" letterSpacing="0.4">PHANVADEE</text>
-                  <text x="80" y="132" fontFamily="'Helvetica Neue', Helvetica, Arial, sans-serif" fontWeight="500" fontSize="9.5" textAnchor="middle" letterSpacing="0.1">think global, act local</text>
-                </svg>
-              )}
+              ) : null}
               <div className="text-xs text-[#1d1d1f] leading-relaxed">
                 <div className="font-extrabold text-sm text-black">{co.name || co.nameEn}</div>
                 {co.name && co.nameEn && <div className="text-xs font-semibold text-zinc-700 mb-1">{co.nameEn}</div>}

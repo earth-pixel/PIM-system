@@ -43,6 +43,37 @@ export async function deleteStorageImage(url) {
   }
 }
 
+// Helper to upload a base64 image string to Supabase Storage and return its public URL
+export async function uploadBase64ToStorage(base64Str, bucket, fileName) {
+  if (!base64Str || typeof base64Str !== 'string' || !base64Str.startsWith('data:image/')) return base64Str;
+  if (!isSupabaseConfigured || !supabase) return base64Str;
+
+  try {
+    const matches = base64Str.match(/^data:image\/([a-zA-Z0-9+]+);base64,(.+)$/);
+    if (!matches) return base64Str;
+    const ext = matches[1].replace('jpeg', 'jpg');
+    const buffer = Buffer.from(matches[2], 'base64');
+    const finalName = fileName.includes('.') ? fileName : `${fileName}.${ext}`;
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(finalName, buffer, {
+        upsert: true,
+        contentType: `image/${matches[1]}`
+      });
+
+    if (!error && data?.path) {
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(finalName);
+      if (urlData?.publicUrl) {
+        return `${urlData.publicUrl}?t=${Date.now()}`;
+      }
+    }
+  } catch (err) {
+    console.warn(`Error uploading base64 to ${bucket}/${fileName}:`, err?.message || err);
+  }
+  return base64Str;
+}
+
 // Helper to convert product from App format to Supabase row
 export function toSupabaseProduct(p) {
   let imageUrl = null;
@@ -293,6 +324,45 @@ export function fromSupabaseCustomer(row) {
   };
 }
 
+export const COMPANY_SINGLETON_ID = '00000000-0000-0000-0000-000000000001';
+
+export function toSupabaseCompanyInfo(c) {
+  return {
+    id: COMPANY_SINGLETON_ID,
+    name: c.name || '',
+    address: c.address || '',
+    tax_id: c.taxId || c.tax_id || '',
+    phone: c.phone || '',
+    email: c.email || '',
+    website: c.website || '',
+    logo_url: c.logo || c.logo_url || '',
+    signature_image_url: c.signatureImage || c.signature_image_url || c.stampImage || c.stamp_image_url || '',
+    signer_title: c.signerTitle || c.signer_title || 'ผู้อนุมัติ',
+    updated_at: new Date().toISOString()
+  };
+}
+
+export function fromSupabaseCompanyInfo(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    name: row.name || '',
+    nameEn: row.name_en || '',
+    address: row.address || '',
+    taxId: row.tax_id || '',
+    phone: row.phone || '',
+    mobile: row.mobile || '',
+    email: row.email || '',
+    website: row.website || '',
+    logo: row.logo_url || '',
+    stampImage: row.stamp_image_url || '',
+    signatureImage: row.signature_image_url || '',
+    signerTitle: row.signer_title || 'ผู้อนุมัติ',
+    signerName: row.signer_name || '',
+    updatedAt: row.updated_at || row.created_at
+  };
+}
+
 // Load entire database snapshot from Supabase
 export async function loadDatabaseFromSupabase() {
   if (!isSupabaseConfigured || !supabase) return null;
@@ -306,7 +376,8 @@ export async function loadDatabaseFromSupabase() {
       { data: customers },
       { data: quotations },
       { data: users },
-      { data: activityLog }
+      { data: activityLog },
+      { data: companyInfoRows }
     ] = await Promise.all([
       supabase.from('products').select('*').order('created_at', { ascending: false }),
       supabase.from('categories').select('*').order('name'),
@@ -315,7 +386,8 @@ export async function loadDatabaseFromSupabase() {
       supabase.from('customers').select('*').order('created_at', { ascending: false }),
       supabase.from('quotations').select('*').order('created_at', { ascending: false }),
       supabase.from('app_users').select('*').order('created_at', { ascending: true }),
-      supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(200)
+      supabase.from('activity_logs').select('*').order('created_at', { ascending: false }).limit(200),
+      supabase.from('company_info').select('*').order('updated_at', { ascending: false }).limit(1)
     ]);
 
     // Format subcategories as dictionary { [categoryName]: [sub1, sub2] }
@@ -335,6 +407,7 @@ export async function loadDatabaseFromSupabase() {
       subcategories: subcategoryMap,
       customers: (customers || []).map(fromSupabaseCustomer),
       quotations: (quotations || []).map(fromSupabaseQuotation),
+      companyInfo: (companyInfoRows && companyInfoRows[0]) ? fromSupabaseCompanyInfo(companyInfoRows[0]) : null,
       users: (users || []).map(u => ({
         id: u.id,
         username: u.username,
@@ -643,6 +716,25 @@ export async function saveCollectionToSupabase(key, data) {
         const batch = rows.slice(i, i + 50);
         const { error } = await supabase.from('activity_logs').upsert(batch, { onConflict: 'id' });
         if (error) console.error('Supabase activityLog upsert error:', error);
+      }
+      return true;
+    }
+
+    if (key === 'companyInfo') {
+      const companyData = { ...(data || {}) };
+      if (companyData.logo && String(companyData.logo).startsWith('data:image/')) {
+        companyData.logo = await uploadBase64ToStorage(companyData.logo, 'company-assets', 'logo.png');
+      }
+      if (companyData.signatureImage && String(companyData.signatureImage).startsWith('data:image/')) {
+        const sigUrl = await uploadBase64ToStorage(companyData.signatureImage, 'company-assets', 'signature.png');
+        companyData.signatureImage = sigUrl;
+      }
+
+      const row = toSupabaseCompanyInfo(companyData);
+      const { error } = await supabase.from('company_info').upsert(row, { onConflict: 'id' });
+      if (error) {
+        console.error('Supabase company_info upsert error:', error);
+        throw error;
       }
       return true;
     }

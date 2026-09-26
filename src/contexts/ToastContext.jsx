@@ -1,47 +1,43 @@
-import { createContext, useContext, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { CheckCircle, XCircle, AlertCircle, Info, X } from 'lucide-react';
+import { CheckCircle2, AlertCircle, Info, X, Check } from 'lucide-react';
 
 const ToastContext = createContext(null);
 
 const ICONS = {
-  success: CheckCircle,
-  error: XCircle,
+  success: CheckCircle2,
+  error: AlertCircle,
   warning: AlertCircle,
   info: Info,
 };
 
-const STYLES = {
+const THEMES = {
   success: {
-    container: 'bg-white border border-emerald-200 shadow-[0_8px_32px_rgba(16,185,129,0.18)]',
-    icon: 'bg-emerald-100 text-emerald-600',
+    bgIcon: 'bg-emerald-50 text-emerald-600 border border-emerald-150',
     title: 'text-emerald-700',
-    msg: 'text-emerald-900/80',
-    bar: 'bg-emerald-500',
+    badge: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    button: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/25',
     label: 'สำเร็จ',
   },
   error: {
-    container: 'bg-white border border-red-200 shadow-[0_8px_32px_rgba(239,68,68,0.18)]',
-    icon: 'bg-red-100 text-red-600',
+    bgIcon: 'bg-red-50 text-red-600 border border-red-150',
     title: 'text-red-700',
-    msg: 'text-red-900/80',
-    bar: 'bg-red-500',
+    badge: 'bg-red-50 text-red-700 border-red-200',
+    button: 'bg-red-600 hover:bg-red-700 text-white shadow-md shadow-red-600/25',
     label: 'ข้อผิดพลาด',
   },
   warning: {
-    container: 'bg-white border border-amber-200 shadow-[0_8px_32px_rgba(245,158,11,0.18)]',
-    icon: 'bg-amber-100 text-amber-600',
+    bgIcon: 'bg-amber-50 text-amber-600 border border-amber-150',
     title: 'text-amber-700',
-    msg: 'text-amber-900/80',
-    bar: 'bg-amber-500',
+    badge: 'bg-amber-50 text-amber-700 border-amber-200',
+    button: 'bg-amber-600 hover:bg-amber-700 text-white shadow-md shadow-amber-600/25',
     label: 'คำเตือน',
   },
   info: {
-    container: 'bg-white border border-blue-200 shadow-[0_8px_32px_rgba(59,130,246,0.18)]',
-    icon: 'bg-blue-100 text-blue-600',
+    bgIcon: 'bg-blue-50 text-blue-600 border border-blue-150',
     title: 'text-blue-700',
-    msg: 'text-blue-900/80',
-    bar: 'bg-blue-500',
+    badge: 'bg-blue-50 text-blue-700 border-blue-200',
+    button: 'bg-[#0071e3] hover:bg-[#0077ed] text-white shadow-md shadow-blue-600/25',
     label: 'แจ้งเตือน',
   },
 };
@@ -56,74 +52,117 @@ export function ToastProvider({ children }) {
     setToasts(prev => prev.map(t => t.id === id ? { ...t, exiting: true } : t));
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
-    }, 350);
+    }, 220);
     if (timers.current[id]) {
       clearTimeout(timers.current[id]);
       delete timers.current[id];
     }
   }, []);
 
-  const showToast = useCallback((message, type = 'info', duration = 4500) => {
+  const showToast = useCallback((message, type = 'info', duration = 3500) => {
     const id = ++idCounter;
     setToasts(prev => [...prev, { id, message, type, exiting: false }]);
     timers.current[id] = setTimeout(() => dismiss(id), duration);
     return id;
   }, [dismiss]);
 
+  // Current active popup (latest toast)
+  const activeToast = toasts[toasts.length - 1];
+
+  // Close on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && activeToast) {
+        dismiss(activeToast.id);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeToast, dismiss]);
+
   return (
     <ToastContext.Provider value={{ showToast }}>
       {children}
-      {createPortal(
+      {activeToast && createPortal(
         <div
-          className="fixed top-0 left-0 right-0 z-[99999] flex flex-col items-center gap-2 pt-4 px-4 pointer-events-none"
+          className={`fixed inset-0 z-[99999] flex items-center justify-center p-4 bg-black/35 backdrop-blur-xs transition-opacity duration-200 no-print ${
+            activeToast.exiting ? 'opacity-0 pointer-events-none' : 'opacity-100 animate-fade-in'
+          }`}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) dismiss(activeToast.id);
+          }}
         >
-          {toasts.map(toast => {
-            const style = STYLES[toast.type] || STYLES.info;
-            const Icon = ICONS[toast.type] || Info;
-            return (
-              <div
-                key={toast.id}
-                className={`
-                  pointer-events-auto w-full max-w-md overflow-hidden rounded-2xl
-                  ${style.container}
-                  ${toast.exiting
-                    ? 'animate-[slideUpOut_0.35s_cubic-bezier(0.4,0,1,1)_forwards]'
-                    : 'animate-[slideDownIn_0.4s_cubic-bezier(0.34,1.56,0.64,1)_forwards]'
-                  }
-                `}
-              >
-                {/* Color bar top */}
-                <div className={`h-1 w-full ${style.bar}`} />
+          <div
+            className={`relative bg-white rounded-3xl border border-[#d2d2d7]/60 max-w-xs sm:max-w-sm w-full p-6 shadow-2xl space-y-4 text-center text-[#1d1d1f] transition-all duration-200 ${
+              activeToast.exiting ? 'scale-95 opacity-0' : 'scale-100 opacity-100 animate-scale-in'
+            }`}
+          >
+            {/* Close Button top-right */}
+            <button
+              type="button"
+              onClick={() => dismiss(activeToast.id)}
+              className="absolute top-4 right-4 w-7 h-7 rounded-full flex items-center justify-center text-zinc-400 hover:text-zinc-600 hover:bg-zinc-100 transition-colors cursor-pointer"
+              aria-label="ปิด"
+            >
+              <X className="w-4 h-4" />
+            </button>
 
-                <div className="flex items-start gap-3 px-4 py-3">
-                  {/* Icon */}
-                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${style.icon}`}>
-                    <Icon className="w-5 h-5" />
+            {/* Content */}
+            {(() => {
+              const theme = THEMES[activeToast.type] || THEMES.info;
+              const Icon = ICONS[activeToast.type] || Info;
+              return (
+                <>
+                  {/* Icon Badge */}
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mx-auto shadow-xs ${theme.bgIcon}`}>
+                    <Icon className="w-7 h-7 stroke-[2.2]" />
                   </div>
 
-                  {/* Text */}
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-xs font-bold uppercase tracking-wide ${style.title}`}>
-                      {style.label}
-                    </p>
-                    <p className={`text-sm font-medium mt-0.5 leading-snug ${style.msg}`}>
-                      {toast.message}
-                    </p>
+                  {/* Header & Message */}
+                  <div className="space-y-1.5">
+                    <h3 className={`text-base font-bold tracking-wide ${theme.title}`}>
+                      {theme.label}
+                    </h3>
+                    {(() => {
+                      const lines = typeof activeToast.message === 'string'
+                        ? activeToast.message.split('\n')
+                        : [activeToast.message];
+                      if (lines.length > 1) {
+                        return (
+                          <div className="space-y-2 mt-1">
+                            <p className="text-sm text-[#1d1d1f] font-semibold leading-relaxed">
+                              {lines[0]}
+                            </p>
+                            <div>
+                              <span className="inline-block text-xs text-amber-800 bg-amber-50 border border-amber-200/80 rounded-xl py-1 px-3 font-semibold shadow-2xs">
+                                {lines[1]}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      }
+                      return (
+                        <p className="text-xs sm:text-sm text-[#555557] font-semibold leading-relaxed px-2 whitespace-pre-line">
+                          {activeToast.message}
+                        </p>
+                      );
+                    })()}
                   </div>
 
-                  {/* Close */}
-                  <button
-                    type="button"
-                    onClick={() => dismiss(toast.id)}
-                    className="shrink-0 w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-all cursor-pointer mt-0.5"
-                    aria-label="ปิด"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            );
-          })}
+                  {/* Action Button */}
+                  <div className="pt-2">
+                    <button
+                      type="button"
+                      onClick={() => dismiss(activeToast.id)}
+                      className={`w-full py-2.5 rounded-xl font-bold text-xs transition-all cursor-pointer active:scale-95 ${theme.button}`}
+                    >
+                      ตกลง
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
         </div>,
         document.body
       )}

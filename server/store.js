@@ -4,12 +4,21 @@ import { createHash, randomUUID } from 'node:crypto';
 import process from 'node:process';
 import { isSupabaseConfigured } from './supabaseSync.js';
 
-export const keys = ['products', 'brands', 'categories', 'subcategories', 'users', 'quotations', 'activityLog', 'customers'];
+export const keys = ['products', 'brands', 'categories', 'subcategories', 'users', 'quotations', 'activityLog', 'customers', 'companyInfo'];
 export const revision = value => createHash('sha256').update(JSON.stringify(value ?? [])).digest('hex');
 export const publicUser = user => Object.fromEntries(Object.entries(user).filter(([key]) => !['password', 'passwordHash'].includes(key)));
 export const revisions = db => Object.fromEntries(keys.map(key => [key, revision(db[key])]));
 export function publicDB(db) {
-  return { ...Object.fromEntries(keys.map(key => [key, key === 'users' ? (db.users || []).map(publicUser) : key === 'subcategories' ? (db.subcategories || {}) : db[key] || []])), _revisions: revisions(db) };
+  return { 
+    ...Object.fromEntries(keys.map(key => [
+      key, 
+      key === 'users' ? (db.users || []).map(publicUser) : 
+      key === 'subcategories' ? (db.subcategories || {}) : 
+      key === 'companyInfo' ? (db.companyInfo || null) :
+      db[key] || []
+    ])), 
+    _revisions: revisions(db) 
+  };
 }
 
 export function createStore(dbPath) {

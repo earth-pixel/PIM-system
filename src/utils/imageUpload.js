@@ -137,3 +137,148 @@ export async function deleteProductImage(url) {
   }
 }
 
+export const COMPANY_ASSETS_BUCKET = 'company-assets';
+
+/**
+ * Uploads a company asset (logo, signature, stamp) to Supabase Storage with a clean, fixed filename.
+ * Overwrites existing file (upsert: true) and returns a cache-busted URL (?t=timestamp) so the browser always renders fresh image.
+ * 
+ * @param {File} file 
+ * @param {'logo'|'signature'|'stamp'} assetType 
+ * @returns {Promise<{ success: boolean, url: string, isCloud: boolean, error?: string }>}
+ */
+export async function uploadCompanyAsset(file, assetType = 'signature') {
+  if (!file) {
+    return { success: false, error: 'ไม่พบไฟล์รูปภาพ' };
+  }
+
+  if (!file.type.startsWith('image/')) {
+    return { success: false, error: 'กรุณาเลือกไฟล์รูปภาพเท่านั้น' };
+  }
+
+  if (file.size > 2 * 1024 * 1024) {
+    return { success: false, error: 'ขนาดรูปภาพต้องไม่เกิน 2MB' };
+  }
+
+  try {
+    if (supabase && supabase.storage) {
+      const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const cleanExt = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext) ? ext : 'png';
+      const filePath = `${assetType}.${cleanExt}`;
+
+      // Clean up any previous extensions for this assetType to prevent duplicate leftovers
+      const possibleExtensions = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].filter(e => e !== cleanExt);
+      const stalePaths = possibleExtensions.flatMap(e => [
+        `${assetType}.${e}`,
+        `company/${assetType}.${e}`
+      ]);
+      await supabase.storage.from(COMPANY_ASSETS_BUCKET).remove(stalePaths).catch(() => {});
+
+      const { data, error } = await supabase.storage
+        .from(COMPANY_ASSETS_BUCKET)
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type
+        });
+
+      if (!error && data?.path) {
+        const { data: urlData } = supabase.storage
+          .from(COMPANY_ASSETS_BUCKET)
+          .getPublicUrl(filePath);
+
+        if (urlData?.publicUrl) {
+          // Append query timestamp so browser never renders old cached version
+          const freshUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+          return {
+            success: true,
+            url: freshUrl,
+            isCloud: true
+          };
+        }
+      }
+
+      console.warn('Company asset cloud upload warning:', error?.message || error);
+    }
+  } catch (err) {
+    console.warn('Company asset cloud upload exception:', err.message);
+  }
+
+  // 2. Fallback to server-side upload API if client direct upload had network/CORS issues
+  try {
+    const base64 = await fileToBase64(file);
+    const res = await fetch('/api/company/upload-asset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ assetType, base64 })
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.url) {
+        return {
+          success: true,
+          url: json.url,
+          isCloud: true
+        };
+      }
+    }
+  } catch (err) {
+    console.warn('Company asset backend upload fallback notice:', err?.message || err);
+  }
+
+  // 3. Fallback to Base64 data URL so preview immediately renders; backend will upload to storage upon clicking "บันทึก"
+  try {
+    const base64 = await fileToBase64(file);
+    return {
+      success: true,
+      url: base64,
+      isCloud: false
+    };
+  } catch (err) {
+    return {
+      success: false,
+      error: 'ไม่สามารถอ่านไฟล์รูปภาพได้: ' + err.message
+    };
+  }
+}
+
+/**
+ * Deletes a company asset (logo, signature, stamp) from Supabase Storage.
+ * @param {'logo'|'signature'|'stamp'|string} target - either asset name or full URL
+ */
+export async function deleteCompanyAsset(target) {
+  if (!target || typeof target !== 'string') return { success: true };
+
+  try {
+    if (supabase && supabase.storage) {
+      if (['logo', 'signature', 'stamp'].includes(target)) {
+        await supabase.storage.from(COMPANY_ASSETS_BUCKET).remove([
+          `${target}.png`,
+          `${target}.jpg`,
+          `${target}.jpeg`,
+          `${target}.webp`,
+          `${target}.svg`,
+          `company/${target}.png`,
+          `company/${target}.jpg`,
+          `company/${target}.jpeg`,
+          `company/${target}.webp`
+        ]);
+        return { success: true };
+      }
+
+      const bucketMarker = `/${COMPANY_ASSETS_BUCKET}/`;
+      const idx = target.indexOf(bucketMarker);
+      if (idx !== -1) {
+        const filePath = decodeURIComponent(target.slice(idx + bucketMarker.length).split('?')[0]);
+        if (filePath) {
+          await supabase.storage.from(COMPANY_ASSETS_BUCKET).remove([filePath]);
+        }
+      }
+    }
+    return { success: true };
+  } catch (err) {
+    console.warn('deleteCompanyAsset exception:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+

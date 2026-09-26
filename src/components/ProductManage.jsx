@@ -1399,7 +1399,7 @@ export default function ProductManage({
           setAlertPopup({
             type: 'error',
             title: 'อัปโหลดรูปภาพไม่สำเร็จ',
-            message: uploadResult.error || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพขึ้น Cloud'
+            message: uploadResult.error || 'เกิดข้อผิดพลาดในการอัปโหลดรูปภาพ'
           });
           setIsSubmitting(false);
           return;
@@ -3537,7 +3537,7 @@ export default function ProductManage({
                             <Loader2 className="w-5 h-5" />
                           </div>
                           <div className="text-xs text-zinc-600 font-medium animate-pulse">
-                            กำลังอัปโหลดรูปภาพขึ้น Cloud Storage...
+                            กำลังอัปโหลดรูปภาพ...
                           </div>
                           <p className="text-[11px] text-[#86868b]">ระบบกำลังส่งไฟล์ไปยัง Supabase Storage</p>
                         </div>

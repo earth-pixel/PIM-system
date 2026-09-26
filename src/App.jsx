@@ -55,7 +55,8 @@ export default function App() {
   const [currentCompanyInfo, setCurrentCompanyInfo] = useState(() => {
     try {
       const saved = localStorage.getItem('pim_company_info');
-      return saved ? JSON.parse(saved) : companyInfo;
+      const parsed = saved ? JSON.parse(saved) : null;
+      return (parsed && typeof parsed === 'object') ? parsed : companyInfo;
     } catch {
       return companyInfo;
     }
@@ -153,6 +154,12 @@ export default function App() {
     } else {
       clearTimeout(safetyTimer);
       setAuthLoading(false);
+      fetch('/api/public/company')
+        .then(r => r.json())
+        .then(res => {
+          if (res.companyInfo) setCurrentCompanyInfo(res.companyInfo);
+        })
+        .catch(() => {});
     }
 
     return () => {
@@ -233,6 +240,11 @@ export default function App() {
       localStorage.setItem('pim_company_info', JSON.stringify(updated));
     } catch (e) {
       console.warn('Failed to save company info to localStorage:', e);
+    }
+    const result = await saveCollection('companyInfo', updated);
+    if (result?.companyInfo) {
+      setCurrentCompanyInfo(result.companyInfo);
+      return result.companyInfo;
     }
     return updated;
   };
