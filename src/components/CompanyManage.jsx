@@ -273,33 +273,20 @@ export default function CompanyManage({
                 </div>
               </div>
 
-              <div>
-                <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                  ชื่อบริษัท <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={e => handleChange('name', e.target.value)}
-                  placeholder="เช่น บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)"
-                  className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs text-[#555557] font-semibold mb-1 block">
-                  ที่อยู่สำนักงาน <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  rows={2}
-                  value={form.address}
-                  onChange={e => handleChange('address', e.target.value)}
-                  placeholder="เช่น 19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170"
-                  className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium resize-none leading-relaxed"
-                />
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                    ชื่อบริษัท <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={e => handleChange('name', e.target.value)}
+                    placeholder="เช่น บริษัท พันธ์วาดี จำกัด (สำนักงานใหญ่)"
+                    className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-bold"
+                  />
+                </div>
+
                 <div>
                   <label className="text-xs text-[#555557] font-semibold mb-1 block">
                     เบอร์โทรศัพท์ <span className="text-red-500">*</span>
@@ -315,6 +302,19 @@ export default function CompanyManage({
                     />
                   </div>
                 </div>
+              </div>
+
+              <div>
+                <label className="text-xs text-[#555557] font-semibold mb-1 block">
+                  ที่อยู่สำนักงาน <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={2}
+                  value={form.address}
+                  onChange={e => handleChange('address', e.target.value)}
+                  placeholder="เช่น 19/9 ซ.ทวีวัฒนา-กาญจนาภิเษก 16 แขวง/เขต ทวีวัฒนา กทม. 10170"
+                  className="w-full text-xs text-[#1d1d1f] bg-[#f5f5f7] border border-[#d2d2d7]/60 rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-[#0071e3] focus:bg-white transition-all font-medium resize-none leading-relaxed"
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
