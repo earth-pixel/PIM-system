@@ -735,8 +735,9 @@ export default function QuotationPrint({
             </svg>
           )}
         </div>
-        <div style={{ fontSize: '10.5px', color: DARK, lineHeight: 1.6 }}>
-          <div style={{ fontWeight: 800, fontSize: '13px', marginBottom: 3, color: '#000' }}>{co.name}</div>
+        <div style={{ fontSize: '10.5px', color: DARK, lineHeight: 1.5 }}>
+          <div style={{ fontWeight: 800, fontSize: '13px', color: '#000', lineHeight: 1.25 }}>{co.name || co.nameEn}</div>
+          {co.name && co.nameEn && <div style={{ fontSize: '10.5px', fontWeight: 600, color: '#333', marginBottom: 2 }}>{co.nameEn}</div>}
           <div style={{ color: GRAY }}>{co.address}</div>
           <div>โทร: {co.phone}{co.mobile ? ` / ${co.mobile}` : ''}</div>
           {co.email && <div>อีเมล: {co.email}</div>}
@@ -1201,66 +1202,66 @@ export default function QuotationPrint({
       {(!isAutoOpen && isDownloading) && (
         <div
           style={{
-              position: 'fixed',
-              inset: 0,
-              zIndex: 99999,
-              background: 'rgb(15, 23, 42)',  /* ทึบ 100% — ไม่เห็นเอกสารด้านหลังเลย */
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              fontFamily: "'Sarabun', sans-serif",
-              gap: 16
+            position: 'fixed',
+            inset: 0,
+            zIndex: 99999,
+            background: 'rgb(15, 23, 42)',  /* ทึบ 100% — ไม่เห็นเอกสารด้านหลังเลย */
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#fff',
+            fontFamily: "'Sarabun', sans-serif",
+            gap: 16
+          }}
+        >
+          <div
+            style={{
+              width: 40,
+              height: 40,
+              border: '4px solid rgba(255, 255, 255, 0.1)',
+              borderTop: '4px solid #0071e3',
+              borderRadius: '50%',
+              animation: 'spin 1s linear infinite'
             }}
-          >
-            <div
-              style={{
-                width: 40,
-                height: 40,
-                border: '4px solid rgba(255, 255, 255, 0.1)',
-                borderTop: '4px solid #0071e3',
-                borderRadius: '50%',
-                animation: 'spin 1s linear infinite'
-              }}
-            />
-            <style>{`
+          />
+          <style>{`
               @keyframes spin {
                 0% { transform: rotate(0deg); }
                 100% { transform: rotate(360deg); }
               }
             `}</style>
-            <div style={{ fontWeight: 700, fontSize: 16 }}>กำลังเตรียมไฟล์ PDF...</div>
-            <div style={{ fontSize: 12, color: '#94a3b8' }}>กรุณารอสักครู่ ระบบกำลังจัดทำหน้าเอกสาร A4</div>
-          </div>
-        )}
+          <div style={{ fontWeight: 700, fontSize: 16 }}>กำลังเตรียมไฟล์ PDF...</div>
+          <div style={{ fontSize: 12, color: '#94a3b8' }}>กรุณารอสักครู่ ระบบกำลังจัดทำหน้าเอกสาร A4</div>
+        </div>
+      )}
 
-        {/* ── Toolbar ── */}
-        <div
-          className="no-print"
-          style={{
-            position: 'sticky', top: 0, zIndex: 10,
-            height: '60px',
-            background: 'rgba(15, 23, 42, 0.88)',
-            backdropFilter: 'blur(12px)',
-            color: '#fff',
-            padding: '0 24px',
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <button
-              onClick={onClose}
-              style={{
-                background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff',
-                borderRadius: 8, padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center',
-                transition: 'background 0.2s, transform 0.1s',
-              }}
-              onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-              onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
+      {/* ── Toolbar ── */}
+      <div
+        className="no-print"
+        style={{
+          position: 'sticky', top: 0, zIndex: 10,
+          height: '60px',
+          background: 'rgba(15, 23, 42, 0.88)',
+          backdropFilter: 'blur(12px)',
+          color: '#fff',
+          padding: '0 24px',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+          boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'rgba(255,255,255,0.08)', border: 'none', color: '#fff',
+              borderRadius: 8, padding: '8px 10px', cursor: 'pointer', display: 'flex', alignItems: 'center',
+              transition: 'background 0.2s, transform 0.1s',
+            }}
+            onMouseOver={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
+            onMouseOut={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+            onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.96)'}
             onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
           >
             <X size={18} />
