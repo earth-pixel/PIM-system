@@ -1049,7 +1049,8 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
   const [docTypeFilter, setDocTypeFilter] = useState('All');
-  const [dateFilter, setDateFilter] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [hoveredRow, setHoveredRow] = useState(null);
   const [expiringSoonOnly, setExpiringSoonOnly] = useState(false);
 
@@ -1093,42 +1094,55 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
   const expiringSoonCount = useMemo(() => {
     return quotations.filter(q => {
       if (isExpiredQuotation(q)) return false;
-      if (currentUser?.role === 'admin' && visibleListMode === 'mine') {
-        const creator = q.createdBy || '';
-        const salesName = q.salespersonName || '';
-        const isMine = creator === currentUser.username ||
-          salesName.toLowerCase().includes(currentUser.username.toLowerCase()) ||
-          (currentUser.name && salesName.toLowerCase().includes(currentUser.name.toLowerCase()));
-        if (!isMine) return false;
-      }
       const exp = getExpiryStatus(q);
       return Boolean(exp && exp.isExpiringSoon);
     }).length;
-  }, [quotations, currentUser, visibleListMode]);
+  }, [quotations]);
 
-  const matchDate = (issuedDateStr, filterDateStr) => {
-    if (!filterDateStr) return true;
-    if (!issuedDateStr) return false;
+  const parseToDate = (dateStr) => {
+    if (!dateStr) return null;
     try {
-      const [fYear, fMonth, fDay] = filterDateStr.split('-').map(Number);
-      if (issuedDateStr.includes('-')) {
-        const [y, m, d] = issuedDateStr.split('-').map(Number);
-        return y === fYear && m === fMonth && d === fDay;
+      if (dateStr.includes('-')) {
+        const [y, m, d] = dateStr.split('-').map(Number);
+        return new Date(y, m - 1, d);
       }
-      if (issuedDateStr.includes('/')) {
-        const parts = issuedDateStr.split('/').map(Number);
+      if (dateStr.includes('/')) {
+        const parts = dateStr.split('/').map(Number);
         if (parts.length === 3) {
-          const d = parts[0];
-          const m = parts[1];
+          const d = parts[0], m = parts[1];
           let y = parts[2];
           if (y > 2400) y -= 543;
-          return d === fDay && m === fMonth && y === fYear;
+          return new Date(y, m - 1, d);
         }
       }
-    } catch (e) {
-      console.error(e);
+      const parsed = new Date(dateStr);
+      if (!isNaN(parsed.getTime())) return parsed;
+    } catch {
+      // ignore
     }
-    return false;
+    return null;
+  };
+
+  const matchDateRange = (dateStr) => {
+    if (!startDate && !endDate) return true;
+    const itemDate = parseToDate(dateStr);
+    if (!itemDate) return false;
+    itemDate.setHours(0, 0, 0, 0);
+    if (startDate) {
+      const startDateObj = parseToDate(startDate);
+      if (startDateObj) {
+        startDateObj.setHours(0, 0, 0, 0);
+        if (itemDate < startDateObj) return false;
+      }
+    }
+    if (endDate) {
+      const endDateObj = parseToDate(endDate);
+      if (endDateObj) {
+        endDateObj.setHours(0, 0, 0, 0);
+        if (itemDate > endDateObj) return false;
+      }
+    }
+    return true;
   };
 
   const filtered = useMemo(() => {
@@ -1137,9 +1151,12 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
       const matchSearch = !search ||
         qNum.toLowerCase().includes(search.toLowerCase()) ||
         q.customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
-        (q.customer?.companyName || '').toLowerCase().includes(search.toLowerCase());
+        (q.customer?.companyName || '').toLowerCase().includes(search.toLowerCase()) ||
+        (q.salespersonName || '').toLowerCase().includes(search.toLowerCase()) ||
+        (q.createdBy || '').toLowerCase().includes(search.toLowerCase());
 
-      const matchD = !dateFilter || matchDate(q.issuedDate, dateFilter);
+      const dateToCheck = visibleListMode === 'expired' ? (q.validUntilDate || q.issuedDate) : q.issuedDate;
+      const matchD = matchDateRange(dateToCheck);
 
       if (visibleListMode === 'expired') {
         return matchSearch && isExpiredQuotation(q) && matchD;
@@ -1159,18 +1176,6 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
         return matchSearch && q.status === 'sent' && q.documentType === 'quotation' && matchD;
       }
 
-      if (currentUser?.role === 'admin' && visibleListMode === 'mine') {
-        const creator = q.createdBy || '';
-        const salesName = q.salespersonName || '';
-        const isMine = creator === currentUser.username ||
-          salesName.toLowerCase().includes(currentUser.username.toLowerCase()) ||
-          (currentUser.name && salesName.toLowerCase().includes(currentUser.name.toLowerCase()));
-
-        const matchStatus = statusFilter === 'All' || q.status === statusFilter;
-        const matchDocType = docTypeFilter === 'All' || q.documentType === docTypeFilter;
-        return matchSearch && isMine && matchStatus && matchDocType && matchD;
-      }
-
       const matchStatus = statusFilter === 'All' || q.status === statusFilter;
       const matchDocType = docTypeFilter === 'All' || q.documentType === docTypeFilter;
 
@@ -1188,7 +1193,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
       }
       return sortBy === 'newest' ? -cmp : cmp;
     });
-  }, [quotations, search, dateFilter, currentUser, visibleListMode, statusFilter, docTypeFilter, sortBy, expiringSoonOnly]);
+  }, [quotations, search, startDate, endDate, currentUser, visibleListMode, statusFilter, docTypeFilter, sortBy, expiringSoonOnly]);
 
   const handleExportExcel = async () => {
     try {
@@ -1392,7 +1397,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
                   type="text"
                   value={search}
                   onChange={e => setSearch(e.target.value)}
-                  placeholder="ค้นหาเลขที่เอกสาร หรือชื่อลูกค้า..."
+                  placeholder={currentUser?.role === 'admin' ? "ค้นหาเลขที่เอกสาร, ลูกค้า หรือพนักงาน..." : "ค้นหาเลขที่เอกสาร หรือชื่อลูกค้า..."}
                   className="w-full pl-8 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all placeholder:text-zinc-400 text-zinc-700"
                 />
               </div>
@@ -1442,25 +1447,35 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
                   </div>
                 )}
 
-                {/* Date filter input (always visible!) */}
-                <div className="w-full sm:w-auto relative flex items-center">
-                  <input
-                    type={dateFilter ? 'date' : 'text'}
-                    placeholder="เลือกวันที่..."
-                    value={dateFilter}
-                    onFocus={(e) => (e.target.type = 'date')}
-                    onBlur={(e) => {
-                      if (!e.target.value) e.target.type = 'text';
-                    }}
-                    onChange={e => setDateFilter(e.target.value)}
-                    className="pl-3 pr-8 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full md:w-auto"
-                    title="กรองตามวันที่ออกเอกสาร"
-                  />
-                  {dateFilter && (
+                {/* Date range filter */}
+                <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                  <div className="relative flex items-center">
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={e => setStartDate(e.target.value)}
+                      className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full sm:w-auto"
+                      title="วันที่เริ่มต้น"
+                    />
+                  </div>
+
+                  <span className="text-zinc-500 text-xs font-semibold select-none shrink-0 mx-0.5">ถึง</span>
+
+                  <div className="relative flex items-center">
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={e => setEndDate(e.target.value)}
+                      className="px-3 py-2 bg-[#f5f5f7] border border-[#d2d2d7] rounded-xl text-xs text-zinc-700 focus:outline-none focus:border-[#0071e3] focus:ring-2 focus:ring-[#0071e3]/10 focus:bg-white transition-all cursor-pointer font-medium w-full sm:w-auto"
+                      title="วันที่ล่าสุด"
+                    />
+                  </div>
+
+                  {(startDate || endDate) && (
                     <button
                       type="button"
-                      onClick={() => setDateFilter('')}
-                      className="absolute right-3 text-zinc-400 hover:text-zinc-600 cursor-pointer"
+                      onClick={() => { setStartDate(''); setEndDate(''); }}
+                      className="p-1.5 text-zinc-400 hover:text-zinc-600 rounded-lg hover:bg-zinc-100 cursor-pointer transition-colors"
                       title="ล้างตัวกรองวันที่"
                     >
                       <X className="w-3.5 h-3.5" />
@@ -1538,7 +1553,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
               <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-3">
                   <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">
-                    {visibleListMode === 'expired' ? 'รายการใบเสนอราคาที่หมดอายุ' : 'รายการเอกสารเสนอราคา'}
+                    {visibleListMode === 'expired' ? 'รายการใบเสนอราคาที่หมดอายุ' : 'รายการเอกสาร'}
                   </h4>
                   <span className={`px-2.5 py-0.5 text-[10px] font-black text-white rounded-full ${visibleListMode === 'expired' ? 'bg-red-500' : 'bg-[#0071e3]'}`}>
                     {filtered.length.toLocaleString()} รายการ
@@ -1643,12 +1658,6 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
                           <span className={`text-[10px] ${visibleListMode === 'expired' ? 'font-bold text-red-600' : 'text-[#aaa]'}`}>
                             {visibleListMode === 'expired' ? `หมดอายุ ${formatDate(q.validUntilDate)}` : formatDate(q.issuedDate)}
                           </span>
-                          {currentUser?.role === 'admin' && visibleListMode === 'pending' && q.salespersonName && (
-                            <span className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                              <Users className="w-2.5 h-2.5" />
-                              {q.salespersonName}
-                            </span>
-                          )}
                           {/* แจ้งเตือน 3 วันก่อนหมดอายุในแถวรายการ */}
                           {(() => {
                             const expStatus = getExpiryStatus(q);
@@ -1670,6 +1679,11 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
                             return null;
                           })()}
                         </div>
+                        {currentUser?.role === 'admin' && (q.salespersonName || q.createdBy) && (
+                          <div className="text-[10px] text-zinc-400 mt-1">
+                            ชื่อผู้สร้าง: <span className="text-zinc-500 font-medium">{q.salespersonName || q.createdBy}</span>
+                          </div>
+                        )}
                       </div>
                       <div className="text-right flex flex-col items-end gap-1.5">
                         <div className="text-xs font-bold text-[#1d1d1f]">฿{fmt(q.totalAmount)}</div>
