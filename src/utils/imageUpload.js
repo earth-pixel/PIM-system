@@ -164,20 +164,29 @@ export async function uploadCompanyAsset(file, assetType = 'signature') {
     if (supabase && supabase.storage) {
       const ext = (file.name.split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
       const cleanExt = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext) ? ext : 'png';
-      const filePath = `${assetType}.${cleanExt}`;
+      const timestamp = Date.now();
+      const filePath = `${assetType}_${timestamp}.${cleanExt}`;
 
-      // Clean up any previous extensions for this assetType to prevent duplicate leftovers
-      const possibleExtensions = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].filter(e => e !== cleanExt);
-      const stalePaths = possibleExtensions.flatMap(e => [
-        `${assetType}.${e}`,
-        `company/${assetType}.${e}`
-      ]);
-      await supabase.storage.from(COMPANY_ASSETS_BUCKET).remove(stalePaths).catch(() => {});
+      // Clean up previous files for this assetType to prevent duplicate leftovers
+      try {
+        const { data: existingFiles } = await supabase.storage.from(COMPANY_ASSETS_BUCKET).list('', {
+          search: assetType
+        });
+        if (existingFiles && existingFiles.length > 0) {
+          await supabase.storage.from(COMPANY_ASSETS_BUCKET).remove(existingFiles.map(f => f.name)).catch(() => {});
+        }
+        await supabase.storage.from(COMPANY_ASSETS_BUCKET).remove([
+          `${assetType}.png`, `${assetType}.jpg`, `${assetType}.jpeg`, `${assetType}.webp`,
+          `company/${assetType}.png`, `company/${assetType}.jpg`
+        ]).catch(() => {});
+      } catch (cleanErr) {
+        console.warn('Storage cleanup warning:', cleanErr);
+      }
 
       const { data, error } = await supabase.storage
         .from(COMPANY_ASSETS_BUCKET)
         .upload(filePath, file, {
-          cacheControl: '3600',
+          cacheControl: '0',
           upsert: true,
           contentType: file.type
         });
@@ -188,11 +197,9 @@ export async function uploadCompanyAsset(file, assetType = 'signature') {
           .getPublicUrl(filePath);
 
         if (urlData?.publicUrl) {
-          // Append query timestamp so browser never renders old cached version
-          const freshUrl = `${urlData.publicUrl}?t=${Date.now()}`;
           return {
             success: true,
-            url: freshUrl,
+            url: urlData.publicUrl,
             isCloud: true
           };
         }
@@ -252,6 +259,14 @@ export async function deleteCompanyAsset(target) {
   try {
     if (supabase && supabase.storage) {
       if (['logo', 'signature', 'stamp'].includes(target)) {
+        try {
+          const { data: existingFiles } = await supabase.storage.from(COMPANY_ASSETS_BUCKET).list('', {
+            search: target
+          });
+          if (existingFiles && existingFiles.length > 0) {
+            await supabase.storage.from(COMPANY_ASSETS_BUCKET).remove(existingFiles.map(f => f.name)).catch(() => {});
+          }
+        } catch {}
         await supabase.storage.from(COMPANY_ASSETS_BUCKET).remove([
           `${target}.png`,
           `${target}.jpg`,
@@ -262,7 +277,7 @@ export async function deleteCompanyAsset(target) {
           `company/${target}.jpg`,
           `company/${target}.jpeg`,
           `company/${target}.webp`
-        ]);
+        ]).catch(() => {});
         return { success: true };
       }
 
