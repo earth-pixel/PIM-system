@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  Building2, Phone, Mail, Globe, MapPin, Check,
+  Building2, Mail, Globe, MapPin, Check,
   Save, RotateCcw, Eye, ShieldCheck, Hash, Smartphone,
   Stamp, PenTool, Upload, Trash2, Image as ImageIcon,
   AlertCircle, X
@@ -474,17 +474,14 @@ export default function CompanyManage({
                   <label className={`text-xs font-semibold mb-1 block transition-colors ${errorFields.phone ? 'text-red-600 font-bold' : 'text-[#555557]'}`}>
                     เบอร์โทรศัพท์ <span className="text-red-500">*</span>
                   </label>
-                  <div className="relative">
-                    <Phone className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${errorFields.phone ? 'text-red-500' : 'text-zinc-400'}`} />
-                    <input
-                      ref={phoneInputRef}
-                      type="text"
-                      value={form.phone}
-                      onChange={e => handleChange('phone', e.target.value)}
-                      placeholder="เช่น 02-4315111 หรือ 02-4315111 / 02-0055666"
-                      className={getFieldClass('phone', 'pl-9 pr-3.5 py-2.5 font-medium')}
-                    />
-                  </div>
+                  <input
+                    ref={phoneInputRef}
+                    type="text"
+                    value={form.phone}
+                    onChange={e => handleChange('phone', e.target.value)}
+                    placeholder="เช่น 02-4315111 หรือ 02-4315111 / 02-0055666"
+                    className={getFieldClass('phone', 'px-3.5 py-2.5 font-medium')}
+                  />
                   {errorFields.phone && (
                     <p className="text-[10px] text-red-500 font-semibold mt-1 animate-fade-in flex items-center gap-1">
                       <AlertCircle className="w-3 h-3 text-red-500 shrink-0" />

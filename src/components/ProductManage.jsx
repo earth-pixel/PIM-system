@@ -1240,7 +1240,7 @@ export default function ProductManage({
       description: !description.trim(),
       highlights: !highlights.trim(),
       howToUse: !howToUse.trim(),
-      image: false,
+      image: !image || (typeof image === 'string' && (!image.trim() || image === '-')),
       editRemark: !!editProduct && !editRemark.trim(),
       barcode: !barcode.trim(),
       size: !size.trim(),
@@ -1373,6 +1373,11 @@ export default function ProductManage({
     if (errors.howToUse) {
       setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณากรอกวิธีใช้' });
       focusAndScroll('product-how-to-use');
+      return;
+    }
+    if (errors.image) {
+      setAlertPopup({ type: 'error', title: 'กรอกข้อมูลไม่ครบถ้วน', message: 'กรุณาใส่ภาพประกอบสินค้า' });
+      focusAndScroll('product-image-dropzone');
       return;
     }
     if (errors.editRemark) {
@@ -2921,7 +2926,7 @@ export default function ProductManage({
                   setPendingImageFile(null);
                   setImage('');
                   setImageDeleted(true);
-                  setFormErrors(prev => ({ ...prev, image: false }));
+                  setFormErrors(prev => ({ ...prev, image: true }));
                   setShowDeleteImageConfirm(false);
                 }}
                 className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-full shadow-xs transition-colors cursor-pointer"
@@ -3517,7 +3522,9 @@ export default function ProductManage({
                 <div className="space-y-4 min-w-0">
                   <div className="bg-white p-4.5 rounded-2xl border border-[#d2d2d7]/50 shadow-xs space-y-3.5">
                     <div>
-                      <h3 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wide">ใส่ภาพประกอบสินค้า</h3>
+                      <h3 className="text-xs font-bold text-[#1d1d1f] uppercase tracking-wide">
+                        ใส่ภาพประกอบสินค้า<span className="text-red-500">*</span>
+                      </h3>
                     </div>
                     <div
                       id="product-image-dropzone"
@@ -3581,6 +3588,9 @@ export default function ProductManage({
                         </div>
                       )}
                     </div>
+                    {formErrors.image && (
+                      <span className="text-[11px] text-red-500 font-semibold mt-1 block">กรุณาใส่ภาพประกอบสินค้า</span>
+                    )}
                   </div>
 
                   {/* Edit Remark — required when editing */}
