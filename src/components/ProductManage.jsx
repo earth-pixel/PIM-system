@@ -3539,7 +3539,7 @@ export default function ProductManage({
                           <div className="text-xs text-zinc-600 font-medium animate-pulse">
                             กำลังอัปโหลดรูปภาพ...
                           </div>
-                          <p className="text-[11px] text-[#86868b]">ระบบกำลังส่งไฟล์ไปยัง Supabase Storage</p>
+                         
                         </div>
                       ) : image ? (
                         <>
