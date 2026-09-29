@@ -1556,7 +1556,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
                   <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">
                     {visibleListMode === 'expired'
                       ? (currentUser?.role === 'admin' ? 'รายการใบเสนอราคาที่หมดอายุ (ทั้งหมด)' : 'รายการใบเสนอราคาที่หมดอายุ')
-                      : (currentUser?.role === 'admin' ? 'รายการเอกสารทั้งหมด' : 'รายการเอกสาร')}
+                      : (currentUser?.role === 'admin' ? 'รายการเอกสาร' : 'รายการเอกสาร')}
                   </h4>
                   <span className={`px-2.5 py-0.5 text-[10px] font-black text-white rounded-full ${visibleListMode === 'expired' ? 'bg-red-500' : 'bg-[#0071e3]'}`}>
                     {filtered.length.toLocaleString()} รายการ
