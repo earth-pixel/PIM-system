@@ -1553,7 +1553,9 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
               <div className="px-4.5 py-3.5 border-b border-[#e8e8ed] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                 <div className="flex items-center gap-3">
                   <h4 className="text-xs font-black text-[#1d1d1f] tracking-widest uppercase">
-                    {visibleListMode === 'expired' ? 'รายการใบเสนอราคาที่หมดอายุ' : 'รายการเอกสาร'}
+                    {visibleListMode === 'expired'
+                      ? (currentUser?.role === 'admin' ? 'รายการใบเสนอราคาที่หมดอายุ (ทั้งหมด)' : 'รายการใบเสนอราคาที่หมดอายุ')
+                      : (currentUser?.role === 'admin' ? 'รายการเอกสารทั้งหมด' : 'รายการเอกสาร')}
                   </h4>
                   <span className={`px-2.5 py-0.5 text-[10px] font-black text-white rounded-full ${visibleListMode === 'expired' ? 'bg-red-500' : 'bg-[#0071e3]'}`}>
                     {filtered.length.toLocaleString()} รายการ
@@ -1561,62 +1563,65 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
                 </div>
 
                 {/* Sorting Dropdown */}
-                <div className="relative self-start sm:self-auto select-none">
-                  <button
-                    type="button"
-                    onClick={() => setIsSortOpen(!isSortOpen)}
-                    className="px-3.5 py-1.5 bg-[#f5f5f7] hover:bg-[#e8e8ed] border border-[#d2d2d7] rounded-xl text-xs font-bold text-[#1d1d1f] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 z-10"
-                  >
-                    <span>{sortBy === 'newest' ? 'ใหม่ที่สุด' : 'เก่าที่สุด'}</span>
-                    <svg
-                      className={`w-3.5 h-3.5 text-[#555557] transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`}
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2.5"
-                      viewBox="0 0 24 24"
+                <div className="flex items-center gap-1.5 self-start sm:self-auto select-none">
+                  <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">เอกสาร :</span>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setIsSortOpen(!isSortOpen)}
+                      className="px-3.5 py-1.5 bg-[#f5f5f7] hover:bg-[#e8e8ed] border border-[#d2d2d7] rounded-xl text-xs font-bold text-[#1d1d1f] transition-all flex items-center gap-1.5 cursor-pointer shadow-xs active:scale-95 z-10"
                     >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
-                    </svg>
-                  </button>
+                      <span>{sortBy === 'newest' ? 'ใหม่ที่สุด' : 'เก่าที่สุด'}</span>
+                      <svg
+                        className={`w-3.5 h-3.5 text-[#555557] transition-transform duration-200 ${isSortOpen ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                      </svg>
+                    </button>
 
-                  {isSortOpen && (
-                    <>
-                      {/* Invisible overlay backdrop to close dropdown */}
-                      <div
-                        className="fixed inset-0 z-30 cursor-default"
-                        onClick={() => setIsSortOpen(false)}
-                      />
-                      {/* Dropdown Menu */}
-                      <div className="absolute right-0 mt-1.5 w-32 bg-white border border-[#d2d2d7]/85 rounded-xl shadow-lg py-1 z-40 animate-scale-in origin-top-right">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSortBy('newest');
-                            setIsSortOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${sortBy === 'newest'
-                              ? 'text-[#0071e3] bg-[#0071e3]/5'
-                              : 'text-[#1d1d1f]'
-                            }`}
-                        >
-                          ใหม่ที่สุด
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSortBy('oldest');
-                            setIsSortOpen(false);
-                          }}
-                          className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${sortBy === 'oldest'
-                              ? 'text-[#0071e3] bg-[#0071e3]/5'
-                              : 'text-[#1d1d1f]'
-                            }`}
-                        >
-                          เก่าที่สุด
-                        </button>
-                      </div>
-                    </>
-                  )}
+                    {isSortOpen && (
+                      <>
+                        {/* Invisible overlay backdrop to close dropdown */}
+                        <div
+                          className="fixed inset-0 z-30 cursor-default"
+                          onClick={() => setIsSortOpen(false)}
+                        />
+                        {/* Dropdown Menu */}
+                        <div className="absolute right-0 mt-1.5 w-32 bg-white border border-[#d2d2d7]/85 rounded-xl shadow-lg py-1 z-40 animate-scale-in origin-top-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSortBy('newest');
+                              setIsSortOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${sortBy === 'newest'
+                                ? 'text-[#0071e3] bg-[#0071e3]/5'
+                                : 'text-[#1d1d1f]'
+                              }`}
+                          >
+                            ใหม่ที่สุด
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSortBy('oldest');
+                              setIsSortOpen(false);
+                            }}
+                            className={`w-full text-left px-4 py-2 text-xs font-semibold transition-colors hover:bg-[#f5f5f7] cursor-pointer ${sortBy === 'oldest'
+                                ? 'text-[#0071e3] bg-[#0071e3]/5'
+                                : 'text-[#1d1d1f]'
+                              }`}
+                          >
+                            เก่าที่สุด
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="divide-y divide-[#e8e8ed]">
@@ -2260,13 +2265,13 @@ const CreateTab = ({
       taxAmount: docFormat === 'product_proposal' ? 0 : vat,
       totalAmount: docFormat === 'product_proposal' ? sub : total,
       status: effectiveStatus,
-      approvedBy: effectiveStatus === 'approved' ? (currentUser?.name || currentUser?.username || 'ไม่ระบุ') : undefined,
-      approvedDate: effectiveStatus === 'approved' ? new Date().toISOString() : undefined,
+      approvedBy: effectiveStatus === 'approved' ? (editQt?.approvedBy || currentUser?.name || currentUser?.username || 'ไม่ระบุ') : undefined,
+      approvedDate: effectiveStatus === 'approved' ? (editQt?.approvedDate || new Date().toISOString()) : undefined,
       customerRevised: docFormat === 'product_proposal' ? false : (isEditingExisting ? (editQt?.customerRevised || false) : false),
     });
     const successMsg = docFormat === 'product_proposal'
       ? 'บันทึกใบเสนอสินค้าเรียบร้อย!'
-      : (effectiveStatus === 'approved' ? 'อนุมัติและบันทึกใบเสนอราคาเรียบร้อย!' : effectiveStatus === 'sent' ? 'ส่งใบเสนอราคาเรียบร้อย!' : 'บันทึกร่างเรียบร้อย!');
+      : (effectiveStatus === 'approved' ? (isEditingExisting ? 'บันทึกการแก้ไขใบเสนอราคาเรียบร้อย!' : 'อนุมัติและบันทึกใบเสนอราคาเรียบร้อย!') : effectiveStatus === 'sent' ? 'ส่งใบเสนอราคาเรียบร้อย!' : 'บันทึกร่างเรียบร้อย!');
     setAlert({ type: 'success', msg: successMsg });
   };
 
@@ -2996,7 +3001,7 @@ const CreateTab = ({
                   className="px-4 py-2.5 bg-[#0071e3] hover:bg-[#0077ed] text-white text-xs font-bold rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1"
                 >
                   <Check className="w-3.5 h-3.5" />
-                  {currentUser?.role === 'admin' ? 'บันทึก & อนุมัติ' : 'บันทึก & ส่ง'}
+                  {currentUser?.role === 'admin' ? (editQt?.status === 'approved' ? 'บันทึกการแก้ไข' : 'บันทึก & อนุมัติ') : 'บันทึก & ส่ง'}
                 </button>
                 <button
                   onClick={() => handleSave('draft')}
@@ -3094,8 +3099,8 @@ const PreviewTab = ({
   const canPrint = canPerformAction(currentUser, 'quotations.print') && (q.status === 'approved' || q.documentType === 'product_proposal');
   const canEdit = canPerformAction(currentUser, 'quotations.edit') &&
     !isExpiredQuotation(q) &&
-    !isApprovedQuotation &&
     (currentUser?.role === 'admin' || (
+      !isApprovedQuotation &&
       (currentUser?.role === 'manager' || currentUser?.role === 'user') &&
       isOwnDocument(q, currentUser)
     ));
@@ -3719,7 +3724,7 @@ export default function QuotationManage({
   };
 
   const handleEdit = (q) => {
-    if (q && q.status === 'approved' && q.documentType !== 'product_proposal') {
+    if (currentUser?.role !== 'admin' && q && q.status === 'approved' && q.documentType !== 'product_proposal') {
       showToast('ใบเสนอราคาที่อนุมัติแล้วไม่สามารถแก้ไขได้', 'error');
       return;
     }

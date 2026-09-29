@@ -164,6 +164,35 @@ export function fromSupabaseProduct(row) {
   };
 }
 
+export function checkQuotationExpired(q) {
+  if (!q || q.documentType === 'product_proposal' || q.document_type === 'product_proposal') return false;
+  const rawDate = q.validUntilDate || q.validUntil || q.valid_until;
+  if (!rawDate) return false;
+  try {
+    let expDate = null;
+    if (typeof rawDate === 'string' && rawDate.includes('-')) {
+      const [y, m, d] = rawDate.split('-').map(Number);
+      expDate = new Date(y, m - 1, d);
+    } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
+      const parts = rawDate.split('/').map(Number);
+      if (parts.length === 3) {
+        let y = parts[2];
+        if (y > 2400) y -= 543;
+        expDate = new Date(y, parts[1] - 1, parts[0]);
+      }
+    } else {
+      expDate = new Date(rawDate);
+    }
+    if (!expDate || isNaN(expDate.getTime())) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    expDate.setHours(0, 0, 0, 0);
+    return expDate < today;
+  } catch {
+    return false;
+  }
+}
+
 export function toSupabaseQuotation(q) {
   let custId = q.customerId && UUID_REGEX.test(String(q.customerId).trim()) ? String(q.customerId).trim() : null;
   if (!custId && q.customer?.id && UUID_REGEX.test(String(q.customer.id).trim())) {
@@ -222,6 +251,7 @@ export function toSupabaseQuotation(q) {
     tax_amount: taxAmount,
     total_amount: totalAmount,
     status: q.status || 'draft',
+    expiry_status: q.expiryStatus || q.expiry_status || (checkQuotationExpired(q) ? 'expired' : 'active'),
     notes: q.notes || q.note || null,
     created_by: salesName || q.createdBy || q.created_by || null,
     created_at: q.createdAt || q.created_at || new Date().toISOString(),
@@ -275,6 +305,7 @@ export function fromSupabaseQuotation(row) {
     vatAmount: taxAmount,
     totalAmount,
     status: row.status || 'draft',
+    expiryStatus: row.expiry_status || (checkQuotationExpired({ validUntilDate: row.valid_until, documentType: row.document_type }) ? 'expired' : 'active'),
     notes: row.notes || '',
     note: row.notes || '',
     createdBy: row.created_by || '',
