@@ -61,8 +61,9 @@ export async function exportToTiktokMandatory(products = [], options = {}) {
     products.forEach((p) => {
       const rowValues = TIKTOK_MANDATORY_COLUMNS.map(c => {
         if (c.code === 'quantity') {
-          if (options.stockMap && options.stockMap[p.id] !== undefined) {
-            return Number(options.stockMap[p.id]) || 0;
+          if (options.stockMap) {
+            const mVal = options.stockMap[p.id] !== undefined ? options.stockMap[p.id] : (p.code ? options.stockMap[p.code] : undefined);
+            if (mVal !== undefined) return Number(mVal) || 0;
           }
           if (options.stock !== undefined) {
             return Number(options.stock) || 0;
