@@ -1449,6 +1449,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
 
                 {/* Date range filter */}
                 <div className="flex items-center gap-1.5 w-full sm:w-auto">
+                  <span className="text-xs text-zinc-400 font-medium whitespace-nowrap">วันที่ :</span>
                   <div className="relative flex items-center">
                     <input
                       type="date"
