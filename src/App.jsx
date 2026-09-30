@@ -202,16 +202,24 @@ export default function App() {
     }, 1500);
 
     if (!new URLSearchParams(window.location.search).has('share')) {
-      request('/api/auth/session')
-        .then(async result => {
-          await loadDatabase();
-          setCurrentUser(result.user);
-        })
-        .catch(() => {})
-        .finally(() => {
-          clearTimeout(safetyTimer);
-          setAuthLoading(false);
-        });
+      const isTabActive = typeof sessionStorage !== 'undefined' && Boolean(sessionStorage.getItem('pim_session_active'));
+      if (!isTabActive) {
+        clearTimeout(safetyTimer);
+        setAuthLoading(false);
+      } else {
+        request('/api/auth/session')
+          .then(async result => {
+            await loadDatabase();
+            setCurrentUser(result.user);
+          })
+          .catch(() => {
+            if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('pim_session_active');
+          })
+          .finally(() => {
+            clearTimeout(safetyTimer);
+            setAuthLoading(false);
+          });
+      }
     } else {
       clearTimeout(safetyTimer);
       setAuthLoading(false);
@@ -232,6 +240,9 @@ export default function App() {
 
   const handleLogin = async (username, password) => {
     const result = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('pim_session_active', '1');
+    }
     await loadDatabase();
     setCurrentUser(result.user);
     const targetTab = canAccessPage(result.user, 'dashboard')
@@ -240,6 +251,9 @@ export default function App() {
     handleTabChange(targetTab);
   };
   const handleLogout = async () => {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('pim_session_active');
+    }
     await request('/api/auth/logout', { method: 'POST' });
     clearLegacyCache(); setCurrentUser(null); setUsers([]); setProducts([]); setCategories([]); setSubcategories({}); setQuotations([]); setCustomers([]); setActivityLog([]);
     handleTabChange('dashboard'); setEditProduct(null);

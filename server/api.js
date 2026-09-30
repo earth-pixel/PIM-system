@@ -549,8 +549,7 @@ export function createApi(dbPath) {
       httpOnly: true,
       sameSite: 'strict',
       secure: isHttps,
-      path: '/',
-      maxAge: 8 * 60 * 60 * 1000
+      path: '/'
     };
   };
   api.post('/auth/login', (req, res) => {
