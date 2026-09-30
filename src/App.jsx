@@ -41,6 +41,39 @@ const sameCustomerBranch = (a, b) => {
     aBranch.branchType === bBranch.branchType && aBranch.branchName.toLowerCase() === bBranch.branchName.toLowerCase();
 };
 
+const TAB_PATH_MAP = {
+  'dashboard': '/dashboard',
+  'manage-products': '/products',
+  'brands': '/brands',
+  'categories': '/categories',
+  'customers': '/customers',
+  'quotations': '/quotations',
+  'reports': '/reports',
+  'company': '/company',
+  'users': '/users',
+  'activity-log': '/activity-log',
+};
+
+const PATH_TAB_MAP = {
+  '/dashboard': 'dashboard',
+  '/products': 'manage-products',
+  '/manage-products': 'manage-products',
+  '/brands': 'brands',
+  '/categories': 'categories',
+  '/customers': 'customers',
+  '/quotations': 'quotations',
+  '/reports': 'reports',
+  '/company': 'company',
+  '/users': 'users',
+  '/activity-log': 'activity-log',
+};
+
+function getTabFromPath() {
+  if (typeof window === 'undefined') return null;
+  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  return PATH_TAB_MAP[path] || null;
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(() => !new URLSearchParams(window.location.search).has('share'));
@@ -62,6 +95,8 @@ export default function App() {
     }
   });
   const [activeTab, setActiveTab] = useState(() => {
+    const fromPath = getTabFromPath();
+    if (fromPath) return fromPath;
     try {
       return localStorage.getItem('pim_active_tab') || 'dashboard';
     } catch {
@@ -76,7 +111,33 @@ export default function App() {
     try {
       localStorage.setItem('pim_active_tab', tab);
     } catch {}
+    const targetPath = TAB_PATH_MAP[tab] || `/${tab}`;
+    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.pushState({ tab }, '', targetPath);
+    }
   }, []);
+
+  // Listen to browser Back / Forward buttons
+  useEffect(() => {
+    const handlePopState = (e) => {
+      const targetTab = getTabFromPath() || e.state?.tab || 'dashboard';
+      if (targetTab === 'manage-products') setEditProduct(null);
+      setActiveTab(targetTab);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Sync URL when authenticated and on root '/'
+  useEffect(() => {
+    if (currentUser && !window.location.search) {
+      const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+      const targetPath = TAB_PATH_MAP[activeTab] || '/dashboard';
+      if (currentPath === '/' || !PATH_TAB_MAP[currentPath]) {
+        window.history.replaceState({ tab: activeTab }, '', targetPath);
+      }
+    }
+  }, [currentUser, activeTab]);
 
   useEffect(() => {
     clearLegacyCache();
@@ -136,20 +197,33 @@ export default function App() {
     };
     window.addEventListener('pim:database', apply);
     window.addEventListener('pim:session-expired', expired);
+    let isCancelled = false;
     const safetyTimer = setTimeout(() => {
       setAuthLoading(false);
-    }, 1500);
+    }, 10000);
 
     if (!new URLSearchParams(window.location.search).has('share')) {
       request('/api/auth/session')
         .then(async result => {
+          if (isCancelled) return;
+          if (result && result.user) {
+            setCurrentUser(result.user);
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.setItem('pim_session_active', '1');
+            }
+          }
           await loadDatabase();
-          setCurrentUser(result.user);
         })
-        .catch(() => {})
+        .catch(() => {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('pim_session_active');
+          }
+        })
         .finally(() => {
           clearTimeout(safetyTimer);
-          setAuthLoading(false);
+          if (!isCancelled) {
+            setAuthLoading(false);
+          }
         });
     } else {
       clearTimeout(safetyTimer);
@@ -163,6 +237,7 @@ export default function App() {
     }
 
     return () => {
+      isCancelled = true;
       clearTimeout(safetyTimer);
       window.removeEventListener('pim:database', apply);
       window.removeEventListener('pim:session-expired', expired);
@@ -171,14 +246,20 @@ export default function App() {
 
   const handleLogin = async (username, password) => {
     const result = await request('/api/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-    await loadDatabase();
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.setItem('pim_session_active', '1');
+    }
     setCurrentUser(result.user);
+    await loadDatabase();
     const targetTab = canAccessPage(result.user, 'dashboard')
       ? 'dashboard'
       : (['manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log'].find(t => canAccessPage(result.user, t)) || 'manage-products');
     handleTabChange(targetTab);
   };
   const handleLogout = async () => {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem('pim_session_active');
+    }
     await request('/api/auth/logout', { method: 'POST' });
     clearLegacyCache(); setCurrentUser(null); setUsers([]); setProducts([]); setCategories([]); setSubcategories({}); setQuotations([]); setCustomers([]); setActivityLog([]);
     handleTabChange('dashboard'); setEditProduct(null);
@@ -195,6 +276,26 @@ export default function App() {
       }
     }
   }, [currentUser, activeTab, handleTabChange]);
+
+  // Periodic session check every 5 minutes (kicks out deleted users automatically)
+  useEffect(() => {
+    if (!currentUser) return;
+    const verifySession = async () => {
+      try {
+        await request('/api/auth/session');
+      } catch (err) {
+        // 401 automatically triggers pim:session-expired in request()
+      }
+    };
+
+    const interval = setInterval(verifySession, 5 * 60 * 1000); // 5 minutes
+    window.addEventListener('focus', verifySession);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', verifySession);
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!currentUser) return;

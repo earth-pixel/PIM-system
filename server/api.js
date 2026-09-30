@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import express from 'express';
-import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash } from 'node:crypto';
+import { randomBytes, randomUUID, scryptSync, timingSafeEqual, createHash, createHmac } from 'node:crypto';
 import { createStore, keys, publicDB, publicUser, revision } from './store.js';
 import { validateProduct, normalizeCode, ownsDocument, calculateQuotation } from '../src/utils/validation.js';
 import {
@@ -410,19 +410,62 @@ function normalizeQuotations(incoming, db, user) {
   return [...result, ...hidden];
 }
 
+const SESSION_SECRET = process.env.SESSION_SECRET || process.env.VITE_SUPABASE_ANON_KEY || 'pim-system-secret-hmac-token-key-min-32-chars';
+
+function signSessionToken(userId, expires, userHash) {
+  const hashPrefix = (userHash || '').slice(0, 16);
+  const payload = `${userId}:${expires}:${hashPrefix}`;
+  const sig = createHmac('sha256', SESSION_SECRET).update(payload).digest('hex').slice(0, 32);
+  return `s.${userId}.${expires}.${sig}`;
+}
+
+function verifySessionToken(token, users, inMemSessions, revokedTokens) {
+  if (!token || typeof token !== 'string') return null;
+  if (revokedTokens?.has(token)) return null;
+
+  const memSession = inMemSessions?.get(token);
+  if (memSession) {
+    if (memSession.expires < Date.now()) {
+      inMemSessions.delete(token);
+      return null;
+    }
+    return memSession;
+  }
+
+  if (token.startsWith('s.')) {
+    const parts = token.split('.');
+    if (parts.length === 4) {
+      const [, userId, expiresStr, sig] = parts;
+      const expires = Number(expiresStr);
+      if (Number.isNaN(expires) || expires < Date.now()) return null;
+      const user = users?.find(u => u.id === userId);
+      if (!user || !user.passwordHash) return null;
+      const hashPrefix = user.passwordHash.slice(0, 16);
+      const payload = `${userId}:${expires}:${hashPrefix}`;
+      const expectedSig = createHmac('sha256', SESSION_SECRET).update(payload).digest('hex').slice(0, 32);
+      if (sig.length === expectedSig.length && timingSafeEqual(Buffer.from(sig), Buffer.from(expectedSig))) {
+        return { userId, credentials: user.passwordHash, expires };
+      }
+    }
+  }
+  return null;
+}
+
 export function createApi(dbPath) {
   // An Express sub-app also supplies req/res helpers when mounted in Vite Connect.
   const api = express();
   const store = createStore(dbPath);
   const sessions = new Map();
+  const revokedTokens = new Set();
   const cookieName = 'pim_session';
 
   const isTest = process.env.NODE_ENV === 'test' || (typeof dbPath === 'string' && (dbPath.includes('pim-system-test-') || dbPath.includes('Temp') || dbPath.includes('temp')));
   const useSupabase = isSupabaseConfigured && !isTest;
 
   // Background startup sync with Supabase
+  let syncPromise = null;
   if (useSupabase) {
-    loadDatabaseFromSupabase().then(supaData => {
+    syncPromise = loadDatabaseFromSupabase().then(supaData => {
       if (supaData && supaData.users && supaData.users.length > 0) {
         store.transact(current => {
           current = current || {};
@@ -456,23 +499,80 @@ export function createApi(dbPath) {
     }).catch(err => console.warn('Supabase initial sync error:', err.message));
   }
 
+  // Ensure initial cloud state is ready before handling requests (crucial on serverless cold starts)
+  api.use(async (req, res, next) => {
+    if (syncPromise) {
+      try { await syncPromise; } catch { }
+    }
+    next();
+  });
+
   api.use(express.json({ limit: '50mb' }));
   api.use((req, res, next) => {
     res.setHeader('Cache-Control', 'no-store');
-    const origin = process.env.PIM_PUBLIC_ORIGIN || `${req.protocol}://${req.get('host')}`;
-    if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin && req.headers.origin !== origin) return res.status(403).json({ error: 'ไม่อนุญาตคำขอจากเว็บไซต์อื่น' });
+    const proto = req.headers['x-forwarded-proto'] || req.protocol || 'http';
+    const host = req.get('host');
+    const computedOrigin = `${proto}://${host}`;
+    const configuredOrigin = process.env.PIM_PUBLIC_ORIGIN;
+    if (!['GET', 'HEAD'].includes(req.method) && req.headers.origin) {
+      const allowedOrigins = [
+        configuredOrigin,
+        computedOrigin,
+        `https://${host}`,
+        `http://${host}`
+      ].filter(Boolean);
+      if (!allowedOrigins.includes(req.headers.origin)) {
+        return res.status(403).json({ error: 'ไม่อนุญาตคำขอจากเว็บไซต์อื่น' });
+      }
+    }
     next();
   });
   const tokenFrom = req => (req.headers.cookie || '').split(';').map(s => s.trim()).find(s => s.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1);
-  const auth = (req, res, next) => {
-    const token = tokenFrom(req), session = sessions.get(token);
-    const user = session && store.read().users?.find(u => u.id === session.userId);
-    if (!user || session.expires < Date.now() || session.credentials !== user.passwordHash) { sessions.delete(token); return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบอีกครั้ง' }); }
-    req.user = user;
-    req.session = session;
-    next();
+  const auth = async (req, res, next) => {
+    try {
+      if (syncPromise) {
+        try { await syncPromise; } catch { }
+      }
+      const token = tokenFrom(req);
+      let users = store.read().users;
+      if ((!users || users.length === 0) && useSupabase) {
+        try {
+          const supaData = await loadDatabaseFromSupabase();
+          if (supaData && supaData.users && supaData.users.length > 0) {
+            store.transact(current => {
+              current = current || {};
+              Object.assign(current, supaData);
+              return current;
+            });
+            users = store.read().users;
+          }
+        } catch { }
+      }
+      const session = verifySessionToken(token, users, sessions, revokedTokens);
+      const user = session && users?.find(u => u.id === session.userId);
+      if (!user || session.credentials !== user.passwordHash) {
+        if (token) sessions.delete(token);
+        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบอีกครั้ง' });
+      }
+      req.user = user;
+      req.session = session;
+      next();
+    } catch {
+      return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบอีกครั้ง' });
+    }
   };
-  const cookieOptions = req => ({ httpOnly: true, sameSite: 'strict', secure: req.secure || Boolean(process.env.PIM_PUBLIC_ORIGIN?.startsWith('https://')), path: '/', maxAge: 8 * 60 * 60 * 1000 });
+  const cookieOptions = req => {
+    const isHttps = req.secure ||
+      req.headers['x-forwarded-proto'] === 'https' ||
+      Boolean(process.env.PIM_PUBLIC_ORIGIN?.startsWith('https://')) ||
+      Boolean(process.env.VERCEL);
+    return {
+      httpOnly: true,
+      sameSite: 'strict',
+      secure: isHttps,
+      path: '/'
+    };
+  };
   api.post('/auth/login', (req, res) => {
     const now = Date.now();
     const username = normalizeCode(req.body?.username);
@@ -489,11 +589,19 @@ export function createApi(dbPath) {
       return matching;
     });
     for (const [token, session] of sessions) if (session.expires < now) sessions.delete(token);
-    const token = randomBytes(32).toString('hex');
-    sessions.set(token, { userId: user.id, credentials: user.passwordHash, expires: now + 8 * 60 * 60 * 1000 });
+    const expires = now + 8 * 60 * 60 * 1000;
+    const token = signSessionToken(user.id, expires, user.passwordHash);
+    sessions.set(token, { userId: user.id, credentials: user.passwordHash, expires });
     res.cookie(cookieName, token, cookieOptions(req)).json({ user: publicUser(user) });
   });
-  api.post('/auth/logout', (req, res) => { sessions.delete(tokenFrom(req)); res.clearCookie(cookieName, { path: '/' }).json({ success: true }); });
+  api.post('/auth/logout', (req, res) => {
+    const token = tokenFrom(req);
+    if (token) {
+      sessions.delete(token);
+      revokedTokens.add(token);
+    }
+    res.clearCookie(cookieName, { path: '/' }).json({ success: true });
+  });
   api.get('/auth/session', auth, (req, res) => res.json({ user: publicUser(req.user) }));
   api.post('/auth/password', auth, (req, res) => {
     const { oldPassword, newPassword } = req.body || {};
