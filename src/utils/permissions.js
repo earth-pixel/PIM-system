@@ -344,8 +344,9 @@ export function getUserPermissions(user) {
  */
 export function canAccessPage(user, pageKey) {
   if (!user) return false;
+  if (user.role === 'admin') return true;
 
-  // 1. Explicit user-level override takes absolute precedence (even for admin)
+  // 1. Explicit user-level override takes absolute precedence
   if (user.permissions?.pages && user.permissions.pages[pageKey] !== undefined) {
     return Boolean(user.permissions.pages[pageKey]);
   }
@@ -356,9 +357,6 @@ export function canAccessPage(user, pageKey) {
     return Boolean(roleDefault[pageKey]);
   }
 
-  // 3. Admin fallback for unconfigured pages
-  if (user.role === 'admin') return true;
-
   return false;
 }
 
@@ -367,8 +365,9 @@ export function canAccessPage(user, pageKey) {
  */
 export function canPerformAction(user, actionKey) {
   if (!user) return false;
+  if (user.role === 'admin') return true;
 
-  // 1. Explicit user-level override takes absolute precedence (even for admin)
+  // 1. Explicit user-level override takes absolute precedence
   if (user.permissions?.actions && user.permissions.actions[actionKey] !== undefined) {
     return Boolean(user.permissions.actions[actionKey]);
   }
@@ -378,9 +377,6 @@ export function canPerformAction(user, actionKey) {
   if (roleDefault && roleDefault[actionKey] !== undefined) {
     return Boolean(roleDefault[actionKey]);
   }
-
-  // 3. Admin fallback for unconfigured actions
-  if (user.role === 'admin') return true;
 
   return false;
 }

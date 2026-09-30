@@ -11,7 +11,7 @@ import * as XLSX from 'xlsx';
 import MobileDownloadModal from './MobileDownloadModal';
 import { checkIsInAppBrowser } from '../utils/browserUtils';
 import { playScanBeep, findProductByBarcodeOrCode } from '../utils/scannerUtils';
-import { isExpiredQuotation, getExpiryStatus } from '../utils/validation';
+import { isExpiredQuotation, getExpiryStatus, isExpiredOrExpiringToday } from '../utils/validation';
 import DropdownFilter from './DropdownFilter';
 import { useToast } from '../contexts/ToastContext';
 import { canPerformAction } from '../utils/permissions';
@@ -1702,7 +1702,7 @@ const ListTab = ({ quotations, onView, onDelete, addActivityLog, currentUser, on
                             <Badge status={q.status} expired={isExpiredQuotation(q)} />
                           )}
 
-                          {isExpiredQuotation(q) && onCopyAsNew && canPerformAction(currentUser, 'quotations.create') && (
+                          {visibleListMode === 'expired' && isExpiredQuotation(q) && onCopyAsNew && canPerformAction(currentUser, 'quotations.create') && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -2206,6 +2206,11 @@ const CreateTab = ({
         setAlert({ type: 'error', msg: 'วันหมดอายุต้องไม่น้อยกว่าวันที่ออกเอกสาร' });
         setErrorFields({ validDate: true });
         scrollToField(fieldRefs.validDate);
+        return;
+      }
+
+      if (currentUser?.role !== 'admin' && editQt && isExpiredOrExpiringToday(editQt)) {
+        setAlert({ type: 'error', msg: 'เอกสารนี้หมดอายุแล้ว ไม่สามารถแก้ไขได้' });
         return;
       }
     }
@@ -3096,16 +3101,17 @@ const PreviewTab = ({
   }
 
 
+  const expiryStatus = useMemo(() => getExpiryStatus(q), [q]);
+  const isExpired = isExpiredOrExpiringToday(q);
   const isApprovedQuotation = q.status === 'approved' && q.documentType !== 'product_proposal';
-  const canPrint = canPerformAction(currentUser, 'quotations.print') && (q.status === 'approved' || q.documentType === 'product_proposal');
-  const canEdit = canPerformAction(currentUser, 'quotations.edit') &&
-    !isExpiredQuotation(q) &&
+  const canPrint = (currentUser?.role === 'admin' || canPerformAction(currentUser, 'quotations.print')) && (q.status === 'approved' || q.documentType === 'product_proposal');
+  const canEdit = (currentUser?.role === 'admin' || canPerformAction(currentUser, 'quotations.edit')) &&
     (currentUser?.role === 'admin' || (
       !isApprovedQuotation &&
+      !isExpired &&
       (currentUser?.role === 'manager' || currentUser?.role === 'user') &&
       isOwnDocument(q, currentUser)
     ));
-  const expiryStatus = useMemo(() => getExpiryStatus(q), [q]);
 
   return (
     <div className="space-y-4 animate-fade-in text-[#1d1d1f] w-full font-sans">
@@ -3172,7 +3178,7 @@ const PreviewTab = ({
             </button>
           )}
 
-          {isExpiredQuotation(q) && onCopyAsNew && (
+          {(isExpired || isExpiredQuotation(q)) && onCopyAsNew && (
             <button
               onClick={() => onCopyAsNew(q)}
               className="px-3.5 py-2 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white rounded-xl cursor-pointer transition-colors flex items-center gap-1.5 shadow-xs"
@@ -3685,7 +3691,14 @@ export default function QuotationManage({
             q => String(q.id) === String(editId) || String(q.quotationNumber) === String(editId)
           );
           if (found) {
-            setEditQt(found);
+            if (currentUser?.role !== 'admin' && isExpiredOrExpiringToday(found)) {
+              localStorage.removeItem('pim_quotation_edit_id');
+              setEditQt(null);
+              showToast('รายการที่หมดอายุแล้วไม่สามารถแก้ไขได้', 'error');
+              setTab('list');
+            } else {
+              setEditQt(found);
+            }
           }
         }
       } catch {}
@@ -3725,9 +3738,15 @@ export default function QuotationManage({
   };
 
   const handleEdit = (q) => {
-    if (currentUser?.role !== 'admin' && q && q.status === 'approved' && q.documentType !== 'product_proposal') {
-      showToast('ใบเสนอราคาที่อนุมัติแล้วไม่สามารถแก้ไขได้', 'error');
-      return;
+    if (currentUser?.role !== 'admin') {
+      if (isExpiredOrExpiringToday(q)) {
+        showToast('รายการที่หมดอายุแล้วไม่สามารถแก้ไขได้', 'error');
+        return;
+      }
+      if (q && q.status === 'approved' && q.documentType !== 'product_proposal') {
+        showToast('ใบเสนอราคาที่อนุมัติแล้วไม่สามารถแก้ไขได้', 'error');
+        return;
+      }
     }
     setEditQt(q);
     setConvertProposal(null);
@@ -3753,6 +3772,10 @@ export default function QuotationManage({
     try {
       localStorage.removeItem('pim_quotation_edit_id');
     } catch {}
+    if (currentUser?.role !== 'admin' && editQt && isExpiredOrExpiringToday(editQt)) {
+      showToast('ไม่สามารถบันทึกเอกสารที่หมดอายุแล้วได้', 'error');
+      return;
+    }
     const isEditingExisting = Boolean(editQt && editQt.id);
     const savedData = {
       ...data,

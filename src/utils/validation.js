@@ -117,7 +117,8 @@ export function isExpiredQuotation(q) {
     let expDate = null;
     if (typeof rawDate === 'string' && rawDate.includes('-')) {
       const [y, m, d] = rawDate.split('-').map(Number);
-      expDate = new Date(y, m - 1, d);
+      const year = y > 2400 ? y - 543 : y;
+      expDate = new Date(year, m - 1, d);
     } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
       const parts = rawDate.split('/').map(Number);
       if (parts.length === 3) {
@@ -146,7 +147,8 @@ export function getExpiryStatus(q) {
     let expDate = null;
     if (typeof rawDate === 'string' && rawDate.includes('-')) {
       const [y, m, d] = rawDate.split('-').map(Number);
-      expDate = new Date(y, m - 1, d);
+      const year = y > 2400 ? y - 543 : y;
+      expDate = new Date(year, m - 1, d);
     } else if (typeof rawDate === 'string' && rawDate.includes('/')) {
       const parts = rawDate.split('/').map(Number);
       if (parts.length === 3) {
@@ -180,5 +182,12 @@ export function getExpiryStatus(q) {
   } catch {
     return null;
   }
+}
+
+export function isExpiredOrExpiringToday(q) {
+  if (!q || q.documentType === 'product_proposal') return false;
+  if (isExpiredQuotation(q)) return true;
+  const status = getExpiryStatus(q);
+  return Boolean(status && status.daysLeft <= 0);
 }
 

@@ -363,6 +363,7 @@ function normalizeQuotations(incoming, db, user) {
     if (before && same(before, raw)) return before;
     const isApprovalAction = before && ['approved', 'rejected'].includes(raw.status) && (before.status === 'sent' || before.status === 'draft') && canApprove(user);
     if (before && user.role !== 'admin' && !isApprovalAction && (!ownsDocument(before, user) || (before.documentType !== 'product_proposal' && before.status === 'approved'))) fail(403, 'ไม่มีสิทธิ์แก้ไขเอกสารนี้');
+    if (before && !isApprovalAction && before.documentType !== 'product_proposal' && before.validUntilDate && before.validUntilDate <= new Date().toLocaleDateString('sv-SE')) fail(400, 'ไม่สามารถแก้ไขเอกสารที่หมดอายุแล้วได้');
     const type = raw.documentType || 'quotation';
     if (!['quotation', 'product_proposal'].includes(type) || !['draft', 'sent', 'approved', 'rejected'].includes(raw.status)) fail(400, 'ประเภทหรือสถานะเอกสารไม่ถูกต้อง');
     if (before && before.documentType !== type) fail(400, 'ไม่สามารถเปลี่ยนประเภทเอกสารเดิม');
