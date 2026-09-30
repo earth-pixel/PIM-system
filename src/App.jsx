@@ -271,6 +271,26 @@ export default function App() {
     }
   }, [currentUser, activeTab, handleTabChange]);
 
+  // Periodic session check every 5 minutes (kicks out deleted users automatically)
+  useEffect(() => {
+    if (!currentUser) return;
+    const verifySession = async () => {
+      try {
+        await request('/api/auth/session');
+      } catch (err) {
+        // 401 automatically triggers pim:session-expired in request()
+      }
+    };
+
+    const interval = setInterval(verifySession, 5 * 60 * 1000); // 5 minutes
+    window.addEventListener('focus', verifySession);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', verifySession);
+    };
+  }, [currentUser]);
+
   useEffect(() => {
     if (!currentUser) return;
     const navigate = event => {
