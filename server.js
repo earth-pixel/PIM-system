@@ -14,6 +14,9 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Enable trust proxy for Vercel and reverse proxies (HTTPS protocol & client IP detection)
+app.set('trust proxy', 1);
+
 // Body parsing middleware to handle large file base64 transfers (limit 50MB)
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -46,7 +49,7 @@ const rateLimiter = (limitWindowMs, maxRequests) => {
         requestTracker.set(ip, fresh);
       }
     }
-  }, 300000);
+  }, 300000).unref();
 
   return (req, res, next) => {
     const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress || 'unknown';
@@ -489,6 +492,11 @@ app.get('/{*path}', (req, res) => {
   }
 });
 
-const httpServer = app.listen(PORT, process.env.HOST || '0.0.0.0', () => {
-  console.log(`PIM Export Server running on port ${httpServer.address().port}`);
-});
+export default app;
+export { app };
+
+if (!process.env.VERCEL) {
+  const httpServer = app.listen(PORT, process.env.HOST || '0.0.0.0', () => {
+    console.log(`PIM Export Server running on port ${httpServer.address().port}`);
+  });
+}
