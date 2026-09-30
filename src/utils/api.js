@@ -19,7 +19,7 @@ export async function request(url, options = {}) {
   let data;
   try { data = await response.json(); } catch { throw new Error(`เซิร์ฟเวอร์ตอบกลับไม่สมบูรณ์ (${response.status})`); }
   if (!response.ok) {
-    if (response.status === 401 && !url.includes('/auth/login')) window.dispatchEvent(new Event('pim:session-expired'));
+    if (response.status === 401 && !url.includes('/auth/login') && !url.includes('/auth/session')) window.dispatchEvent(new Event('pim:session-expired'));
     throw Object.assign(new Error(data.error || 'ดำเนินการไม่สำเร็จ'), { status: response.status });
   }
   return data;

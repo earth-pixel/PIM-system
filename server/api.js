@@ -527,18 +527,38 @@ export function createApi(dbPath) {
     next();
   });
   const tokenFrom = req => (req.headers.cookie || '').split(';').map(s => s.trim()).find(s => s.startsWith(`${cookieName}=`))?.slice(cookieName.length + 1);
-  const auth = (req, res, next) => {
-    const token = tokenFrom(req);
-    const users = store.read().users;
-    const session = verifySessionToken(token, users, sessions, revokedTokens);
-    const user = session && users?.find(u => u.id === session.userId);
-    if (!user || session.credentials !== user.passwordHash) {
-      if (token) sessions.delete(token);
+  const auth = async (req, res, next) => {
+    try {
+      if (syncPromise) {
+        try { await syncPromise; } catch { }
+      }
+      const token = tokenFrom(req);
+      let users = store.read().users;
+      if ((!users || users.length === 0) && useSupabase) {
+        try {
+          const supaData = await loadDatabaseFromSupabase();
+          if (supaData && supaData.users && supaData.users.length > 0) {
+            store.transact(current => {
+              current = current || {};
+              Object.assign(current, supaData);
+              return current;
+            });
+            users = store.read().users;
+          }
+        } catch { }
+      }
+      const session = verifySessionToken(token, users, sessions, revokedTokens);
+      const user = session && users?.find(u => u.id === session.userId);
+      if (!user || session.credentials !== user.passwordHash) {
+        if (token) sessions.delete(token);
+        return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบอีกครั้ง' });
+      }
+      req.user = user;
+      req.session = session;
+      next();
+    } catch {
       return res.status(401).json({ error: 'กรุณาเข้าสู่ระบบอีกครั้ง' });
     }
-    req.user = user;
-    req.session = session;
-    next();
   };
   const cookieOptions = req => {
     const isHttps = req.secure ||

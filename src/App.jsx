@@ -197,29 +197,34 @@ export default function App() {
     };
     window.addEventListener('pim:database', apply);
     window.addEventListener('pim:session-expired', expired);
+    let isCancelled = false;
     const safetyTimer = setTimeout(() => {
       setAuthLoading(false);
-    }, 1500);
+    }, 10000);
 
     if (!new URLSearchParams(window.location.search).has('share')) {
-      const isTabActive = typeof sessionStorage !== 'undefined' && Boolean(sessionStorage.getItem('pim_session_active'));
-      if (!isTabActive) {
-        clearTimeout(safetyTimer);
-        setAuthLoading(false);
-      } else {
-        request('/api/auth/session')
-          .then(async result => {
-            await loadDatabase();
+      request('/api/auth/session')
+        .then(async result => {
+          if (isCancelled) return;
+          if (result && result.user) {
             setCurrentUser(result.user);
-          })
-          .catch(() => {
-            if (typeof sessionStorage !== 'undefined') sessionStorage.removeItem('pim_session_active');
-          })
-          .finally(() => {
-            clearTimeout(safetyTimer);
+            if (typeof sessionStorage !== 'undefined') {
+              sessionStorage.setItem('pim_session_active', '1');
+            }
+          }
+          await loadDatabase();
+        })
+        .catch(() => {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('pim_session_active');
+          }
+        })
+        .finally(() => {
+          clearTimeout(safetyTimer);
+          if (!isCancelled) {
             setAuthLoading(false);
-          });
-      }
+          }
+        });
     } else {
       clearTimeout(safetyTimer);
       setAuthLoading(false);
@@ -232,6 +237,7 @@ export default function App() {
     }
 
     return () => {
+      isCancelled = true;
       clearTimeout(safetyTimer);
       window.removeEventListener('pim:database', apply);
       window.removeEventListener('pim:session-expired', expired);
@@ -243,8 +249,8 @@ export default function App() {
     if (typeof sessionStorage !== 'undefined') {
       sessionStorage.setItem('pim_session_active', '1');
     }
-    await loadDatabase();
     setCurrentUser(result.user);
+    await loadDatabase();
     const targetTab = canAccessPage(result.user, 'dashboard')
       ? 'dashboard'
       : (['manage-products', 'brands', 'categories', 'customers', 'quotations', 'reports', 'users', 'activity-log'].find(t => canAccessPage(result.user, t)) || 'manage-products');
