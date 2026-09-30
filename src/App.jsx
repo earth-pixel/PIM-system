@@ -41,6 +41,39 @@ const sameCustomerBranch = (a, b) => {
     aBranch.branchType === bBranch.branchType && aBranch.branchName.toLowerCase() === bBranch.branchName.toLowerCase();
 };
 
+const TAB_PATH_MAP = {
+  'dashboard': '/dashboard',
+  'manage-products': '/products',
+  'brands': '/brands',
+  'categories': '/categories',
+  'customers': '/customers',
+  'quotations': '/quotations',
+  'reports': '/reports',
+  'company': '/company',
+  'users': '/users',
+  'activity-log': '/activity-log',
+};
+
+const PATH_TAB_MAP = {
+  '/dashboard': 'dashboard',
+  '/products': 'manage-products',
+  '/manage-products': 'manage-products',
+  '/brands': 'brands',
+  '/categories': 'categories',
+  '/customers': 'customers',
+  '/quotations': 'quotations',
+  '/reports': 'reports',
+  '/company': 'company',
+  '/users': 'users',
+  '/activity-log': 'activity-log',
+};
+
+function getTabFromPath() {
+  if (typeof window === 'undefined') return null;
+  const path = window.location.pathname.replace(/\/$/, '') || '/';
+  return PATH_TAB_MAP[path] || null;
+}
+
 export default function App() {
   const [currentUser, setCurrentUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(() => !new URLSearchParams(window.location.search).has('share'));
@@ -62,6 +95,8 @@ export default function App() {
     }
   });
   const [activeTab, setActiveTab] = useState(() => {
+    const fromPath = getTabFromPath();
+    if (fromPath) return fromPath;
     try {
       return localStorage.getItem('pim_active_tab') || 'dashboard';
     } catch {
@@ -76,7 +111,33 @@ export default function App() {
     try {
       localStorage.setItem('pim_active_tab', tab);
     } catch {}
+    const targetPath = TAB_PATH_MAP[tab] || `/${tab}`;
+    if (typeof window !== 'undefined' && window.location.pathname !== targetPath) {
+      window.history.pushState({ tab }, '', targetPath);
+    }
   }, []);
+
+  // Listen to browser Back / Forward buttons
+  useEffect(() => {
+    const handlePopState = (e) => {
+      const targetTab = getTabFromPath() || e.state?.tab || 'dashboard';
+      if (targetTab === 'manage-products') setEditProduct(null);
+      setActiveTab(targetTab);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Sync URL when authenticated and on root '/'
+  useEffect(() => {
+    if (currentUser && !window.location.search) {
+      const currentPath = window.location.pathname.replace(/\/$/, '') || '/';
+      const targetPath = TAB_PATH_MAP[activeTab] || '/dashboard';
+      if (currentPath === '/' || !PATH_TAB_MAP[currentPath]) {
+        window.history.replaceState({ tab: activeTab }, '', targetPath);
+      }
+    }
+  }, [currentUser, activeTab]);
 
   useEffect(() => {
     clearLegacyCache();
